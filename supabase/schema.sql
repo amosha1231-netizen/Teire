@@ -2,7 +2,7 @@
 
 create table if not exists public.questions (
   id bigint generated always as identity primary key,
-  category text not null check (category in ('torah', 'gemara', 'halacha')),
+  place text not null check (place in ('gan-eden', 'teiva', 'ohel', 'mitzrayim', 'sinai', 'midbar', 'beit-midrash', 'beit-knesset')),
   question text not null check (char_length(question) between 3 and 300),
   answers text[] not null check (array_length(answers, 1) = 4),
   correct smallint not null check (correct between 0 and 3),

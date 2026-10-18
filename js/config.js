@@ -6,5 +6,5 @@ window.TEIRE_CONFIG = {
   SUPABASE_ANON_KEY: "",
   // קוד מנהל למצב מקומי בלבד (לבדיקה על המחשב שלכם). במצב Supabase הכניסה היא עם אימייל וסיסמה.
   LOCAL_ADMIN_PIN: "1234",
-  QUESTIONS_PER_MISSION: 10,
+  QUESTIONS_PER_MISSION: 5,
 };

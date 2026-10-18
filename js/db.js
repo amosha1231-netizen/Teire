@@ -13,7 +13,7 @@
   }
 
   // ---------- מצב מקומי ----------
-  const LS_KEY = "teire.questions.v1";
+  const LS_KEY = "teire.questions.v2";
   const local = {
     mode: "local",
     _all() {
@@ -28,12 +28,12 @@
     _save(list) {
       try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
     },
-    async approved(category) {
-      return this._all().filter(q => q.status === "approved" && (!category || category === "all" || q.category === category));
+    async approved(place) {
+      return this._all().filter(q => q.status === "approved" && (!place || q.place === place));
     },
     async counts() {
       const c = {};
-      this._all().filter(q => q.status === "approved").forEach(q => { c[q.category] = (c[q.category] || 0) + 1; });
+      this._all().filter(q => q.status === "approved").forEach(q => { c[q.place] = (c[q.place] || 0) + 1; });
       return c;
     },
     async submit(q) {
@@ -69,18 +69,18 @@
   let sb = null;
   const remote = {
     mode: "supabase",
-    async approved(category) {
+    async approved(place) {
       let query = sb.from("questions").select("*").eq("status", "approved");
-      if (category && category !== "all") query = query.eq("category", category);
+      if (place) query = query.eq("place", place);
       const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     async counts() {
-      const { data, error } = await sb.from("questions").select("category").eq("status", "approved");
+      const { data, error } = await sb.from("questions").select("place").eq("status", "approved");
       if (error) throw error;
       const c = {};
-      data.forEach(q => { c[q.category] = (c[q.category] || 0) + 1; });
+      data.forEach(q => { c[q.place] = (c[q.place] || 0) + 1; });
       return c;
     },
     async submit(q) {
