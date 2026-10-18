@@ -121,4 +121,5 @@
   if (useSupabase) sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   window.TeireDB = useSupabase ? remote : local;
   window.TeireDB.shuffle = shuffle;
+  window.TeireDB.realtime = sb; // לדו-קרב בזמן אמת (null במצב מקומי)
 })();

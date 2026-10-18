@@ -285,3 +285,38 @@ body.in-city main { max-width: none; padding: 0; }
 .soul.on { border-color: var(--gold); box-shadow: 0 4px 0 #e0a92a, 0 0 18px rgba(255,200,40,.5); }
 .soul.on .soul-state { color: #9a6a00; }
 .bottomnav a { font-size: .7rem; }
+
+/* ---------- מפת ארץ ישראל ---------- */
+.map-svg { position: absolute; inset: 0; }
+.map-svg .waves { animation: waves 8s linear infinite; }
+@keyframes waves { to { transform: translateX(80px); } }
+.map-label { position: absolute; transform: translate(-50%, -50%); font-weight: 800; white-space: nowrap; pointer-events: none; letter-spacing: 1px; }
+.map-label.sea { color: rgba(255,255,255,.85); font-size: 1.6rem; transform: translate(-50%, -50%) rotate(-70deg); }
+.map-label.land { color: rgba(80,60,20,.55); font-size: 1.3rem; }
+.map-label.big { font-size: 1.7rem; }
+.map-label.lake { color: #fff; font-size: .8rem; background: rgba(0,90,160,.55); padding: 1px 8px; border-radius: 99px; }
+.bld.arena .bld-body { background: repeating-linear-gradient(45deg, #fff8e6 0 10px, #ffeab0 10px 20px); }
+.bld.arena .bld-name { background: #fff4c2; }
+
+.torah-card { display: flex; gap: 14px; align-items: flex-start; }
+.torah-card h3 { margin: 0; }
+.torah-card .btn { margin-top: 8px; }
+
+/* דו-קרב */
+.searching { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
+.searching .vs { font-weight: 800; font-size: 1.4rem; color: var(--bad); }
+.searching .who { width: 70px; height: 70px; border-radius: 50%; background: var(--primary-soft); display: grid; place-items: center; font-size: 2rem; animation: pulse 1.4s infinite; }
+.duel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #fff; border: 2px solid var(--line); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 10px; }
+.duel-p { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; }
+.duel-p b { font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.duel-av { width: 52px; height: 52px; border-radius: 50%; background: var(--primary-soft); overflow: hidden; display: grid; place-items: start center; }
+.duel-av svg { margin-top: 2px; }
+.bot-face { font-size: 2rem; line-height: 52px; }
+.duel-score { font-size: 1.4rem; font-weight: 800; color: var(--primary); }
+.duel-vs { font-size: 1.6rem; text-align: center; }
+.timer { height: 10px; background: #e5dcc6; border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
+.timer span { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--bad), var(--gold)); border-radius: 99px; }
+.answer.picked { border-color: var(--primary); }
+.answer { position: relative; }
+.opp-pick { position: absolute; left: 10px; top: -10px; background: #1f2937; color: #fff; font-size: .7rem; padding: 1px 8px; border-radius: 99px; }
+.duel-final { display: flex; justify-content: center; gap: 20px; font-size: 1.1rem; margin: 8px 0; }

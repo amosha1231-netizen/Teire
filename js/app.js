@@ -100,37 +100,64 @@
     document.body.classList.remove("in-city");
   }
 
-  function buildingInfo(b) {
-    if (b.kind === "torah") {
-      const p = placeById(b.id), i = PLACES.indexOf(p);
-      return { name: p.name, icon: p.icon, color: p.color, open: isOpen(i), stars: player.stars[p.id] || 0, href: "#/place/" + p.id };
-    }
-    return { name: b.name, icon: b.icon, color: b.color, open: true, href: b.kind === "sage" ? "#/b/" + b.id : b.href };
+  // מידע על מקום במפה: האם פתוח, כמה כוכבים ולאן נכנסים
+  function locInfo(L) {
+    const t = L.torah && placeById(L.torah);
+    const torahOpen = !t || isOpen(PLACES.indexOf(t));
+    const hasSages = Sages.SAGES.some(s => s.building === L.id);
+    return {
+      name: L.name, icon: L.icon, color: L.color,
+      open: torahOpen || hasSages || L.duel,
+      stars: t ? player.stars[t.id] || 0 : 0,
+      href: L.href || "#/b/" + L.id,
+    };
   }
+  const locOfTorah = placeId => City.LOCATIONS.find(L => L.torah === placeId);
 
   function viewCity() {
     if (!player.name) return viewOnboarding();
     setTab("map");
     document.body.classList.add("in-city");
-    const { W, H, REGIONS, BUILDINGS, START } = City;
+    const { W, H, LAND, SINAI, BAVEL, LOCATIONS, LABELS, START } = City;
     const soul = player.activeSoul && Sages.byId(player.activeSoul);
     const pos = Object.assign({}, player.pos || START);
+    const pts = arr => arr.map(p => p.join(",")).join(" ");
 
     app.innerHTML = `
       <div class="city" id="city">
         <div class="world" id="world" style="width:${W}px;height:${H}px">
-          ${REGIONS.map(r => `<div class="region ${r.river ? "river" : ""}" style="top:${r.y}px;height:${r.h}px;background:${r.bg}"><span class="region-sign">${r.name}</span></div>`).join("")}
-          <div class="bridge" style="left:${W / 2 - 60}px;top:1050px"></div>
-          <div class="road" style="left:${W / 2 - 22}px;top:0;height:${H}px"></div>
-          ${decorations(W, H)}
-          ${BUILDINGS.map(b => {
-            const info = buildingInfo(b);
-            const sages = b.kind === "sage" ? Sages.SAGES.filter(s => s.building === b.id) : [];
-            return `<button class="bld ${b.big ? "big" : ""} ${info.open ? "" : "locked"}" data-b="${b.id}" style="left:${b.x}px;top:${b.y}px;--c:${info.color}">
+          <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+            <defs>
+              <linearGradient id="landg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#7dc95e"/><stop offset=".45" stop-color="#a4d36b"/>
+                <stop offset=".62" stop-color="#e3cf7a"/><stop offset="1" stop-color="#e7a85a"/>
+              </linearGradient>
+              <pattern id="waves" width="80" height="40" patternUnits="userSpaceOnUse">
+                <path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3" stroke-linecap="round"/>
+              </pattern>
+            </defs>
+            <rect width="${W}" height="${H}" fill="#3fa0e0"/>
+            <rect width="${W}" height="${H}" fill="url(#waves)" class="waves"/>
+            ${[LAND, SINAI, BAVEL].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
+            <polygon points="${pts(LAND)}" fill="url(#landg)" stroke="#8fbf5a" stroke-width="4" stroke-linejoin="round"/>
+            <polygon points="${pts(SINAI)}" fill="#e9b468" stroke="#d39a4a" stroke-width="4" stroke-linejoin="round"/>
+            <polygon points="${pts(BAVEL)}" fill="#e8c27a" stroke="#c99a50" stroke-width="4" stroke-linejoin="round"/>
+            <path d="M712 432 C 725 600, 705 800, 722 1000 S 712 1080, 706 1110" fill="none" stroke="#3fa0e0" stroke-width="9" stroke-linecap="round"/>
+            <ellipse cx="712" cy="395" rx="28" ry="42" fill="#3fa0e0" stroke="#f5dc8c" stroke-width="6"/>
+            <ellipse cx="706" cy="1215" rx="24" ry="100" fill="#4fb3d9" stroke="#f5dc8c" stroke-width="6"/>
+            <path d="M840 600 C 860 760, 850 900, 870 1060" fill="none" stroke="#3fa0e0" stroke-width="7" stroke-linecap="round" opacity=".8"/>
+            <path d="M560 1060 L 520 1060" stroke="#c9a46a" stroke-width="0"/>
+          </svg>
+          ${LABELS.map(l => `<span class="map-label ${l.cls}" style="left:${l.x}px;top:${l.y}px">${l.text}</span>`).join("")}
+          ${mapDecorations()}
+          ${LOCATIONS.map(L => {
+            const info = locInfo(L);
+            const sages = Sages.SAGES.filter(s => s.building === L.id);
+            return `<button class="bld ${info.open ? "" : "locked"} ${L.duel ? "arena" : ""}" data-b="${L.id}" style="left:${L.x}px;top:${L.y}px;--c:${info.color}">
               <span class="bld-roof"></span>
               <span class="bld-body"><span class="bld-icon">${info.open ? info.icon : "🔒"}</span></span>
               ${sages.length ? `<span class="bld-sages">${sages.map(s => `<span class="${player.souls.includes(s.id) ? "got" : ""}">${Sages.sageSVG(s, 30)}</span>`).join("")}</span>` : ""}
-              <span class="bld-name">${info.name}${b.kind === "torah" ? ` <span class="bld-stars">${"★".repeat(info.stars)}</span>` : ""}</span>
+              <span class="bld-name">${info.name}${info.stars ? ` <span class="bld-stars">${"★".repeat(info.stars)}</span>` : ""}${L.duel ? " ⚔️" : ""}</span>
             </button>`;
           }).join("")}
           <div class="me ${soul ? "has-soul" : ""}" id="me" style="left:${pos.x}px;top:${pos.y}px">
@@ -201,9 +228,9 @@
     city.addEventListener("click", ev => {
       const bEl = ev.target.closest(".bld");
       if (bEl) {
-        const b = City.byId(bEl.dataset.b), info = buildingInfo(b);
-        if (!info.open) { toast("🔒 המקום ייפתח אחרי שתעברו את התחנה הקודמת בשכונת החומש"); return; }
-        walkTo(b.x, b.y + (b.big ? 100 : 82), () => {
+        const b = City.byId(bEl.dataset.b), info = locInfo(b);
+        if (!info.open) { toast("🔒 " + info.name + " ייפתח אחרי שתעברו את המשימה הקודמת במסע"); return; }
+        walkTo(b.x, b.y + 62, () => {
           player.pos = { x: Math.round(pos.x), y: Math.round(pos.y) }; savePlayer();
           location.hash = info.href;
         });
@@ -226,22 +253,16 @@
     cityLoop.raf = requestAnimationFrame(frame);
   }
 
-  function decorations(W, H) {
-    // קישוטים קבועים (אותו מיקום בכל פעם)
-    const out = [];
-    const sets = [[0, 640, ["🌳", "🌲", "🌿", "🪨", "🐑", "🌸"]], [640, 1060, ["🌾", "🌻", "🐄", "🌳"]], [1150, 1720, ["🌴", "🐪", "🌵", "🏺", "🌴"]]];
-    let seed = 7;
-    const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-    sets.forEach(([y0, y1, emojis]) => {
-      for (let i = 0; i < 14; i++) {
-        const x = 20 + rnd() * (W - 40), y = y0 + 30 + rnd() * (y1 - y0 - 60);
-        if (Math.abs(x - W / 2) < 60) continue;
-        if (City.BUILDINGS.some(b => Math.abs(b.x - x) < 95 && Math.abs(b.y - y) < 95)) continue;
-        out.push(`<span class="deco" style="left:${x}px;top:${y}px">${emojis[i % emojis.length]}</span>`);
-      }
-    });
-    out.push(`<span class="deco boat" style="left:200px;top:1080px">⛵</span><span class="deco" style="left:820px;top:1090px">🐟</span>`);
-    return out.join("");
+  function mapDecorations() {
+    // קישוטים קבועים: הרים, עצים, דקלים וסירות
+    const items = [
+      ["⛰️", 700, 110], ["🌲", 520, 170], ["🌳", 610, 560], ["🌿", 430, 470], ["🌳", 680, 640], ["🐑", 520, 650],
+      ["🌳", 680, 900], ["🍇", 380, 960], ["🐄", 470, 820], ["🌾", 650, 760], ["🌳", 660, 1060], ["🐑", 500, 1250],
+      ["🌵", 600, 1330], ["🐪", 560, 1480], ["🌴", 600, 1640], ["⛺", 520, 1560], ["🌵", 590, 1800],
+      ["🐪", 230, 1650], ["🌵", 380, 1820], ["🌴", 940, 700], ["🌴", 840, 980], ["🐫", 950, 900],
+      ["⛵", 210, 900], ["🐋", 120, 1250], ["🐟", 240, 450], ["⛵", 90, 330], ["🐠", 900, 1250],
+    ];
+    return items.map(([e, x, y]) => `<span class="deco" style="left:${x}px;top:${y}px">${e}</span>`).join("");
   }
 
   function toast(text) {
@@ -330,7 +351,7 @@
           ? `<p>${Math.min(pool.length, cfg.QUESTIONS_PER_MISSION)} שאלות מחכות לכם. כל תשובה נכונה = 🪙 10</p>
              <button class="btn big-btn" id="start">מתחילים את המשימה!</button>`
           : `<p>אין עדיין שאלות במקום הזה.</p>`}
-        <div class="row center-row"><a class="btn ghost" href="#/">חזרה לעיר</a><a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למקום הזה</a></div>
+        <div class="row center-row"><a class="btn ghost" href="${locOfTorah(place.id) ? "#/b/" + locOfTorah(place.id).id : "#/"}">חזרה</a><a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a></div>
       </div>`;
     const start = document.getElementById("start");
     if (start) start.onclick = () => runMission(place, pool);
@@ -354,10 +375,10 @@
           ${resultStars(stars)}
           <div class="big">${score}/${n}</div>
           <p>הרווחתם <b>🪙 ${coins}</b>${stars === 3 ? " (כולל בונוס 20 על משימה מושלמת)" : ""}</p>
-          ${unlocked ? `<div class="notice ok">נפתח מקום חדש בעיר: ${unlocked.icon} ${unlocked.name}!</div>` : ""}
+          ${unlocked ? `<div class="notice ok">נפתחה משימה חדשה במפה: ${unlocked.icon} ${unlocked.name} ב${locOfTorah(unlocked.id).name}!</div>` : ""}
           <div class="row center-row">
             <button class="btn gold" id="again">שוב</button>
-            <a class="btn" href="#/">לעיר</a>
+            <a class="btn" href="#/">למפה</a>
           </div>
         </div>`;
       document.getElementById("again").onclick = () => runMission(place, pool);
@@ -368,7 +389,7 @@
   // ---------- בית של חכמים ----------
   function viewBuilding(bid) {
     const b = City.byId(bid);
-    if (!b || b.kind !== "sage" || !player.name) return viewCity();
+    if (!b || b.href || !player.name) return viewCity();
     setTab("map");
     const sages = Sages.SAGES.filter(s => s.building === bid);
     const machlokot = Sages.MACHLOKOT.filter(m => m.building === bid);
@@ -400,12 +421,192 @@
           <p class="small">${machlokot.length} מחלוקות. ${mine ? `<b>נשמת ${esc(soul.name)} בכם</b>, אז תענו לפי השיטה שלכם ותקבלו 🪙20 על כל תשובה!` : "הפעילו נשמה של אחד החכמים כאן כדי לענות לפי השיטה שלו ולקבל פי 2 מטבעות."}</p>
           <button class="btn big-btn" id="sugya">${mine ? "מה אני סובר? מתחילים!" : "מתחילים ללמוד"}</button>
         </div>` : ""}
-      <div class="row center-row"><a class="btn ghost" href="#/">חזרה לעיר</a></div>`;
+      ${torahCard(b)}
+      ${b.duel ? `
+        <div class="card center duel-card">
+          <h3>⚔️ זירת דו-קרב</h3>
+          <p class="small">מחכים לשחקן נוסף שמגיע לזירה, ועונים על אותן 5 שאלות בזמן אמת. מי שעונה נכון ומהר יותר מנצח! מנצח מקבל 🪙50.</p>
+          <a class="btn gold big-btn" href="#/duel/${b.id}">מחפשים יריב!</a>
+        </div>` : ""}
+      <div class="row center-row"><a class="btn ghost" href="#/">חזרה למפה</a></div>`;
 
     app.querySelectorAll("[data-quest]").forEach(btn => btn.onclick = () => runSoulQuest(Sages.byId(btn.dataset.quest), b));
     app.querySelectorAll("[data-activate]").forEach(btn => btn.onclick = () => { player.activeSoul = btn.dataset.activate; savePlayer(); viewBuilding(bid); });
     const sg = document.getElementById("sugya");
     if (sg) sg.onclick = () => runSugya(b, machlokot);
+  }
+
+  function torahCard(L) {
+    if (!L.torah) return "";
+    const p = placeById(L.torah), open = isOpen(PLACES.indexOf(p)), st = player.stars[p.id] || 0;
+    const prev = PLACES[PLACES.indexOf(p) - 1];
+    return `<div class="card torah-card">
+      <div class="guide-face" style="background:${p.color}">${p.guide.emoji}</div>
+      <div style="flex:1">
+        <h3>משימה: ${p.name}</h3>
+        <div class="small muted">${p.desc} · עם ${p.guide.name}</div>
+        <div class="station-stars">${"★".repeat(st)}<span class="dim">${"★".repeat(3 - st)}</span></div>
+        ${open ? `<a class="btn small-btn" href="#/place/${p.id}">למשימה</a>`
+          : `<div class="small">🔒 נפתח אחרי המשימה "${prev.name}" ב${locOfTorah(prev.id).name}</div>`}
+      </div>
+    </div>`;
+  }
+
+  // ---------- דו-קרב ----------
+  let duelSession = null;
+  function stopDuel() { if (duelSession) { duelSession.close(); duelSession = null; } }
+
+  async function viewDuel(locId) {
+    const L = City.byId(locId);
+    if (!L || !L.duel || !player.name) return viewCity();
+    setTab("map");
+    if (!player.id) { player.id = Math.random().toString(36).slice(2, 10); savePlayer(); }
+    let pool = [];
+    try { pool = await db.approved(); } catch (e) { /* נשתמש בשאלות של החכמים */ }
+    pool = pool.concat(...Sages.SAGES.map(s => s.quest));
+    const makeQuestions = () => db.shuffle(pool).slice(0, 5).map(q => ({ question: q.question, answers: q.answers, correct: q.correct, source: q.source || "" }));
+    const soul = player.activeSoul && Sages.byId(player.activeSoul);
+    // מזהה לכל לשונית, כדי ששתי לשוניות באותו דפדפן ייחשבו שני שחקנים
+    let tab = null;
+    try { tab = sessionStorage.getItem("teire.tab") || Math.random().toString(36).slice(2, 7); sessionStorage.setItem("teire.tab", tab); } catch (e) { tab = Math.random().toString(36).slice(2, 7); }
+    const me = { id: player.id + "-" + tab, name: player.name, look: player.look, soul: soul ? soul.name : "" };
+
+    app.innerHTML = `
+      <div class="place-hero" style="--c:${L.color}">
+        <div class="place-icon">⚔️</div>
+        <h1>זירת הדו-קרב ב${L.name}</h1>
+      </div>
+      <div class="card center">
+        <div class="searching">${avatarSVG(player.look, 80)}<span class="vs">VS</span><span class="who">❔</span></div>
+        <h3 id="wtitle">מחפשים יריב...</h3>
+        <p class="small muted" id="wcount"></p>
+        ${db.realtime ? "" : `<p class="notice small">כרגע האתר במצב מקומי, ולכן אפשר להיפגש רק עם לשונית אחרת באותו דפדפן. אחרי חיבור מסד הנתונים תפגשו שחקנים מכל מקום.</p>`}
+        <div class="row center-row">
+          <button class="btn ghost" id="botbtn">לשחק נגד ינשופי (המחשב)</button>
+          <a class="btn ghost" href="#/b/${L.id}">ביטול</a>
+        </div>
+      </div>`;
+
+    let game = null;
+    const lob = TeireDuel.lobby(locId, me, {
+      makeQuestions,
+      onWaiting(n) { const el = document.getElementById("wcount"); if (el) el.textContent = n ? `עוד ${n} שחקנים מחכים בזירה` : "אין עדיין עוד שחקנים בזירה. נחכה כאן..."; },
+      onStart({ opponent, questions, send }) { game = playDuel(L, opponent, questions, send, null); },
+      onMsg(m) { if (game) game.onMsg(m); },
+      onOpponentLeft() { if (game) game.opponentLeft(); },
+    });
+    duelSession = { close() { lob.close(); if (game) game.close(); } };
+    document.getElementById("botbtn").onclick = () => {
+      lob.close();
+      const questions = makeQuestions();
+      let g = null;
+      const b = TeireDuel.bot(questions, m => g && g.onMsg(m));
+      g = game = playDuel(L, b.opponent, questions, () => {}, b);
+      duelSession = { close() { b.close(); g.close(); } };
+    };
+  }
+
+  function playDuel(L, opp, questions, send, bot) {
+    const TIME = 15000;
+    let qi = 0, myScore = 0, oppScore = 0, done = false;
+    let mine = null, theirs = {}, qStart = 0, timer = null, oppTimer = null;
+    const oppAvatar = opp.bot ? `<span class="bot-face">🦉</span>` : avatarSVG(opp.look, 44);
+    const points = (ok, ms) => ok ? 10 + Math.max(0, Math.round(5 * (1 - ms / TIME))) : 0;
+
+    function header() {
+      return `<div class="duel-head">
+        <div class="duel-p"><span class="duel-av">${avatarSVG(player.look, 44)}</span><b>${esc(player.name)}</b><span class="duel-score" id="ms">${myScore}</span></div>
+        <div class="duel-vs">⚔️<div class="small">${qi + 1}/${questions.length}</div></div>
+        <div class="duel-p"><span class="duel-av">${oppAvatar}</span><b>${esc(opp.name)}</b><span class="duel-score" id="os">${oppScore}</span></div>
+      </div>`;
+    }
+
+    function show() {
+      const q = questions[qi];
+      mine = null; qStart = Date.now();
+      const order = db.shuffle([0, 1, 2, 3]);
+      app.innerHTML = `${header()}
+        <div class="timer"><span id="tbar"></span></div>
+        <div class="card">
+          <div class="qtext">${esc(q.question)}</div>
+          <div class="answers">${order.map((orig, i) => `<button class="answer" data-orig="${orig}"><span class="letter">${LETTERS[i]}</span>${esc(q.answers[orig])}</button>`).join("")}</div>
+          <div id="fb" class="small muted center" style="margin-top:12px"></div>
+        </div>`;
+      requestAnimationFrame(() => { const b = document.getElementById("tbar"); if (b) { b.style.transition = `width ${TIME}ms linear`; b.style.width = "0%"; } });
+      app.querySelectorAll(".answer").forEach(btn => btn.onclick = () => answer(Number(btn.dataset.orig)));
+      timer = setTimeout(() => { if (mine === null) answer(-1); }, TIME);
+      if (bot) bot.ask(qi);
+      if (theirs[qi]) markOpp();
+    }
+
+    function answer(choice) {
+      if (mine !== null || done) return;
+      mine = { choice, ms: Date.now() - qStart };
+      clearTimeout(timer);
+      send({ t: "ans", q: qi, choice: mine.choice, ms: mine.ms });
+      app.querySelectorAll(".answer").forEach(b => { b.disabled = true; if (Number(b.dataset.orig) === choice) b.classList.add("picked"); });
+      if (theirs[qi]) reveal();
+      else {
+        document.getElementById("fb").textContent = `מחכים ל${opp.name}...`;
+        oppTimer = setTimeout(() => { if (!theirs[qi]) { theirs[qi] = { choice: -1, ms: TIME }; reveal(); } }, Math.max(1000, TIME - mine.ms + 3000));
+      }
+    }
+
+    function markOpp() {
+      const el = document.getElementById("fb");
+      if (el && mine === null) el.textContent = `${opp.name} כבר ענה!`;
+    }
+
+    function reveal() {
+      clearTimeout(oppTimer);
+      const q = questions[qi], t = theirs[qi];
+      const myOk = mine.choice === q.correct, oppOk = t.choice === q.correct;
+      myScore += points(myOk, mine.ms); oppScore += points(oppOk, t.ms);
+      app.querySelectorAll(".answer").forEach(b => {
+        const o = Number(b.dataset.orig);
+        if (o === q.correct) b.classList.add("correct");
+        else if (o === mine.choice) b.classList.add("wrong");
+        if (o === t.choice) b.insertAdjacentHTML("beforeend", `<span class="opp-pick">${opp.bot ? "🦉" : "👤"} ${esc(opp.name)}</span>`);
+      });
+      document.getElementById("ms").textContent = myScore;
+      document.getElementById("os").textContent = oppScore;
+      document.getElementById("fb").innerHTML = `${myOk ? "✓ צדקת!" : "✗ לא נכון"} · ${esc(opp.name)}: ${oppOk ? "צדק" : "טעה"}`;
+      setTimeout(() => { if (done) return; qi++; if (qi < questions.length) show(); else finish(); }, 2600);
+    }
+
+    function finish(left) {
+      if (done) return;
+      done = true; clearTimeout(timer); clearTimeout(oppTimer);
+      const win = left || myScore > oppScore, draw = !left && myScore === oppScore;
+      const coins = win ? 50 : draw ? 25 : 10;
+      player.coins += coins; player.duels = player.duels || { win: 0, lose: 0 };
+      if (win) player.duels.win++; else if (!draw) player.duels.lose++;
+      savePlayer();
+      if (win) confetti();
+      app.innerHTML = `
+        <div class="card center result">
+          <div class="place-icon">${win ? "🏆" : draw ? "🤝" : "💪"}</div>
+          <h2>${left ? `${esc(opp.name)} יצא מהזירה, ניצחת!` : win ? "ניצחת בדו-קרב!" : draw ? "תיקו!" : `${esc(opp.name)} ניצח הפעם`}</h2>
+          <div class="duel-final"><span>${esc(player.name)}: <b>${myScore}</b></span><span>${esc(opp.name)}: <b>${oppScore}</b></span></div>
+          <p>הרווחתם <b>🪙 ${coins}</b></p>
+          <div class="row center-row">
+            <a class="btn gold" href="#/duel/${L.id}">עוד דו-קרב</a>
+            <a class="btn ghost" href="#/b/${L.id}">חזרה ל${L.name}</a>
+          </div>
+        </div>`;
+      stopDuel();
+    }
+
+    show();
+    return {
+      onMsg(m) {
+        if (m.t !== "ans" || done) return;
+        theirs[m.q] = { choice: m.choice, ms: m.ms };
+        if (m.q === qi) { if (mine !== null) reveal(); else markOpp(); }
+      },
+      opponentLeft() { finish(true); },
+      close() { done = true; clearTimeout(timer); clearTimeout(oppTimer); },
+    };
   }
 
   // שאלות על החכם + "מה הוא סובר" במחלוקות שלו
@@ -436,7 +637,7 @@
           <div class="row center-row">
             ${passed ? "" : `<button class="btn gold" id="again">שוב</button>`}
             <a class="btn" href="#/b/${b.id}">חזרה ל${b.name}</a>
-            <a class="btn ghost" href="#/">לעיר</a>
+            <a class="btn ghost" href="#/">למפה</a>
           </div>
         </div>`;
       const again = document.getElementById("again");
@@ -469,7 +670,7 @@
           <p>הרווחתם <b>🪙 ${coins}</b></p>
           <div class="row center-row">
             <a class="btn" href="#/b/${b.id}">חזרה ל${b.name}</a>
-            <a class="btn ghost" href="#/">לעיר</a>
+            <a class="btn ghost" href="#/">למפה</a>
           </div>
         </div>`;
     });
@@ -704,9 +905,11 @@
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
     stopCity();
+    stopDuel();
     window.scrollTo(0, 0);
     if (page === "place" && arg) return viewPlace(arg);
     if (page === "b" && arg) return viewBuilding(arg);
+    if (page === "duel" && arg) return viewDuel(arg);
     if (page === "souls") return viewSouls();
     if (page === "me") return viewMe();
     if (page === "suggest") return viewSuggest(arg);
