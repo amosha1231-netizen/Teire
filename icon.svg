@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b4c8c"/><stop offset="1" stop-color="#4a6fc1"/></linearGradient></defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <path d="M150 120 h212 a30 30 0 0 1 30 30 v212 a30 30 0 0 1 -30 30 h-212 a30 30 0 0 1 -30 -30 v-212 a30 30 0 0 1 30 -30z" fill="#fdf6e3"/>
+  <rect x="104" y="110" width="40" height="292" rx="20" fill="#c99a2e"/>
+  <rect x="368" y="110" width="40" height="292" rx="20" fill="#c99a2e"/>
+  <text x="256" y="320" font-size="210" text-anchor="middle" font-family="serif" font-weight="700" fill="#2b4c8c">ת</text>
+</svg>

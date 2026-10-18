@@ -43,6 +43,8 @@
       this._save(list);
     },
     async pending() { return this._all().filter(q => q.status === "pending"); },
+    async allApproved() { return this._all().filter(q => q.status === "approved").reverse(); },
+    async remove(id) { this._save(this._all().filter(q => q.id !== id)); },
     async setStatus(id, status) {
       const list = this._all();
       const q = list.find(x => x.id === id);
@@ -73,8 +75,21 @@
       let query = sb.from("questions").select("*").eq("status", "approved");
       if (place) query = query.eq("place", place);
       const { data, error } = await query;
+      if (error) {
+        // מסד הנתונים עוד לא הוקם או לא זמין: משחקים עם השאלות המובנות
+        console.warn("Supabase לא זמין, משתמשים בשאלות המובנות", error);
+        return local.approved(place);
+      }
+      return data;
+    },
+    async allApproved() {
+      const { data, error } = await sb.from("questions").select("*").eq("status", "approved").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
+    },
+    async remove(id) {
+      const { error } = await sb.from("questions").delete().eq("id", id);
+      if (error) throw error;
     },
     async counts() {
       const { data, error } = await sb.from("questions").select("place").eq("status", "approved");

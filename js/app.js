@@ -176,7 +176,8 @@
     const SPEED = 260; // פיקסלים לשנייה
     // בטלפון מקטינים את העולם כדי לראות יותר מהעיר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
-    city.style.top = document.querySelector(".topbar").getBoundingClientRect().bottom + "px";
+    const banner = document.getElementById("pre-shabbat");
+    city.style.top = (banner.hidden ? document.querySelector(".topbar") : banner).getBoundingClientRect().bottom + "px";
     let target = null, onArrive = null, last = performance.now();
     const keys = {};
     const cam = { x: 0, y: 0 };
@@ -185,6 +186,7 @@
       const vw = city.clientWidth, vh = city.clientHeight, w = W * S, h = H * S;
       const wantX = w <= vw ? (w - vw) / 2 : Math.min(Math.max(pos.x * S - vw / 2, 0), w - vw);
       const wantY = h <= vh ? (h - vh) / 2 : Math.min(Math.max(pos.y * S - vh / 2, 0), h - vh);
+      if (!snap && Math.abs(wantX - cam.x) < .2 && Math.abs(wantY - cam.y) < .2) return; // המצלמה במקום, אין מה לצייר
       cam.x = snap ? wantX : cam.x + (wantX - cam.x) * .15;
       cam.y = snap ? wantY : cam.y + (wantY - cam.y) * .15;
       world.style.transform = `translate(${-cam.x}px, ${-cam.y}px) scale(${S})`;
@@ -729,6 +731,16 @@
             </button>`;
           }).join("")}
         </div>`).join("")}
+      <div class="card">
+        <h3>🕯️ מיקום לזמני שבת וחג</h3>
+        <p class="small muted">האתר נסגר בשבת ובחג לפי זמני השקיעה וצאת הכוכבים במקום שלכם.</p>
+        <select id="loccity">
+          ${TeireShabbat.CITIES.map(c => `<option value="${c.name}" ${TeireShabbat.getLocation().name === c.name ? "selected" : ""}>${c.name}</option>`).join("")}
+          ${TeireShabbat.CITIES.some(c => c.name === TeireShabbat.getLocation().name) ? "" : `<option selected>${esc(TeireShabbat.getLocation().name)}</option>`}
+        </select>
+        <div class="row"><button class="btn ghost small-btn" id="mypos">📍 לפי המיקום שלי</button></div>
+        <p class="small muted" id="nextsh"></p>
+      </div>
       <div class="row center-row"><button class="btn ghost" id="redo">שינוי שם ומראה</button></div>`;
 
     app.querySelectorAll(".item").forEach(b => b.onclick = () => {
@@ -746,6 +758,16 @@
       savePlayer(); viewMe();
     });
     document.getElementById("redo").onclick = viewOnboarding;
+    const showNext = () => {
+      const st = TeireShabbat.status(), el = document.getElementById("nextsh");
+      if (el && st.next) el.textContent = `האתר ייסגר ל${st.next.name} ב${dayName(st.next.start)} בשעה ${hm(st.next.start)}`;
+    };
+    showNext();
+    document.getElementById("loccity").onchange = ev => {
+      const c = TeireShabbat.CITIES.find(x => x.name === ev.target.value);
+      if (c) { TeireShabbat.setLocation({ name: c.name, lat: c.lat, lon: c.lon }); showNext(); toast("📍 " + c.name); }
+    };
+    document.getElementById("mypos").onclick = () => useMyLocation(() => viewMe());
   }
 
   // ---------- טופס הצעת שאלה ----------
@@ -825,8 +847,11 @@
         <h2 style="margin:0">שאלות שממתינות לאישור</h2>
         <button class="btn ghost" id="logout">יציאה</button>
       </div>
-      <div id="plist"><p class="muted">טוען...</p></div>`;
+      <div id="plist"><p class="muted">טוען...</p></div>
+      <div class="row center-row"><button class="btn ghost" id="showapproved">📋 השאלות שכבר אושרו</button></div>
+      <div id="alist"></div>`;
     document.getElementById("logout").onclick = async () => { await db.logout(); viewAdmin(); };
+    document.getElementById("showapproved").onclick = showApproved;
 
     let list;
     try { list = await db.pending(); } catch (e) { document.getElementById("plist").innerHTML = errorBox(e); return; }
@@ -860,6 +885,28 @@
         await db.setStatus(id, act === "approve" ? "approved" : "rejected");
         card.innerHTML = `<div class="notice ${act === "approve" ? "ok" : ""}">${act === "approve" ? "השאלה אושרה ונוספה למפה" : "השאלה נדחתה"}</div>`;
       } catch (e) { card.insertAdjacentHTML("beforeend", errorBox(e)); }
+    });
+  }
+
+  // רשימת השאלות המאושרות, עם מחיקה (לחיצה שנייה מאשרת)
+  async function showApproved() {
+    const box = document.getElementById("alist");
+    box.innerHTML = `<p class="muted center">טוען...</p>`;
+    let list;
+    try { list = await db.allApproved(); } catch (e) { box.innerHTML = errorBox(e); return; }
+    box.innerHTML = `<h3>${list.length} שאלות מאושרות</h3>` + list.map(q => {
+      const p = placeById(q.place) || { icon: "", name: q.place };
+      return `<div class="card approved-row" data-id="${q.id}">
+        <span class="chip">${p.icon} ${esc(p.name)}</span>
+        <div><b>${esc(q.question)}</b> <span class="small muted">(${esc(q.answers[q.correct])})</span></div>
+        <button class="btn ghost small-btn" data-del>מחיקה</button>
+      </div>`;
+    }).join("");
+    box.querySelectorAll("[data-del]").forEach(btn => btn.onclick = async () => {
+      if (!btn.dataset.sure) { btn.dataset.sure = "1"; btn.textContent = "בטוח? לחצו שוב"; btn.classList.add("bad"); return; }
+      const row = btn.closest(".approved-row");
+      try { await db.remove(Number(row.dataset.id)); row.remove(); toast("השאלה נמחקה"); }
+      catch (e) { row.insertAdjacentHTML("beforeend", errorBox(e)); }
     });
   }
 
@@ -901,11 +948,60 @@
   }
 
   // ---------- ניתוב ----------
+  // ---------- שבת וחג ----------
+  let shabbatShown = false;
+  const hm = d => d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+  const dayName = d => d.toLocaleDateString("he-IL", { weekday: "long" });
+
+  function checkShabbat() {
+    const st = TeireShabbat.status();
+    if (st.closed) {
+      if (!shabbatShown) { stopCity(); stopDuel(); showShabbat(st); }
+      return true;
+    }
+    if (shabbatShown) { shabbatShown = false; document.body.classList.remove("shabbat"); route(); }
+    const banner = document.getElementById("pre-shabbat");
+    const mins = st.next ? Math.round((st.next.start - Date.now()) / 60000) : Infinity;
+    if (mins <= 60) {
+      banner.textContent = `🕯️ ${st.next.name.startsWith("שבת") ? "השבת נכנסת" : "החג נכנס"} בעוד ${mins} דקות (${hm(st.next.start)}). האתר ייסגר אז.`;
+      banner.hidden = false;
+    } else banner.hidden = true;
+    const c = document.getElementById("city");
+    if (c) c.style.top = (banner.hidden ? document.querySelector(".topbar") : banner).getBoundingClientRect().bottom + "px";
+    return false;
+  }
+
+  function showShabbat(st) {
+    shabbatShown = true;
+    document.body.classList.add("shabbat");
+    document.body.classList.remove("in-city");
+    document.getElementById("pre-shabbat").hidden = true;
+    app.innerHTML = `
+      <div class="shabbat-screen">
+        <div class="candles">🕯️🕯️</div>
+        <h1>${st.name.startsWith("שבת") ? "שבת שלום!" : "חג שמח!"}</h1>
+        <p>האתר סגור ב${esc(st.name)}.</p>
+        <p class="big-time">נפתח ${st.end.getDay() === 6 ? "במוצאי שבת" : "במוצאי החג"} בשעה <b>${hm(st.end)}</b></p>
+        <p class="small muted">לפי הזמנים של ${esc(st.loc.name)}. <a href="#" id="fixloc">המיקום לא נכון?</a></p>
+      </div>`;
+    document.getElementById("fixloc").onclick = ev => { ev.preventDefault(); useMyLocation(() => { shabbatShown = false; if (!checkShabbat()) route(); }); };
+  }
+
+  function useMyLocation(done) {
+    if (!navigator.geolocation) { toast("הדפדפן לא תומך באיתור מיקום"); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => { TeireShabbat.setLocation({ name: "המיקום שלי", lat: pos.coords.latitude, lon: pos.coords.longitude }); toast("📍 המיקום עודכן"); if (done) done(); },
+      () => toast("לא הצלחנו לקבל את המיקום. אפשר לבחור עיר מהרשימה בעמוד \"הדמות שלי\"."),
+      { timeout: 10000, maximumAge: 86400000 }
+    );
+  }
+
   function route() {
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
     stopCity();
     stopDuel();
+    if (checkShabbat()) return;
     window.scrollTo(0, 0);
     if (page === "place" && arg) return viewPlace(arg);
     if (page === "b" && arg) return viewBuilding(arg);
@@ -917,6 +1013,7 @@
     return viewCity();
   }
   window.addEventListener("hashchange", route);
+  setInterval(checkShabbat, 30000);
   // קישור לאותו עמוד שכבר פתוח (למשל "חזרה" אחרי שאלון) לא מפעיל hashchange, אז מרעננים ידנית
   document.addEventListener("click", ev => {
     const a = ev.target.closest("a[href^='#']");

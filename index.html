@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#1e3a5f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="מסע בתורה">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <title>מסע בתורה - משימות וחידות</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Rubik:wght@400;500;700;800&display=swap">
@@ -17,6 +20,7 @@
     <div class="hud" id="hud"></div>
   </header>
 
+  <div class="pre-shabbat" id="pre-shabbat" hidden></div>
   <main id="app"></main>
 
   <nav class="bottomnav">
@@ -29,6 +33,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.89.0/dist/umd/supabase.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/shabbat.js"></script>
   <script src="js/seed.js"></script>
   <script src="js/world.js"></script>
   <script src="js/sages.js"></script>

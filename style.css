@@ -320,3 +320,16 @@ body.in-city main { max-width: none; padding: 0; }
 .answer { position: relative; }
 .opp-pick { position: absolute; left: 10px; top: -10px; background: #1f2937; color: #fff; font-size: .7rem; padding: 1px 8px; border-radius: 99px; }
 .duel-final { display: flex; justify-content: center; gap: 20px; font-size: 1.1rem; margin: 8px 0; }
+
+/* ---------- שבת ---------- */
+body.shabbat .bottomnav, body.shabbat .hud { display: none; }
+body.shabbat { background: linear-gradient(180deg, #1e2a52, #3b2f6b); }
+.shabbat-screen { text-align: center; color: #fff; padding: 60px 16px; }
+.shabbat-screen h1 { color: #ffd67a; font-size: 2.6rem; font-family: "Frank Ruhl Libre", serif; }
+.shabbat-screen p { font-size: 1.15rem; }
+.shabbat-screen .muted, .shabbat-screen a { color: #c7d2fe; }
+.candles { font-size: 4rem; animation: hop 3s ease-in-out infinite; }
+.big-time { font-size: 1.3rem; }
+.pre-shabbat { background: #fff4c2; color: #7a4b00; text-align: center; font-weight: 700; padding: 8px 12px; border-bottom: 2px solid #f0dca0; position: relative; z-index: 15; }
+.approved-row { display: grid; gap: 6px; padding: 12px 14px; }
+.approved-row .btn { justify-self: start; }
