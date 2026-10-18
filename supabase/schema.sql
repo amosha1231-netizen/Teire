@@ -25,6 +25,16 @@ language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.admins where email = auth.jwt() ->> 'email');
 $$;
 
+grant select, insert on public.questions to anon, authenticated;
+grant update, delete on public.questions to authenticated;
+grant select on public.admins to authenticated;
+
+drop policy if exists "read approved or admin" on public.questions;
+drop policy if exists "anyone can suggest" on public.questions;
+drop policy if exists "admins update" on public.questions;
+drop policy if exists "admins delete" on public.questions;
+drop policy if exists "admin sees self" on public.admins;
+
 -- כולם רואים שאלות מאושרות; מנהלים רואים הכול
 create policy "read approved or admin" on public.questions
   for select using (status = 'approved' or public.is_admin());

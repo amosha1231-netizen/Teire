@@ -23,13 +23,13 @@
 ### חיבור Supabase (פעם אחת, בערך 10 דקות)
 
 1. נרשמים ב-[supabase.com](https://supabase.com) ויוצרים פרויקט חדש.
-2. נכנסים ל-**SQL Editor**, מדביקים את התוכן של `supabase/schema.sql` ולוחצים Run. אחר כך אותו דבר עם `supabase/seed.sql` (שאלות לדוגמה).
+2. נכנסים ל-**SQL Editor**, מדביקים את כל התוכן של `supabase/setup-all.sql` ולוחצים Run. הקובץ יוצר את הטבלאות וההרשאות ומוסיף את השאלות לדוגמה.
 3. יוצרים משתמש מנהל: **Authentication → Users → Add user** עם האימייל והסיסמה שלכם.
 4. מוסיפים אותו לרשימת המנהלים ב-SQL Editor:
    ```sql
    insert into public.admins (email) values ('your@email.com');
    ```
-5. ב-**Project Settings → API** מעתיקים את `Project URL` ואת המפתח `anon public` אל `js/config.js`.
+5. מעתיקים את `Project URL` ואת המפתח הציבורי (Publishable key או anon public) אל `js/config.js`. (באתר הזה זה כבר מוגדר.)
    המפתח הזה ציבורי מטבעו ומותר שיהיה בקוד; ההגנה על הנתונים היא בהרשאות שב-`schema.sql`.
 
 ## פרסום האתר (GitHub Pages, חינם)
