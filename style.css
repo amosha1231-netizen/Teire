@@ -338,3 +338,40 @@ body.shabbat { background: linear-gradient(180deg, #1e2a52, #3b2f6b); }
 .level-card { display: flex; gap: 12px; align-items: center; }
 .level-card h3 { margin: 0 0 2px; }
 .level-card.locked { opacity: .6; }
+
+/* ---------- עולם בתוך עיר ---------- */
+.town { background: #cfe3a0; }
+.map-label.small { font-size: 1rem; }
+.town-sign {
+  position: absolute; top: 10px; right: 10px; z-index: 5; text-decoration: none;
+  background: #fff8e6; color: #5b3b00; border: 3px solid #8b5a2b; border-radius: 10px; padding: 4px 14px; font-weight: 800; font-size: .95rem;
+  box-shadow: 0 3px 0 #8b5a2b;
+}
+.area-spot { width: 170px; }
+.area-icon { font-size: 2.6rem; filter: drop-shadow(0 0 10px #fff3a0); animation: shimmer 2.4s ease-in-out infinite; }
+@keyframes shimmer { 50% { transform: scale(1.12); filter: drop-shadow(0 0 18px #ffe066); } }
+.mikdash-glow { animation: glowpulse 3s ease-in-out infinite; }
+@keyframes glowpulse { 50% { opacity: .65; } }
+.exit-spot .bld-name { background: #16a34a; color: #fff; }
+.town-info {
+  position: absolute; left: 10px; right: 10px; bottom: 12px; z-index: 6; max-width: 520px; margin: 0 auto;
+  max-height: 60%; overflow: auto; animation: popup .25s ease-out;
+}
+.town-info h3 { margin: 0 24px 6px 0; }
+.town-info p { margin: 0 0 10px; line-height: 1.55; }
+.town-info .btn, .town-info .chip { margin: 0 0 6px 6px; display: inline-block; }
+.town-info .close-x { position: absolute; top: 8px; left: 10px; border: none; background: none; font-size: 1.2rem; cursor: pointer; color: var(--muted, #6b7280); }
+@keyframes popup { from { transform: translateY(20px); opacity: 0; } }
+
+/* ---------- הכותל ---------- */
+.kotel-scene { position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 0 rgba(0,0,0,.12); margin-bottom: 12px; line-height: 0; }
+.kotel-dove { position: absolute; top: 4%; left: 20%; font-size: 1.6rem; animation: dove 7s ease-in-out infinite alternate; line-height: 1; }
+@keyframes dove { to { transform: translate(180px, 10px); } }
+.kotel-note { position: absolute; left: 50%; bottom: -40px; font-size: 1.8rem; opacity: 0; line-height: 1; }
+.kotel-note.go { animation: tuck 1.4s ease-in forwards; }
+@keyframes tuck {
+  0% { opacity: 1; transform: translate(-50%, 0) rotate(0) scale(1.4); }
+  70% { opacity: 1; transform: translate(-30%, -130px) rotate(20deg) scale(.9); }
+  100% { opacity: 0; transform: translate(-25%, -140px) rotate(30deg) scale(.2); }
+}
+#note { width: 100%; box-sizing: border-box; font: inherit; padding: 10px; border-radius: 12px; border: 2px solid #e5d9b6; resize: vertical; margin-bottom: 10px; }

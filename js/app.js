@@ -115,10 +115,12 @@
       name: L.name, icon: L.icon, color: L.color,
       open: torahOpen || hasSages || L.duel,
       stars: t ? player.stars[t.id] || 0 : 0,
-      href: L.href || "#/b/" + L.id,
+      href: L.href || (Towns.byId(L.id) ? "#/town/" + L.id : "#/b/" + L.id),
     };
   }
   const locOfTorah = placeId => City.LOCATIONS.find(L => L.torah === placeId);
+  // לאן חוזרים מעמוד של מקום: לעולם של העיר אם יש לה, אחרת לעמוד המקום או למפה
+  const backOf = bid => !bid ? "#/" : Towns.byId(bid) ? "#/town/" + bid : "#/b/" + bid;
 
   function viewCity() {
     if (!player.name) return viewOnboarding();
@@ -166,27 +168,84 @@
               <span class="bld-name">${info.name}${info.stars ? ` <span class="bld-stars">${"★".repeat(info.stars)}</span>` : ""}${L.duel ? " ⚔️" : ""}</span>
             </button>`;
           }).join("")}
-          <div class="me ${soul ? "has-soul" : ""}" id="me" style="left:${pos.x}px;top:${pos.y}px">
-            ${soul ? `<span class="me-soul">🕯️ ${esc(soul.name)}</span>` : `<span class="me-name">${esc(player.name)}</span>`}
-            <span class="me-body">${avatarSVG(player.look, 52)}</span>
-            <span class="me-shadow"></span>
-          </div>
-          <div class="target" id="target"></div>
+          ${meHtml(soul, pos)}
         </div>
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
         <a class="soul-chip" href="#/souls">${soul ? `🕯️ נשמת ${esc(soul.name)}` : "🕯️ עוד אין נשמה"} · ${player.souls.length}/${Sages.SAGES.length}</a>
       </div>`;
 
+    startWalker({
+      W, H, pos,
+      savePos: p => { player.pos = p; savePlayer(); },
+      onBuilding(bEl, walkTo) {
+        const b = City.byId(bEl.dataset.b), info = locInfo(b);
+        if (!info.open) { toast("🔒 " + info.name + " ייפתח אחרי שתעברו את המשימה הקודמת במסע"); return; }
+        walkTo(b.x, b.y + 62, () => { location.hash = info.href; });
+      },
+    });
+  }
+
+  const meHtml = (soul, pos) => `
+    <div class="me ${soul ? "has-soul" : ""}" id="me" style="left:${pos.x}px;top:${pos.y}px">
+      ${soul ? `<span class="me-soul">🕯️ ${esc(soul.name)}</span>` : `<span class="me-name">${esc(player.name)}</span>`}
+      <span class="me-body">${avatarSVG(player.look, 52)}</span>
+      <span class="me-shadow"></span>
+    </div>
+    <div class="target" id="target"></div>`;
+
+  // מנוע ההליכה, משותף למפת הארץ ולעולמות שבתוך הערים.
+  // onBuilding(el, walkTo) נקרא בלחיצה על מקום; blocked = מלבנים שהדמות עוקפת ולא נכנסת אליהם.
+  function startWalker({ W, H, pos, savePos, onBuilding, onGround, blocked = [] }) {
     const city = document.getElementById("city"), world = document.getElementById("world");
     const me = document.getElementById("me"), body = me.querySelector(".me-body"), tgt = document.getElementById("target");
     const SPEED = 260; // פיקסלים לשנייה
-    // בטלפון מקטינים את העולם כדי לראות יותר מהעיר
+    // בטלפון מקטינים את העולם כדי לראות יותר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
     const banner = document.getElementById("pre-shabbat");
     city.style.top = (banner.hidden ? document.querySelector(".topbar") : banner).getBoundingClientRect().bottom + "px";
-    let target = null, onArrive = null, last = performance.now();
+    let path = [], onArrive = null, last = performance.now();
     const keys = {};
     const cam = { x: 0, y: 0 };
+    const store = () => savePos({ x: Math.round(pos.x), y: Math.round(pos.y) });
+
+    // ---- עקיפת אזורים חסומים ----
+    const PAD = 14;
+    const inside = (p, r) => p.x > r.x1 && p.x < r.x2 && p.y > r.y1 && p.y < r.y2;
+    function crosses(a, b, r) { // האם הקטע a->b עובר בתוך המלבן
+      let t0 = 0, t1 = 1;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const ps = [-dx, dx, -dy, dy], qs = [a.x - r.x1, r.x2 - a.x, a.y - r.y1, r.y2 - a.y];
+      for (let i = 0; i < 4; i++) {
+        if (ps[i] === 0) { if (qs[i] <= 0) return false; continue; }
+        const t = qs[i] / ps[i];
+        if (ps[i] < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t);
+        if (t0 >= t1) return false;
+      }
+      return true;
+    }
+    function plan(a, b) {
+      const r = blocked.find(r => crosses(a, b, r));
+      if (!r) return [b];
+      const C = [{ x: r.x1 - PAD, y: r.y1 - PAD }, { x: r.x2 + PAD, y: r.y1 - PAD }, { x: r.x2 + PAD, y: r.y2 + PAD }, { x: r.x1 - PAD, y: r.y2 + PAD }];
+      const d = (p, q) => Math.hypot(p.x - q.x, p.y - q.y), ok = (p, q) => !crosses(p, q, r);
+      let best = [b], bl = Infinity;
+      C.forEach((c, i) => {
+        if (!ok(a, c)) return;
+        if (ok(c, b) && d(a, c) + d(c, b) < bl) { bl = d(a, c) + d(c, b); best = [c, b]; }
+        [C[(i + 1) % 4], C[(i + 3) % 4]].forEach(c2 => {
+          const l = d(a, c) + d(c, c2) + d(c2, b);
+          if (ok(c2, b) && l < bl) { bl = l; best = [c, c2, b]; }
+        });
+      });
+      return best;
+    }
+    function outside(p) { // נקודה בתוך אזור חסום עוברת לשפה הקרובה
+      const r = blocked.find(r => inside(p, r));
+      if (!r) return p;
+      const opts = [{ x: r.x1 - PAD, y: p.y }, { x: r.x2 + PAD, y: p.y }, { x: p.x, y: r.y1 - PAD }, { x: p.x, y: r.y2 + PAD }];
+      return opts.reduce((m, o) => d2(o, p) < d2(m, p) ? o : m);
+    }
+    const d2 = (p, q) => (p.x - q.x) ** 2 + (p.y - q.y) ** 2;
 
     function camera(snap) {
       const vw = city.clientWidth, vh = city.clientHeight, w = W * S, h = H * S;
@@ -199,24 +258,27 @@
     }
 
     function walkTo(x, y, cb) {
-      target = { x: Math.min(Math.max(x, 20), W - 20), y: Math.min(Math.max(y, 40), H - 10) };
+      const t = outside({ x: Math.min(Math.max(x, 20), W - 20), y: Math.min(Math.max(y, 40), H - 10) });
+      path = plan({ x: pos.x, y: pos.y }, t);
       onArrive = cb || null;
-      tgt.style.left = target.x + "px"; tgt.style.top = target.y + "px"; tgt.classList.add("show");
+      tgt.style.left = t.x + "px"; tgt.style.top = t.y + "px"; tgt.classList.add("show");
       document.getElementById("hint").classList.add("hide");
     }
 
     function frame(now) {
       const dt = Math.min((now - last) / 1000, .05); last = now;
+      const manual = keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown;
       let dx = 0, dy = 0;
       if (keys.ArrowLeft) dx -= 1; if (keys.ArrowRight) dx += 1;
       if (keys.ArrowUp) dy -= 1; if (keys.ArrowDown) dy += 1;
-      if (dx || dy) { target = null; onArrive = null; tgt.classList.remove("show"); }
-      else if (target) { dx = target.x - pos.x; dy = target.y - pos.y; }
+      if (manual) { path = []; onArrive = null; tgt.classList.remove("show"); }
+      else if (path.length) { dx = path[0].x - pos.x; dy = path[0].y - pos.y; }
       const dist = Math.hypot(dx, dy);
       if (dist > 0) {
-        const step = Math.min(SPEED * dt, target && !(keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown) ? dist : SPEED * dt);
-        pos.x = Math.min(Math.max(pos.x + dx / dist * step, 20), W - 20);
-        pos.y = Math.min(Math.max(pos.y + dy / dist * step, 40), H - 10);
+        const step = manual ? SPEED * dt : Math.min(SPEED * dt, dist);
+        const nx = Math.min(Math.max(pos.x + dx / dist * step, 20), W - 20);
+        const ny = Math.min(Math.max(pos.y + dy / dist * step, 40), H - 10);
+        if (!blocked.some(r => inside({ x: nx, y: ny }, r))) { pos.x = nx; pos.y = ny; }
         me.style.left = pos.x + "px"; me.style.top = pos.y + "px";
         me.style.zIndex = Math.round(pos.y);
         if (Math.abs(dx) > 1) body.style.transform = dx < 0 ? "scaleX(-1)" : "";
@@ -224,41 +286,139 @@
       } else {
         me.classList.remove("walking");
       }
-      if (target && Math.hypot(target.x - pos.x, target.y - pos.y) < 1) {
-        target = null; tgt.classList.remove("show"); me.classList.remove("walking");
-        player.pos = { x: Math.round(pos.x), y: Math.round(pos.y) }; savePlayer();
-        if (onArrive) { const cb = onArrive; onArrive = null; cb(); return; }
+      if (path.length && Math.hypot(path[0].x - pos.x, path[0].y - pos.y) < 1) {
+        path.shift();
+        if (!path.length) {
+          tgt.classList.remove("show"); me.classList.remove("walking");
+          store();
+          // ממשיכים את הלולאה גם אחרי ההגעה (בעולם של עיר נשארים באותו מסך)
+          if (onArrive) { const cb = onArrive; onArrive = null; camera(false); cityLoop.raf = requestAnimationFrame(frame); cb(); return; }
+        }
       }
       camera(false);
       cityLoop.raf = requestAnimationFrame(frame);
     }
 
     city.addEventListener("click", ev => {
+      if (ev.target.closest(".soul-chip, .town-info, .town-sign")) return;
       const bEl = ev.target.closest(".bld");
-      if (bEl) {
-        const b = City.byId(bEl.dataset.b), info = locInfo(b);
-        if (!info.open) { toast("🔒 " + info.name + " ייפתח אחרי שתעברו את המשימה הקודמת במסע"); return; }
-        walkTo(b.x, b.y + 62, () => {
-          player.pos = { x: Math.round(pos.x), y: Math.round(pos.y) }; savePlayer();
-          location.hash = info.href;
-        });
-        return;
-      }
-      if (ev.target.closest(".soul-chip")) return;
+      if (bEl) { onBuilding(bEl, walkTo); return; }
+      if (onGround) onGround();
       const r = city.getBoundingClientRect();
       walkTo((ev.clientX - r.left + cam.x) / S, (ev.clientY - r.top + cam.y) / S);
     });
 
     const onKey = ev => {
-      if (!ev.key.startsWith("Arrow")) return;
+      if (!ev.key.startsWith("Arrow") || ev.target.closest("input, textarea, select")) return;
       keys[ev.key] = ev.type === "keydown"; ev.preventDefault();
-      if (ev.type === "keyup") { player.pos = { x: Math.round(pos.x), y: Math.round(pos.y) }; savePlayer(); }
+      if (ev.type === "keyup") store();
     };
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKey);
     cityLoop = { raf: 0, onKey };
     me.style.zIndex = Math.round(pos.y);
     camera(true);
     cityLoop.raf = requestAnimationFrame(frame);
+  }
+
+  // ---------- עולם בתוך עיר (ירושלים) ----------
+  function viewTown(id) {
+    const T = Towns.byId(id);
+    if (!T || !player.name) return viewCity();
+    setTab("map");
+    document.body.classList.add("in-city");
+    const soul = player.activeSoul && Sages.byId(player.activeSoul);
+    player.townPos = player.townPos || {};
+    const pos = Object.assign({}, player.townPos[id] || T.start);
+    app.innerHTML = `
+      <div class="city town" id="city">
+        <div class="world" id="world" style="width:${T.W}px;height:${T.H}px">
+          ${T.svg(T.W, T.H)}
+          ${T.labels.map(l => `<span class="map-label ${l.cls}" style="left:${l.x}px;top:${l.y}px">${l.text}</span>`).join("")}
+          ${T.decorations.map(([e, x, y]) => `<span class="deco" style="left:${x}px;top:${y}px">${e}</span>`).join("")}
+          ${T.spots.map(sp => {
+            if (sp.area) return `<button class="bld area-spot" data-b="${sp.id}" style="left:${sp.x}px;top:${sp.y}px;--c:${sp.color}">
+                <span class="area-icon">${sp.icon}</span><span class="bld-name">${sp.name}</span></button>`;
+            const sages = sp.sagesOf ? Sages.SAGES.filter(s => s.building === sp.sagesOf) : [];
+            return `<button class="bld ${sp.exit ? "exit-spot" : ""} ${sp.duel ? "arena" : ""}" data-b="${sp.id}" style="left:${sp.x}px;top:${sp.y}px;--c:${sp.color}">
+              <span class="bld-roof"></span>
+              <span class="bld-body"><span class="bld-icon">${sp.icon}</span></span>
+              ${sages.length ? `<span class="bld-sages">${sages.map(s => `<span class="${player.souls.includes(s.id) ? "got" : ""}">${Sages.sageSVG(s, 30)}</span>`).join("")}</span>` : ""}
+              <span class="bld-name">${sp.name}${sp.duel ? " ⚔️" : ""}</span>
+            </button>`;
+          }).join("")}
+          ${meHtml(soul, pos)}
+        </div>
+        <a class="town-sign" href="#/">⬅ ${esc(T.name)} · למפת הארץ</a>
+        <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
+        <div class="town-info card" id="townInfo" hidden></div>
+      </div>`;
+    const box = document.getElementById("townInfo");
+    const hideInfo = () => { box.hidden = true; };
+    function showInfo(sp) {
+      box.innerHTML = `<button class="close-x" aria-label="סגירה">✕</button>
+        <h3>${sp.info.title}</h3><p>${esc(sp.info.text)}</p>
+        ${sp.info.links.map(([label, href]) => {
+          const pl = href.startsWith("#/place/") && placeById(href.slice(8));
+          return pl && !isOpen(PLACES.indexOf(pl)) ? `<span class="chip">🔒 ${label}</span>` : `<a class="btn small-btn" href="${href}">${label}</a>`;
+        }).join("")}`;
+      box.hidden = false;
+      box.querySelector(".close-x").onclick = hideInfo;
+    }
+    startWalker({
+      W: T.W, H: T.H, pos, blocked: T.blocked,
+      savePos: p => { player.townPos[id] = p; savePlayer(); },
+      onGround: hideInfo,
+      onBuilding(bEl, walkTo) {
+        const sp = T.spots.find(x => x.id === bEl.dataset.b);
+        hideInfo();
+        walkTo(sp.ax != null ? sp.ax : sp.x, sp.ay != null ? sp.ay : sp.y + 62, () => {
+          if (sp.exit) { player.townPos[id] = null; savePlayer(); }
+          if (sp.href) location.hash = sp.href; else showInfo(sp);
+        });
+      },
+    });
+  }
+
+  // ---------- הכותל המערבי ----------
+  function viewKotel() {
+    if (!player.name) return viewCity();
+    setTab("map");
+    const rows = [];
+    for (let r = 0; r < 8; r++) for (let c = -1; c < 9; c++) {
+      const w = 52 + ((r * 7 + c * 13) % 3) * 6, x = c * 50 + (r % 2 ? 25 : 0) + ((r * 5 + c) % 4);
+      rows.push(`<rect x="${x}" y="${30 + r * 24}" width="${w - 4}" height="21" rx="5" fill="${["#e3cf9b", "#d9c28a", "#ead9ad", "#d2b97e"][(r + c * 3 + 8) % 4]}"/>`);
+    }
+    app.innerHTML = `
+      <div class="kotel-scene">
+        <svg viewBox="0 0 400 230" width="100%" aria-hidden="true">
+          <rect width="400" height="230" fill="#9fd3f5"/>
+          <rect y="26" width="400" height="200" fill="#bfa36b"/>
+          ${rows.join("")}
+          <g fill="#6f9d3f"><circle cx="70" cy="62" r="9"/><circle cx="78" cy="56" r="7"/><circle cx="300" cy="110" r="8"/><circle cx="292" cy="116" r="6"/><circle cx="190" cy="40" r="7"/></g>
+          <rect y="222" width="400" height="8" fill="#f2e6c8"/>
+        </svg>
+        <span class="kotel-dove">🕊️</span>
+        <span class="kotel-note" id="flynote">📜</span>
+      </div>
+      ${guideBubble({ name: "בכותל", face: "🧱", color: "#b08d57" }, "\"שערי דמעה לא ננעלו\" (ברכות לב, ב). כתבו פתק עם תפילה או בקשה, והכניסו אותו בין אבני הכותל.")}
+      <div class="card">
+        <textarea id="note" rows="3" maxlength="200" placeholder="רבונו של עולם..."></textarea>
+        <button class="btn gold big-btn" id="put">🙏 הכניסו את הפתק לכותל</button>
+        <p class="small muted center" style="margin:8px 0 0">הפתק לא נשמר ולא נשלח לאף אחד. פתקים שהכנסתם: <b id="cnt">${player.notes || 0}</b></p>
+      </div>
+      <div class="row center-row"><a class="btn ghost" href="#/town/jerusalem">חזרה לירושלים</a></div>`;
+    const note = document.getElementById("note"), fly = document.getElementById("flynote");
+    document.getElementById("put").onclick = () => {
+      if (!note.value.trim()) { toast("כתבו קודם משהו בפתק"); return; }
+      note.value = "";
+      fly.classList.remove("go"); void fly.offsetWidth; fly.classList.add("go");
+      player.notes = (player.notes || 0) + 1;
+      const today = new Date().toDateString();
+      if (player.kotelDay !== today) { player.kotelDay = today; player.coins += 5; toast("🙏 הפתק בכותל! +🪙5 (פעם ביום)"); }
+      else toast("🙏 הפתק בכותל!");
+      savePlayer();
+      document.getElementById("cnt").textContent = player.notes;
+    };
   }
 
   function mapDecorations() {
@@ -372,7 +532,7 @@
             : `<div class="small">🔒 נפתח אחרי ${LEVEL_NAMES[l - 1].split(":")[0]}</div>`}
         </div>`;
       }).join("") : `<div class="card center"><p>אין עדיין שאלות במקום הזה.</p></div>`}
-      <div class="row center-row"><a class="btn ghost" href="${locOfTorah(place.id) ? "#/b/" + locOfTorah(place.id).id : "#/"}">חזרה</a>${place.bank ? "" : `<a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a>`}</div>`;
+      <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a>${place.bank ? "" : `<a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a>`}</div>`;
     app.querySelectorAll("[data-level]").forEach(btn => btn.onclick = () => {
       const l = Number(btn.dataset.level);
       runMission(place, pools[l], l);
@@ -457,7 +617,7 @@
           <p class="small">מחכים לשחקן נוסף שמגיע לזירה, ועונים על אותן 5 שאלות בזמן אמת. מי שעונה נכון ומהר יותר מנצח! מנצח מקבל 🪙50.</p>
           <a class="btn gold big-btn" href="#/duel/${b.id}">מחפשים יריב!</a>
         </div>` : ""}
-      <div class="row center-row"><a class="btn ghost" href="#/">חזרה למפה</a></div>`;
+      <div class="row center-row"><a class="btn ghost" href="${Towns.byId(bid) ? "#/town/" + bid : "#/"}">${Towns.byId(bid) ? "חזרה ל" + b.name : "חזרה למפה"}</a></div>`;
 
     app.querySelectorAll("[data-quest]").forEach(btn => btn.onclick = () => runSoulQuest(Sages.byId(btn.dataset.quest), b));
     app.querySelectorAll("[data-activate]").forEach(btn => btn.onclick = () => { player.activeSoul = btn.dataset.activate; savePlayer(); viewBuilding(bid); });
@@ -1032,6 +1192,8 @@
     window.scrollTo(0, 0);
     if (page === "place" && arg) return viewPlace(arg);
     if (page === "b" && arg) return viewBuilding(arg);
+    if (page === "town" && arg) return viewTown(arg);
+    if (page === "kotel") return viewKotel();
     if (page === "duel" && arg) return viewDuel(arg);
     if (page === "souls") return viewSouls();
     if (page === "me") return viewMe();
