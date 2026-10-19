@@ -20,7 +20,13 @@
   const totalStars = () => Object.values(player.stars).reduce((a, b) => a + b, 0);
   const owns = (slot, item) => item.price === 0 || player.owned.includes(slot + ":" + item.id);
   // תחנה פתוחה אם זו הראשונה, או שבתחנה הקודמת יש לפחות כוכב אחד
-  const isOpen = i => i === 0 || (player.stars[PLACES[i - 1].id] || 0) >= 1;
+  const isOpen = i => i === 0 || (PLACES[i] && PLACES[i].free) || (player.stars[PLACES[i - 1].id] || 0) >= 1;
+  // שלבים: שלב 1 שומר כוכבים תחת שם המקום, שלבים גבוהים תחת "מקום@שלב"
+  const LEVEL_NAMES = ["", "שלב 1: קל", "שלב 2: בינוני", "שלב 3: קשה"];
+  const LEVEL_REWARD = [0, 10, 15, 25];
+  const starKey = (placeId, lvl) => lvl > 1 ? placeId + "@" + lvl : placeId;
+  const levelStars = (placeId, lvl) => player.stars[starKey(placeId, lvl)] || 0;
+  const bankFor = (placeId, lvl) => ((window.TEIRE_LEVELS || {})[placeId] || {})[lvl] || [];
 
   function renderHud() {
     document.getElementById("hud").innerHTML = player.name ? `
@@ -296,6 +302,8 @@
         const ok = Number(btn.dataset.orig) === q.correct;
         const reward = q.reward || 10;
         if (ok) { score++; coins += reward; }
+        // שאלת המשך: מופיעה רק למי שענה נכון
+        if (ok && q.followup) items.splice(idx + 1, 0, { ...q.followup, reward, prompt: "🔗 שאלת המשך!" });
         app.querySelectorAll(".answer").forEach(b => {
           b.disabled = true;
           if (Number(b.dataset.orig) === q.correct) b.classList.add("correct");
@@ -337,8 +345,12 @@
     if (!isOpen(PLACES.indexOf(place))) return viewCity();
 
     app.innerHTML = `<p class="muted center">טוען...</p>`;
-    let pool;
-    try { pool = await db.approved(placeId); } catch (e) { app.innerHTML = errorBox(e); return; }
+    let dbPool = [];
+    if (!place.bank) {
+      try { dbPool = await db.approved(placeId); } catch (e) { app.innerHTML = errorBox(e); return; }
+    }
+    const pools = [null, dbPool.concat(bankFor(placeId, 1)), bankFor(placeId, 2), bankFor(placeId, 3)];
+    const levels = [1, 2, 3].filter(l => pools[l].length);
     const st = player.stars[placeId] || 0;
     app.innerHTML = `
       <div class="place-hero" style="--c:${place.color}">
@@ -348,42 +360,57 @@
         <div class="station-stars big-stars">${"★".repeat(st)}<span class="dim">${"★".repeat(3 - st)}</span></div>
       </div>
       ${guideBubble(placeGuide(place), esc(place.guide.hello))}
-      <div class="card center">
-        ${pool.length
-          ? `<p>${Math.min(pool.length, cfg.QUESTIONS_PER_MISSION)} שאלות מחכות לכם. כל תשובה נכונה = 🪙 10</p>
-             <button class="btn big-btn" id="start">מתחילים את המשימה!</button>`
-          : `<p>אין עדיין שאלות במקום הזה.</p>`}
-        <div class="row center-row"><a class="btn ghost" href="${locOfTorah(place.id) ? "#/b/" + locOfTorah(place.id).id : "#/"}">חזרה</a><a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a></div>
-      </div>`;
-    const start = document.getElementById("start");
-    if (start) start.onclick = () => runMission(place, pool);
+      ${levels.length ? levels.map(l => {
+        const ls = levelStars(placeId, l), open = l === 1 || levelStars(placeId, l - 1) >= 1;
+        return `<div class="card level-card ${open ? "" : "locked"}">
+          <div style="flex:1">
+            <h3>${LEVEL_NAMES[l]}</h3>
+            <div class="small muted">${Math.min(pools[l].length, cfg.QUESTIONS_PER_MISSION)} שאלות · כל תשובה נכונה = 🪙 ${LEVEL_REWARD[l]}</div>
+            <div class="station-stars">${"★".repeat(ls)}<span class="dim">${"★".repeat(3 - ls)}</span></div>
+          </div>
+          ${open ? `<button class="btn ${l > 1 ? "gold" : ""}" data-level="${l}">מתחילים!</button>`
+            : `<div class="small">🔒 נפתח אחרי ${LEVEL_NAMES[l - 1].split(":")[0]}</div>`}
+        </div>`;
+      }).join("") : `<div class="card center"><p>אין עדיין שאלות במקום הזה.</p></div>`}
+      <div class="row center-row"><a class="btn ghost" href="${locOfTorah(place.id) ? "#/b/" + locOfTorah(place.id).id : "#/"}">חזרה</a>${place.bank ? "" : `<a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a>`}</div>`;
+    app.querySelectorAll("[data-level]").forEach(btn => btn.onclick = () => {
+      const l = Number(btn.dataset.level);
+      runMission(place, pools[l], l);
+    });
   }
 
-  function runMission(place, pool) {
-    const items = db.shuffle(pool).slice(0, cfg.QUESTIONS_PER_MISSION);
+  function runMission(place, pool, level) {
+    level = level || 1;
+    const items = db.shuffle(pool).slice(0, cfg.QUESTIONS_PER_MISSION).map(q => ({ ...q, reward: LEVEL_REWARD[level] }));
     runQuiz(placeGuide(place), items, (score, n, coins) => {
       const stars = starsFor(score, n);
-      if (stars === 3) coins += 20;
-      const before = player.stars[place.id] || 0;
+      if (stars === 3) coins += 20 * level;
+      const key = starKey(place.id, level);
+      const before = player.stars[key] || 0;
       player.coins += coins;
-      if (stars > before) player.stars[place.id] = stars;
+      if (stars > before) player.stars[key] = stars;
       savePlayer();
       const i = PLACES.indexOf(place);
-      const unlocked = before === 0 && stars >= 1 && PLACES[i + 1];
+      const next = PLACES[i + 1];
+      const unlocked = level === 1 && before === 0 && stars >= 1 && next && !next.free && next;
+      const nextLevel = before === 0 && stars >= 1 && bankFor(place.id, level + 1).length && level + 1;
       if (stars >= 2) confetti();
       app.innerHTML = `
-        ${guideBubble(placeGuide(place), stars === 3 ? "מושלם! אתם אלופים!" : stars >= 1 ? "יפה מאוד! עברתם את התחנה." : "כמעט! צריך חצי מהתשובות נכונות כדי לעבור. נסו שוב!", stars ? "happy" : "")}
+        ${guideBubble(placeGuide(place), stars === 3 ? "מושלם! אתם אלופים!" : stars >= 1 ? "יפה מאוד! עברתם את השלב." : "כמעט! צריך חצי מהתשובות נכונות כדי לעבור. נסו שוב!", stars ? "happy" : "")}
         <div class="card center result">
+          <div class="small muted">${place.name} · ${LEVEL_NAMES[level]}</div>
           ${resultStars(stars)}
           <div class="big">${score}/${n}</div>
-          <p>הרווחתם <b>🪙 ${coins}</b>${stars === 3 ? " (כולל בונוס 20 על משימה מושלמת)" : ""}</p>
+          <p>הרווחתם <b>🪙 ${coins}</b>${stars === 3 ? ` (כולל בונוס ${20 * level} על משימה מושלמת)` : ""}</p>
+          ${nextLevel ? `<div class="notice ok">נפתח ${LEVEL_NAMES[nextLevel]}!</div>` : ""}
           ${unlocked ? `<div class="notice ok">נפתחה משימה חדשה במפה: ${unlocked.icon} ${unlocked.name} ב${locOfTorah(unlocked.id).name}!</div>` : ""}
           <div class="row center-row">
             <button class="btn gold" id="again">שוב</button>
-            <a class="btn" href="#/">למפה</a>
+            <a class="btn" href="#/place/${place.id}">לשלבים</a>
+            <a class="btn ghost" href="#/">למפה</a>
           </div>
         </div>`;
-      document.getElementById("again").onclick = () => runMission(place, pool);
+      document.getElementById("again").onclick = () => runMission(place, pool, level);
     });
   }
   const resultStars = stars => `<div class="result-stars">${[0, 1, 2].map(k => `<span class="${k < stars ? "on" : ""}" style="animation-delay:${k * .25}s">★</span>`).join("")}</div>`;
@@ -776,7 +803,7 @@
     return `
       <label>לאיזה מקום במפה?</label>
       <select name="place">
-        ${PLACES.map(p => `<option value="${p.id}" ${q.place === p.id ? "selected" : ""}>${p.icon} ${p.name} (${p.desc})</option>`).join("")}
+        ${PLACES.filter(p => !p.bank).map(p => `<option value="${p.id}" ${q.place === p.id ? "selected" : ""}>${p.icon} ${p.name} (${p.desc})</option>`).join("")}
       </select>
       <label>השאלה</label>
       <textarea name="question" rows="2" required maxlength="300">${esc(q.question)}</textarea>

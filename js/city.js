@@ -17,7 +17,7 @@
     { id: "shechem", name: "שכם", icon: "🌾", x: 575, y: 700, color: "#e2895a", desc: "קבר יוסף הצדיק", torah: "mitzrayim" },
     { id: "shilo", name: "שילה", icon: "🏕️", x: 610, y: 815, color: "#d9a95b", desc: "כאן עמד המשכן", torah: "midbar" },
     { id: "yafo", name: "יפו", icon: "⛵", x: 330, y: 790, color: "#5fb6e8", desc: "עיר נמל עתיקה על חוף הים", torah: "teiva" },
-    { id: "bnei-brak", name: "בני ברק", icon: "🌴", x: 405, y: 880, color: "#f97316", desc: "הישיבה של רבי עקיבא" },
+    { id: "bnei-brak", name: "בני ברק", icon: "🌴", x: 405, y: 880, color: "#f97316", desc: "הישיבה של רבי עקיבא", torah: "mishna" },
     { id: "yavne", name: "יבנה", icon: "🍇", x: 300, y: 990, color: "#8b5cf6", desc: "כרם ביבנה: רבי אליעזר ורבי יהושע" },
     { id: "jerusalem", name: "ירושלים", icon: "🏛️", x: 580, y: 1000, color: "#eab308", desc: "בית המדרש של הלל ושמאי, ואבן השתייה שממנה הושתת העולם", torah: "gan-eden", duel: true },
     { id: "shuk", name: "שוק מחנה יהודה", icon: "🛍️", x: 455, y: 1085, color: "#ec4899", desc: "חנות הבגדים והאביזרים", href: "#/me" },
@@ -27,7 +27,7 @@
     { id: "sinai", name: "הר סיני", icon: "⛰️", x: 300, y: 1720, color: "#9a8bd6", desc: "מתן תורה והלוחות", torah: "sinai" },
     { id: "sura", name: "סורא", icon: "🏫", x: 880, y: 640, color: "#9333ea", desc: "הישיבה של רב" },
     { id: "nehardea", name: "נהרדעא", icon: "🌙", x: 900, y: 770, color: "#1d4ed8", desc: "העיר של שמואל" },
-    { id: "pumbedita", name: "פומבדיתא", icon: "📖", x: 880, y: 900, color: "#15803d", desc: "הישיבה של אביי" },
+    { id: "pumbedita", name: "פומבדיתא", icon: "📖", x: 880, y: 900, color: "#15803d", desc: "הישיבה של אביי", torah: "gemara" },
     { id: "mechoza", name: "מחוזא", icon: "🏙️", x: 900, y: 1020, color: "#be123c", desc: "העיר של רבא, זירת דו-קרב", duel: true },
   ];
 
