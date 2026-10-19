@@ -101,6 +101,129 @@
     ],
   };
 
-  const TOWNS = { jerusalem };
+  const hebron = {
+    id: "hebron", name: "חברון", W: 1000, H: 1000,
+    start: { x: 170, y: 880 },
+    blocked: [],
+    spots: [
+      { id: "machpela", name: "מערת המכפלה", icon: "🕯️", x: 640, y: 380, color: "#a16207",
+        info: {
+          title: "🕯️ מערת המכפלה",
+          text: "כאן קבורים אברהם ושרה, יצחק ורבקה, יעקב ולאה (בראשית מט, לא). אברהם קנה את המערה מעפרון החתי בארבע מאות שקל כסף (בראשית כג, טז). לכן נקראת חברון \"קרית ארבע\": ארבעה זוגות קבורים בה, כי לפי חז\"ל גם אדם וחוה קבורים כאן (עירובין נג, א).",
+          links: [["⛺ משימת האבות והאמהות", "#/place/ohel"]],
+        } },
+      { id: "mamre", name: "אלוני ממרא", icon: "🌳", x: 300, y: 330, color: "#65a30d",
+        info: {
+          title: "🌳 אלוני ממרא",
+          text: "\"וירא אליו ה' באלוני ממרא, והוא יושב פתח האהל כחום היום\" (בראשית יח, א). כאן הכניס אברהם אבינו את שלושת המלאכים לאוהל שלו, ורץ להביא להם לחם, חמאה וחלב ובן בקר.",
+          links: [["⛺ משימת האבות והאמהות", "#/place/ohel"]],
+        } },
+      { id: "tel", name: "תל חברון: ישי ורות", icon: "🌾", x: 330, y: 620, color: "#ca8a04",
+        info: {
+          title: "🌾 תל חברון",
+          text: "כאן עמדה חברון העתיקה, שבה מלך דוד שבע שנים וששה חודשים לפני שעלה לירושלים (שמואל ב ה, ה). לפי המסורת קבורים כאן ישי, אביו של דוד, ורות המואביה.",
+          links: [["👑 משימת דוד המלך", "#/place/david"]],
+        } },
+      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 940, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      const vines = [];
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) vines.push(`<circle cx="${720 + c * 52}" cy="${640 + r * 60}" r="13" fill="#5b8c32"/><circle cx="${720 + c * 52}" cy="${650 + r * 60}" r="6" fill="#6b2a7a"/>`);
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <rect width="${W}" height="${H}" fill="#d7e3a2"/>
+        <ellipse cx="300" cy="300" rx="260" ry="200" fill="#c4d98f"/>
+        <ellipse cx="330" cy="640" rx="200" ry="130" fill="#e3d29a"/>
+        <rect x="690" y="600" width="290" height="270" rx="30" fill="#c8dc96"/>
+        ${vines.join("")}
+        <path d="M120 930 C 250 800, 300 700, 420 560 S 560 460, 640 470" fill="none" stroke="#eadcb4" stroke-width="34" stroke-linecap="round"/>
+        <path d="M420 560 C 380 470, 330 420, 300 400" fill="none" stroke="#eadcb4" stroke-width="26" stroke-linecap="round"/>
+        <!-- המבנה של מערת המכפלה: חומה גבוהה מאבנים גדולות -->
+        <rect x="520" y="300" width="250" height="170" fill="#d8c28d" stroke="#b39a5f" stroke-width="6"/>
+        <path d="M520 330 H 770 M520 360 H 770 M520 390 H 770 M520 420 H 770" stroke="#c4ab72" stroke-width="3"/>
+        <g fill="#b39a5f">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="${528 + i * 31}" y="285" width="16" height="18"/>`).join("")}</g>
+      </svg>`;
+    },
+    labels: [
+      { text: "כרמי חברון", x: 830, y: 590, cls: "land" },
+      { text: "קרית ארבע היא חברון", x: 640, y: 520, cls: "land small" },
+    ],
+    decorations: [
+      ["🌳", 200, 230], ["🌳", 420, 260], ["🌳", 250, 450], ["🫒", 120, 560], ["🐑", 520, 700], ["🐑", 560, 760],
+      ["🐪", 860, 300], ["🌿", 470, 880], ["🌳", 900, 150], ["⛺", 180, 360], ["🪨", 760, 960],
+    ],
+  };
+
+  const tzfat = {
+    id: "tzfat", name: "צפת", W: 1000, H: 1050,
+    start: { x: 520, y: 930 },
+    blocked: [],
+    spots: [
+      { id: "ari", name: "בית הכנסת האר\"י", icon: "🕍", x: 500, y: 330, color: "#2563eb",
+        info: {
+          title: "🕍 בית הכנסת האר\"י",
+          text: "על שם האר\"י הקדוש, רבי יצחק לוריא, גדול המקובלים, שלימד בצפת לפני כ-450 שנה. הוא חי בצפת רק כשנתיים, ותורתו מאירה עד היום.",
+          links: [["🎯 משימת בית הכנסת: ברכות, תפילה וחגים", "#/place/beit-knesset"]],
+        } },
+      { id: "karo", name: "בית הכנסת של מרן", icon: "📘", x: 720, y: 470, color: "#1d4ed8",
+        info: {
+          title: "📘 בית הכנסת של רבי יוסף קארו",
+          text: "בצפת כתב מרן רבי יוסף קארו את ה\"בית יוסף\" ואת ה\"שולחן ערוך\", ספר ההלכה שכל ישראל לומדים ופוסקים לפיו.",
+          links: [["📜 מסע במשנה", "#/place/mishna"]],
+        } },
+      { id: "abuhav", name: "בית הכנסת אבוהב", icon: "📜", x: 290, y: 500, color: "#0ea5e9",
+        info: {
+          title: "📜 בית הכנסת אבוהב",
+          text: "בית כנסת עתיק בעיר העתיקה של צפת, על שם רבי יצחק אבוהב, מחכמי ספרד.",
+          links: [],
+        } },
+      { id: "lecha", name: "שדה קבלת שבת", icon: "🌅", x: 830, y: 230, color: "#f59e0b",
+        info: {
+          title: "🌅 לכה דודי",
+          text: "בצפת חיבר רבי שלמה אלקבץ את הפיוט \"לכה דודי\". המקובלים יצאו לשדות בערב שבת לקבל את השבת כמו שמקבלים כלה, ומכאן התפשט מנהג קבלת שבת לכל העולם.",
+          links: [],
+        } },
+      { id: "cemetery", name: "בית העלמין העתיק", icon: "🕯️", x: 180, y: 760, color: "#3b82f6",
+        info: {
+          title: "🕯️ בית העלמין העתיק",
+          text: "על מדרון ההר קבורים גדולי צפת: האר\"י הקדוש, רבי יוסף קארו, הרמ\"ק (רבי משה קורדובירו), רבי שלמה אלקבץ ועוד צדיקים רבים.",
+          links: [],
+        } },
+      { id: "meron-road", name: "הדרך למירון", icon: "🔥", x: 120, y: 260, color: "#ea580c", href: "#/b/meron" },
+      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 870, y: 980, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      const houses = [];
+      for (let i = 0; i < 26; i++) {
+        const x = 230 + (i * 137) % 560, y = 260 + ((i * 89) % 520);
+        if (this.spots.some(sp => Math.abs(sp.x - x - 23) < 85 && Math.abs(sp.y - y) < 90)) continue; // לא מסתירים את המקומות
+        houses.push(`<rect x="${x}" y="${y}" width="46" height="36" rx="4" fill="#f3ecdc" stroke="#d6cbb0" stroke-width="2"/><rect x="${x + 17}" y="${y + 14}" width="12" height="22" rx="5" fill="#3b82f6"/>`);
+      }
+      const graves = [];
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 6; c++) graves.push(`<rect x="${70 + c * 34 + r * 6}" y="${640 + r * 46}" width="22" height="12" rx="3" fill="#60a5fa"/>`);
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <rect width="${W}" height="${H}" fill="#b9d58a"/>
+        <!-- ההר של צפת והמצודה בראשו -->
+        <ellipse cx="520" cy="520" rx="420" ry="400" fill="#cfe0a0"/>
+        <ellipse cx="520" cy="470" rx="300" ry="290" fill="#dfe8b5"/>
+        <circle cx="520" cy="170" r="70" fill="#c9b98b"/><circle cx="520" cy="170" r="50" fill="#d9cba0"/>
+        <path d="M120 950 C 300 880, 420 800, 470 640 S 560 420, 520 240" fill="none" stroke="#e9dfc4" stroke-width="30" stroke-linecap="round"/>
+        <path d="M230 520 H 800 M300 380 C 400 420, 620 420, 760 380 M260 650 C 420 690, 640 690, 780 640" fill="none" stroke="#efe6cf" stroke-width="20" stroke-linecap="round"/>
+        ${houses.join("")}
+        <path d="M40 620 L 300 600 L 330 900 L 30 920 Z" fill="#d5dcb0"/>
+        ${graves.join("")}
+      </svg>`;
+    },
+    labels: [
+      { text: "המצודה", x: 520, y: 170, cls: "land small" },
+      { text: "העיר העתיקה", x: 520, y: 600, cls: "land" },
+      { text: "הרי הגליל", x: 860, y: 760, cls: "land" },
+    ],
+    decorations: [
+      ["🌲", 860, 400], ["🌲", 920, 520], ["🌲", 100, 420], ["🌲", 840, 860], ["🌳", 650, 900], ["🕊️", 560, 300],
+      ["🌲", 380, 120], ["🌲", 680, 110], ["🕯️", 470, 470], ["🌸", 760, 300], ["🌲", 960, 220],
+    ],
+  };
+
+  const TOWNS = { jerusalem, hebron, tzfat };
   window.Towns = { TOWNS, byId: id => TOWNS[id] };
 })();

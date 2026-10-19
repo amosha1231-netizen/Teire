@@ -113,7 +113,7 @@
     const hasSages = Sages.SAGES.some(s => s.building === L.id);
     return {
       name: L.name, icon: L.icon, color: L.color,
-      open: torahOpen || hasSages || L.duel,
+      open: torahOpen || hasSages || L.duel || !!Towns.byId(L.id), // לעיר עם עולם פנימי תמיד אפשר להיכנס
       stars: t ? player.stars[t.id] || 0 : 0,
       href: L.href || (Towns.byId(L.id) ? "#/town/" + L.id : "#/b/" + L.id),
     };
@@ -371,6 +371,8 @@
       onBuilding(bEl, walkTo) {
         const sp = T.spots.find(x => x.id === bEl.dataset.b);
         hideInfo();
+        const pl = sp.href && sp.href.startsWith("#/place/") && placeById(sp.href.slice(8));
+        if (pl && !isOpen(PLACES.indexOf(pl))) { toast("🔒 " + pl.name + " ייפתח אחרי המשימה הקודמת במסע"); return; }
         walkTo(sp.ax != null ? sp.ax : sp.x, sp.ay != null ? sp.ay : sp.y + 62, () => {
           if (sp.exit) { player.townPos[id] = null; savePlayer(); }
           if (sp.href) location.hash = sp.href; else showInfo(sp);
