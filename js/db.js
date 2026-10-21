@@ -12,6 +12,13 @@
     return a;
   }
 
+  // השאלות המובנות נקראות תמיד מ-content/torah.js, כך שתיקון שם מגיע לכולם.
+  // ממסד הנתונים לוקחים רק שאלות שגולשים הציעו ומנהל אישר. (העותקים הישנים של השאלות המובנות שם מסומנים "צוות האתר" ומדולגים.)
+  const SITE = "צוות האתר";
+  const builtIn = place => window.TEIRE_SEED.map((q, i) => ({ ...q, id: "seed-" + i, status: "approved", author_name: SITE }))
+    .filter(q => !place || q.place === place);
+  const fromUsers = list => (list || []).filter(q => q.author_name !== SITE);
+
   // ---------- מצב מקומי ----------
   const LS_KEY = "teire.questions.v2";
   const local = {
@@ -19,21 +26,19 @@
     _all() {
       try {
         const raw = localStorage.getItem(LS_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) return fromUsers(JSON.parse(raw));
       } catch (e) { /* ignore */ }
-      const seeded = window.TEIRE_SEED.map((q, i) => ({ ...q, id: i + 1, status: "approved", author_name: "צוות האתר" }));
-      this._save(seeded);
-      return seeded;
+      return [];
     },
     _save(list) {
       try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
     },
     async approved(place) {
-      return this._all().filter(q => q.status === "approved" && (!place || q.place === place));
+      return builtIn(place).concat(this._all().filter(q => q.status === "approved" && (!place || q.place === place)));
     },
     async counts() {
       const c = {};
-      this._all().filter(q => q.status === "approved").forEach(q => { c[q.place] = (c[q.place] || 0) + 1; });
+      (await this.approved()).forEach(q => { c[q.place] = (c[q.place] || 0) + 1; });
       return c;
     },
     async submit(q) {
@@ -85,24 +90,24 @@
       if (error) {
         // מסד הנתונים עוד לא הוקם או לא זמין: משחקים עם השאלות המובנות
         console.warn("Supabase לא זמין, משתמשים בשאלות המובנות", error);
-        return local.approved(place);
+        return builtIn(place);
       }
-      return data;
+      return builtIn(place).concat(fromUsers(data));
     },
     async allApproved() {
       const { data, error } = await sb.from("questions").select("*").eq("status", "approved").order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return fromUsers(data);
     },
     async remove(id) {
       const { error } = await sb.from("questions").delete().eq("id", id);
       if (error) throw error;
     },
     async counts() {
-      const { data, error } = await sb.from("questions").select("place").eq("status", "approved");
+      const { data, error } = await sb.from("questions").select("place, author_name").eq("status", "approved");
       if (error) throw error;
       const c = {};
-      data.forEach(q => { c[q.place] = (c[q.place] || 0) + 1; });
+      builtIn().concat(fromUsers(data)).forEach(q => { c[q.place] = (c[q.place] || 0) + 1; });
       return c;
     },
     async submit(q) {

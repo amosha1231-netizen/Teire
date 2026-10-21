@@ -1087,7 +1087,7 @@
         <div class="place-hero" style="--c:#111827"><div class="place-icon">🎭</div><h1>חדר הוויכוח</h1><p>שני חכמים, סוגיא אחת. מי צודק?</p></div>
         ${X.DEBATES.map(x => `<a class="card debate-pick" href="#/debate/${x.id}">
           <span class="dp-faces">${x.pair.map(w => Sages.sageSVG(X.SPEAKERS[w], 40)).join("")}</span>
-          <span><b>${x.title}</b><br><span class="small muted">${x.pair.map(w => X.SPEAKERS[w].name).join(" נגד ")} · ${x.source}</span></span>
+          <span><b>${x.title}</b><br><span class="small muted">${x.pair.map(w => X.SPEAKERS[w].name).join(" נגד ")}<br>📖 ${esc(x.source)}</span></span>
           ${(player.debates || []).includes(x.id) ? "✓" : ""}</a>`).join("")}
         ${backToTorah}`;
       return;
@@ -1096,7 +1096,7 @@
     const [A, B] = d.pair;
     app.innerHTML = `
       <div class="dark-room" id="room">
-        <div class="room-title">${d.title} <span>· ${d.source}</span></div>
+        <div class="room-title">${d.title}<span>📖 מקור: ${esc(d.source)}</span></div>
         <div class="speaker left" data-w="${A}">${Sages.sageSVG(X.SPEAKERS[A], 110)}<b>${X.SPEAKERS[A].name}</b></div>
         <div class="speaker right" data-w="${B}">${Sages.sageSVG(X.SPEAKERS[B], 110)}<b>${X.SPEAKERS[B].name}</b></div>
         <div class="debate-bubble" id="bub"></div>
@@ -1291,7 +1291,7 @@
         <div class="row"><button class="btn ghost small-btn" id="mypos">📍 לפי המיקום שלי</button></div>
         <p class="small muted" id="nextsh"></p>
       </div>
-      <div class="row center-row"><button class="btn ghost" id="redo">שינוי שם ומראה</button></div>
+      <div class="row center-row"><button class="btn ghost" id="redo">שינוי שם ומראה</button><a class="btn ghost" href="#/review">📋 כל השאלות והמקורות</a></div>
       <p class="small muted center">🎵 צלילי הכלים במוזיקה: FluidR3 GM מאת Frank Wen, ברישיון <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></p>`;
 
     app.querySelectorAll(".item").forEach(b => b.onclick = () => {
@@ -1430,7 +1430,7 @@
         <button class="btn ghost" id="logout">יציאה</button>
       </div>
       <div id="plist"><p class="muted">טוען...</p></div>
-      <div class="row center-row"><button class="btn ghost" id="showapproved">📋 השאלות שכבר אושרו</button></div>
+      <div class="row center-row"><button class="btn ghost" id="showapproved">📋 השאלות שכבר אושרו</button><a class="btn ghost" href="#/review">📖 כל השאלות והמקורות באתר</a></div>
       <div id="alist"></div>`;
     document.getElementById("logout").onclick = async () => { await db.logout(); viewAdmin(); };
     document.getElementById("showapproved").onclick = showApproved;
@@ -1580,6 +1580,99 @@
     );
   }
 
+  // ---------- כל התוכן במקום אחד: כל השאלות, המשפטים והוויכוחים עם המקורות, לבדיקה ולתיקון ----------
+  // כל פריט מקבל קוד קבוע (למשל ת-12). כדי לתקן, מוסרים את הקוד, והתיקון נעשה בקובץ שרשום ליד הפריט.
+  function allContent() {
+    const items = [];
+    const pname = id => { const p = placeById(id); return p ? `${p.icon} ${p.name.replace("הכולל של ", "כולל ")}` : id; };
+    const add = (prefix, group, file, where, it) => items.push({ code: `${prefix}-${items.filter(x => x.prefix === prefix).length + 1}`, prefix, group, file, where, ...it });
+    const quiz = (prefix, group, file, where, q, depth) => {
+      add(prefix, group, file, where + (depth ? " · שאלת המשך" : ""), { text: q.question, answer: q.answers[q.correct], others: q.answers.filter((_, i) => i !== q.correct), source: q.source });
+      if (q.followup) quiz(prefix, group, file, where, q.followup, (depth || 0) + 1);
+    };
+    (window.TEIRE_SEED || []).forEach(q => quiz("ת", "שאלות התחנות", "content/torah.js", `${pname(q.place)} · ${LEVEL_NAMES[1]}`, q));
+    Object.entries(window.TEIRE_LEVELS || {}).forEach(([place, lv]) => Object.entries(lv).forEach(([l, list]) => list.forEach(q => {
+      const kollel = place.startsWith("kollel-");
+      quiz(kollel ? "כ" : "ש", kollel ? "כוללי הרבנים" : "שאלות התחנות", kollel ? "content/kollels.js" : "content/levels.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
+    })));
+    Sages.SAGES.forEach(sg => sg.quest.forEach(q => quiz("נ", "עיבור נשמה", "content/sages.js", `${sg.name}`, q)));
+    Sages.MACHLOKOT.forEach(m => add("מ", "מחלוקות", "content/sages.js", Object.keys(m.opinions).map(id => Sages.byId(id) ? Sages.byId(id).school : id).join(" · "), {
+      text: m.question, answer: Object.entries(m.opinions).map(([id, i]) => `${Sages.byId(id) ? Sages.byId(id).school : id}: ${m.answers[i]}`).join(" | "), others: [], source: m.source }));
+    (window.TEIRE_CHALLENGES || []).forEach(c => add("א", "משפטי האתגרים", "content/challenges.js", "החלקה ומכונית", { text: c.text, answer: c.right, others: [`מקור מטעה: ${c.wrong}`], source: c.right }));
+    const D = window.TEIRE_DEBATES || { DEBATES: [], SPEAKERS: {} };
+    D.DEBATES.forEach(d => add("ו", "ויכוחים", "content/debates.js", d.pair.map(w => D.SPEAKERS[w].name).join(" נגד "), {
+      text: d.title, answer: "", others: [], source: d.source,
+      lines: d.lines.map(([w, t]) => `${w ? D.SPEAKERS[w].name : "המספר"}: ${t}`) }));
+    return items;
+  }
+
+  async function viewReview() {
+    setTab("me");
+    const items = allContent();
+    const groups = [...new Set(items.map(i => i.group))];
+    let group = "", query = "", noSource = false;
+    app.innerHTML = `
+      <div class="card">
+        <h2>📋 כל השאלות והמקורות</h2>
+        <p class="muted small">כל התוכן באתר במקום אחד. מצאתם טעות? לחצו על הקוד של הפריט כדי להעתיק אותו, ושלחו אותו עם התיקון.</p>
+        <input id="rq" type="search" placeholder="🔍 חיפוש לפי מילה או מקור">
+        <div class="chips" id="rg">
+          <button class="chip on" data-g="">הכול (${items.length})</button>
+          ${groups.map(g => `<button class="chip" data-g="${g}">${g} (${items.filter(i => i.group === g).length})</button>`).join("")}
+          <button class="chip warn" data-ns="1">⚠️ בלי מקור (${items.filter(i => !i.source).length})</button>
+          <button class="chip" data-g="db">שאלות שגולשים הציעו</button>
+        </div>
+      </div>
+      <div id="rlist"></div>`;
+    const list = document.getElementById("rlist");
+    let dbItems = null;
+    const card = i => `
+      <div class="review-item">
+        <div class="review-top"><button class="code" data-code="${i.code}" title="העתקת הקוד">${i.code}</button><span class="small muted">${esc(i.where)}</span></div>
+        <div class="review-q">${esc(i.text)}</div>
+        ${i.answer ? `<div class="review-a">✓ ${esc(i.answer)}</div>` : ""}
+        ${i.others.length ? `<div class="small muted">${i.others.map(esc).join(" · ")}</div>` : ""}
+        ${i.lines ? `<details><summary class="small">מה כל אחד אומר</summary>${i.lines.map(l => `<p class="small">${esc(l)}</p>`).join("")}</details>` : ""}
+        <div class="review-src ${i.source ? "" : "missing"}">${i.source ? `📖 ${esc(i.source)}` : "⚠️ אין מקור"}</div>
+        <div class="tiny muted">${i.file}</div>
+      </div>`;
+    async function draw() {
+      let shown;
+      if (group === "db") {
+        list.innerHTML = `<p class="muted center">טוען...</p>`;
+        if (!dbItems) {
+          try {
+            dbItems = (await db.allApproved()).map((q, n) => ({ code: `ג-${q.id}`, where: `${(placeById(q.place) || { name: q.place }).name} · ${LEVEL_NAMES[q.level || 1]}${q.author_name ? " · " + q.author_name : ""}`,
+              text: q.question, answer: q.answers[q.correct], others: q.answers.filter((_, i) => i !== q.correct), source: q.source, file: "מסד הנתונים (עריכה בלשונית ניהול)" }));
+          } catch (e) { list.innerHTML = errorBox(e); return; }
+        }
+        shown = dbItems;
+      } else shown = items.filter(i => !group || i.group === group);
+      if (noSource) shown = shown.filter(i => !i.source);
+      if (query) shown = shown.filter(i => [i.code, i.text, i.answer, i.source, i.where, ...(i.others || []), ...(i.lines || [])].join(" ").includes(query));
+      list.innerHTML = shown.length ? `<p class="small muted">${shown.length} פריטים</p>` + shown.map(card).join("") : `<div class="card muted center">לא נמצא כלום</div>`;
+    }
+    document.getElementById("rq").oninput = ev => { query = ev.target.value.trim(); draw(); };
+    document.getElementById("rg").onclick = ev => {
+      const b = ev.target.closest(".chip");
+      if (!b) return;
+      if (b.dataset.ns) { noSource = !noSource; b.classList.toggle("on", noSource); }
+      else {
+        group = b.dataset.g;
+        document.querySelectorAll("#rg .chip[data-g]").forEach(c => c.classList.toggle("on", c === b));
+      }
+      draw();
+    };
+    list.onclick = ev => {
+      const b = ev.target.closest(".code");
+      if (!b) return;
+      const item = (dbItems || []).concat(items).find(i => i.code === b.dataset.code);
+      const text = `${item.code}: ${item.text} (${item.source || "בלי מקור"})`;
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast("הקוד הועתק 📋"), () => toast(item.code));
+    };
+    draw();
+  }
+
   // איזו מוזיקה מתנגנת בכל מקום באתר
   function moodFor(page, arg) {
     if (page === "debate") return arg ? "dark" : "study";
@@ -1609,6 +1702,7 @@
     if (page === "race") return viewRace();
     if (page === "debate") return viewDebate(arg);
     if (page === "learn") return viewLearn(arg);
+    if (page === "review") return viewReview();
     if (page === "me") return viewMe();
     if (page === "suggest") return viewSuggest(arg);
     if (page === "admin") return viewAdmin();

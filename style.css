@@ -448,7 +448,7 @@ body.shabbat .music-btn { display: none; }
   box-shadow: inset 0 0 120px #000, 0 6px 0 rgba(0,0,0,.3); margin-bottom: 12px;
 }
 .room-title { position: absolute; top: 12px; width: 100%; text-align: center; font-weight: 800; color: #fbbf24; letter-spacing: 1px; }
-.room-title span { color: #a8a29e; font-weight: 400; }
+.room-title span { display: block; margin-top: 4px; color: #d6d3d1; font-weight: 500; font-size: .85rem; letter-spacing: 0; }
 .speaker { position: absolute; top: 60px; width: 42%; display: flex; flex-direction: column; align-items: center; gap: 4px; filter: brightness(.25) grayscale(.6); transition: filter .5s, transform .5s; }
 .speaker.left { right: 4%; } .speaker.right { left: 4%; }
 .speaker b { color: #fff; }
@@ -495,3 +495,19 @@ body.shabbat .music-btn { display: none; }
 .lvl-pick span { display: block; text-align: center; padding: 9px 4px; border-radius: 12px; font-size: .85rem; font-weight: 600; cursor: pointer; transition: background .12s; }
 .lvl-pick input:checked + span { background: #fff; color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .lvl-pick input:focus-visible + span { outline: 3px solid var(--primary); }
+
+/* דף כל השאלות והמקורות */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chips .chip { border: 2px solid transparent; font: inherit; font-size: .8rem; font-weight: 700; padding: 5px 12px; margin: 0; cursor: pointer; }
+.chips .chip.on { background: var(--primary); color: #fff; }
+.chips .chip.warn { background: #fef3c7; color: #92400e; }
+.chips .chip.warn.on { background: #d97706; color: #fff; }
+.review-item { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+.review-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.review-top .code { font: inherit; font-weight: 800; font-size: .8rem; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 2px 8px; cursor: pointer; }
+.review-q { font-weight: 700; }
+.review-a { color: var(--good); font-weight: 600; font-size: .92rem; }
+.review-src { margin-top: 6px; font-size: .9rem; font-weight: 600; color: var(--primary); }
+.review-src.missing { color: #b45309; }
+.review-item details p { margin: 4px 0; }
+.tiny { font-size: .7rem; margin-top: 2px; direction: ltr; text-align: right; }
