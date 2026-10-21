@@ -16,6 +16,14 @@
   function savePlayer() {
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     renderHud();
+    syncScore();
+  }
+  // טבלת האלופים: רק מי שבחר להצטרף. המזהה הסודי (secret) נשמר רק בדפדפן ומשמש לעדכון השורה שלו.
+  let scoreTimer = 0;
+  function syncScore() {
+    if (!player.board || !player.secret) return;
+    clearTimeout(scoreTimer);
+    scoreTimer = setTimeout(() => db.submitScore(player.secret, player.name, totalStars(), player.souls.length), 1500);
   }
   const totalStars = () => Object.values(player.stars).reduce((a, b) => a + b, 0);
   const owns = (slot, item) => item.price === 0 || player.owned.includes(slot + ":" + item.id);
@@ -171,6 +179,7 @@
           ${meHtml(soul, pos)}
         </div>
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
+        <a class="soul-chip lead-chip" href="#/leaders">🏆 טבלת האלופים</a>
         <a class="soul-chip" href="#/souls">${soul ? `🕯️ נשמת ${esc(soul.name)}` : "🕯️ עוד אין נשמה"} · ${player.souls.length}/${Sages.SAGES.length}</a>
       </div>`;
 
@@ -508,10 +517,9 @@
 
     app.innerHTML = `<p class="muted center">טוען...</p>`;
     let dbPool = [];
-    if (!place.bank) {
-      try { dbPool = await db.approved(placeId); } catch (e) { app.innerHTML = errorBox(e); return; }
-    }
-    const pools = [null, dbPool.concat(bankFor(placeId, 1)), bankFor(placeId, 2), bankFor(placeId, 3)];
+    try { dbPool = await db.approved(placeId); } catch (e) { app.innerHTML = errorBox(e); return; }
+    // שאלות ממסד הנתונים לפי השלב שלהן (בלי שלב = שלב 1), ועוד השאלות המובנות של אותו שלב
+    const pools = [null, 1, 2, 3].map(l => l && dbPool.filter(q => (q.level || 1) === l).concat(bankFor(placeId, l)));
     const levels = [1, 2, 3].filter(l => pools[l].length);
     const st = player.stars[placeId] || 0;
     app.innerHTML = `
@@ -534,7 +542,7 @@
             : `<div class="small">🔒 נפתח אחרי ${LEVEL_NAMES[l - 1].split(":")[0]}</div>`}
         </div>`;
       }).join("") : `<div class="card center"><p>אין עדיין שאלות במקום הזה.</p></div>`}
-      <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a>${place.bank ? "" : `<a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a>`}</div>`;
+      <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a><a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a></div>`;
     app.querySelectorAll("[data-level]").forEach(btn => btn.onclick = () => {
       const l = Number(btn.dataset.level);
       runMission(place, pools[l], l);
@@ -875,6 +883,7 @@
       <div class="card center">
         <h2>🕯️ היכל הנשמות</h2>
         <p class="small muted">בכל בית בעיר יושבים תנאים ואמוראים. ענו על השאלות שלהם וקבלו "עיבור נשמה". כשהנשמה פעילה, בלימוד הסוגיא תענו לפי השיטה של אותו חכם.</p>
+        <a class="btn gold small-btn" href="#/leaders">🏆 טבלת האלופים</a>
       </div>
       <div class="souls">
         ${Sages.SAGES.map(s => {
@@ -893,6 +902,52 @@
       if (player.souls.includes(s.id)) { player.activeSoul = s.id; savePlayer(); viewSouls(); toast("🕯️ נשמת " + s.name + " פעילה"); }
       else { location.hash = "#/b/" + s.building; }
     });
+  }
+
+  // ---------- טבלת האלופים ----------
+  async function viewLeaders() {
+    if (!player.name) return viewOnboarding();
+    setTab("souls");
+    app.innerHTML = `
+      <div class="card center">
+        <h2>🏆 טבלת האלופים</h2>
+        <p class="small muted">מי אסף הכי הרבה כוכבים ונשמות. בטבלה מופיעים רק מי שבחרו להצטרף, ורק עם השם שלהם.</p>
+      </div>
+      <div class="card" id="board"><p class="muted center">טוען...</p></div>
+      <div id="joinbox"></div>`;
+    const list = await db.leaderboard();
+    const board = document.getElementById("board"), join = document.getElementById("joinbox");
+    if (!board) return; // עברו לעמוד אחר בזמן הטעינה
+    if (list === null) {
+      board.innerHTML = `<p class="muted center">${db.mode === "local" ? "טבלת האלופים עובדת רק כשהאתר מחובר לשרת." : "טבלת האלופים תיפתח אחרי שהמנהל יריץ את עדכון 2 ב-Supabase."}</p>`;
+      return;
+    }
+    const medal = i => ["🥇", "🥈", "🥉"][i] || `<span class="rank">${i + 1}</span>`;
+    board.innerHTML = list.length ? `<ol class="leaders">${list.map((r, i) => `
+      <li class="${player.board && r.name === player.name ? "me-row" : ""}">
+        <span class="medal">${medal(i)}</span><b>${esc(r.name)}</b>
+        <span class="pill dark">⭐ ${r.stars}</span><span class="pill dark">🕯️ ${r.souls}</span>
+      </li>`).join("")}</ol>` : `<p class="muted center">עוד אין אף אחד בטבלה. תהיו הראשונים!</p>`;
+    join.innerHTML = player.board
+      ? `<div class="row center-row"><button class="btn ghost" id="leave">יציאה מהטבלה</button></div>`
+      : `<div class="card center"><p class="small">השם <b>${esc(player.name)}</b> יופיע לכל מי שנכנס לאתר, עם הכוכבים והנשמות שלכם. אפשר לצאת מהטבלה בכל רגע.</p>
+         <button class="btn gold big-btn" id="joinb">🏆 הצטרפו לטבלה</button></div>`;
+    const jb = document.getElementById("joinb");
+    if (jb) jb.onclick = async () => {
+      if (!player.secret) {
+        const a = new Uint8Array(16); crypto.getRandomValues(a);
+        player.secret = Array.from(a, x => x.toString(16).padStart(2, "0")).join("");
+      }
+      player.board = true; savePlayer();
+      clearTimeout(scoreTimer);
+      await db.submitScore(player.secret, player.name, totalStars(), player.souls.length);
+      confetti(); viewLeaders();
+    };
+    const lb = document.getElementById("leave");
+    if (lb) lb.onclick = async () => {
+      try { await db.leaveBoard(player.secret); } catch (e) { toast("לא הצלחנו לצאת מהטבלה, נסו שוב"); return; }
+      player.board = false; savePlayer(); viewLeaders();
+    };
   }
 
   // ---------- הדמות שלי וחנות ----------
@@ -965,7 +1020,11 @@
     return `
       <label>לאיזה מקום במפה?</label>
       <select name="place">
-        ${PLACES.filter(p => !p.bank).map(p => `<option value="${p.id}" ${q.place === p.id ? "selected" : ""}>${p.icon} ${p.name} (${p.desc})</option>`).join("")}
+        ${PLACES.map(p => `<option value="${p.id}" ${q.place === p.id ? "selected" : ""}>${p.icon} ${p.name} (${p.desc})</option>`).join("")}
+      </select>
+      <label>באיזה שלב?</label>
+      <select name="level">
+        ${[1, 2, 3].map(l => `<option value="${l}" ${(q.level || 1) === l ? "selected" : ""}>${LEVEL_NAMES[l]}</option>`).join("")}
       </select>
       <label>השאלה</label>
       <textarea name="question" rows="2" required maxlength="300">${esc(q.question)}</textarea>
@@ -982,6 +1041,7 @@
     const f = new FormData(form);
     return {
       place: f.get("place"),
+      level: Number(f.get("level")) || 1,
       question: f.get("question").trim(),
       answers: [0, 1, 2, 3].map(i => f.get("a" + i).trim()),
       correct: Number(f.get("correct")),
@@ -1051,7 +1111,7 @@
       const p = placeById(q.place) || { icon: "", name: q.place };
       return `
       <div class="card pending" data-id="${q.id}">
-        <div><span class="chip">${p.icon} ${esc(p.name)}</span><span class="small muted">${q.author_name ? "מאת " + esc(q.author_name) : "אנונימי"}</span></div>
+        <div><span class="chip">${p.icon} ${esc(p.name)}</span><span class="chip">${LEVEL_NAMES[q.level || 1].split(":")[0]}</span><span class="small muted">${q.author_name ? "מאת " + esc(q.author_name) : "אנונימי"}</span></div>
         <h3 style="margin-top:8px">${esc(q.question)}</h3>
         <ol>${q.answers.map((a, i) => `<li class="${i === q.correct ? "is-correct" : ""}">${esc(a)}${i === q.correct ? " ✓" : ""}</li>`).join("")}</ol>
         ${q.source ? `<div class="small muted">מקור: ${esc(q.source)}</div>` : ""}
@@ -1086,7 +1146,7 @@
     box.innerHTML = `<h3>${list.length} שאלות מאושרות</h3>` + list.map(q => {
       const p = placeById(q.place) || { icon: "", name: q.place };
       return `<div class="card approved-row" data-id="${q.id}">
-        <span class="chip">${p.icon} ${esc(p.name)}</span>
+        <span class="chip">${p.icon} ${esc(p.name)} · ${LEVEL_NAMES[q.level || 1].split(":")[0]}</span>
         <div><b>${esc(q.question)}</b> <span class="small muted">(${esc(q.answers[q.correct])})</span></div>
         <button class="btn ghost small-btn" data-del>מחיקה</button>
       </div>`;
@@ -1198,6 +1258,7 @@
     if (page === "kotel") return viewKotel();
     if (page === "duel" && arg) return viewDuel(arg);
     if (page === "souls") return viewSouls();
+    if (page === "leaders") return viewLeaders();
     if (page === "me") return viewMe();
     if (page === "suggest") return viewSuggest(arg);
     if (page === "admin") return viewAdmin();

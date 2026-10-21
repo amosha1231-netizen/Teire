@@ -378,3 +378,13 @@ body.shabbat { background: linear-gradient(180deg, #1e2a52, #3b2f6b); }
 .map-svg .fire { transform-box: fill-box; transform-origin: 50% 100%; animation: flicker .5s ease-in-out infinite alternate; }
 .map-svg .fire:nth-child(2n) { animation-delay: .25s; }
 @keyframes flicker { to { transform: scaleY(1.18) scaleX(.9); } }
+
+/* טבלת האלופים */
+.lead-chip { top: 50px; border-color: #f59e0b; }
+.leaders { list-style: none; margin: 0; padding: 0; }
+.leaders li { display: flex; align-items: center; gap: 8px; padding: 8px 6px; border-bottom: 1px solid #f1e6c8; }
+.leaders li:last-child { border-bottom: none; }
+.leaders li b { flex: 1; }
+.leaders .medal { width: 30px; text-align: center; font-size: 1.3rem; }
+.leaders .rank { font-size: .95rem; font-weight: 800; color: var(--muted, #6b7280); }
+.leaders li.me-row { background: #fff7d6; border-radius: 10px; }

@@ -65,9 +65,16 @@
       this._admin = true; sessionStorage.setItem("teire.admin", "1");
     },
     async logout() { this._admin = false; sessionStorage.removeItem("teire.admin"); },
+    // טבלת האלופים צריכה שרת משותף, אז במצב מקומי היא לא זמינה
+    async leaderboard() { return null; },
+    async submitScore() {},
+    async leaveBoard() {},
   };
 
   // ---------- מצב Supabase ----------
+  const OLD_PLACES = ["gan-eden", "teiva", "ohel", "mitzrayim", "sinai", "midbar", "beit-midrash", "beit-knesset"];
+  // שגיאה שאומרת שמסד הנתונים עוד לא קיבל את עדכון 2 (אין עמודת level, או שהתחנה לא מותרת)
+  const needsUpdate = e => /level|questions_place_check|PGRST204|42703/.test((e.message || "") + " " + (e.code || ""));
   let sb = null;
   const remote = {
     mode: "supabase",
@@ -100,7 +107,14 @@
     },
     async submit(q) {
       // בלי select: משתמש אנונימי לא רשאי לקרוא שאלות שממתינות לאישור
-      const { error } = await sb.from("questions").insert({ ...q, status: "pending" });
+      let { error } = await sb.from("questions").insert({ ...q, status: "pending" });
+      if (error && needsUpdate(error)) {
+        // מסד הנתונים עוד בלי עדכון 2: שאלה רגילה לשלב 1 עוברת גם בלי השדה level
+        if ((q.level || 1) === 1 && OLD_PLACES.includes(q.place)) {
+          const { level, ...rest } = q;
+          ({ error } = await sb.from("questions").insert({ ...rest, status: "pending" }));
+        } else throw new Error("כדי להציע שאלות לשלבים קשים או לתחנות החדשות, המנהל צריך להריץ את הקובץ supabase/update-2.sql ב-Supabase.");
+      }
       if (error) throw error;
     },
     async pending() {
@@ -114,6 +128,21 @@
     },
     async update(id, fields) {
       const { error } = await sb.from("questions").update(fields).eq("id", id);
+      if (error && needsUpdate(error)) throw new Error("כדי לשמור שלב או תחנה חדשה צריך להריץ את הקובץ supabase/update-2.sql ב-Supabase.");
+      if (error) throw error;
+    },
+    // ---- טבלת האלופים ----
+    async leaderboard() {
+      const { data, error } = await sb.rpc("get_leaderboard");
+      if (error) { console.warn("טבלת האלופים לא זמינה", error); return null; }
+      return data;
+    },
+    async submitScore(id, name, stars, souls) {
+      const { error } = await sb.rpc("submit_score", { p_id: id, p_name: name, p_stars: stars, p_souls: souls });
+      if (error) console.warn("עדכון הטבלה נכשל", error);
+    },
+    async leaveBoard(id) {
+      const { error } = await sb.rpc("leave_board", { p_id: id });
       if (error) throw error;
     },
     async isAdmin() {
