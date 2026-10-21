@@ -113,7 +113,7 @@
         if ((q.level || 1) === 1 && OLD_PLACES.includes(q.place)) {
           const { level, ...rest } = q;
           ({ error } = await sb.from("questions").insert({ ...rest, status: "pending" }));
-        } else throw new Error("כדי להציע שאלות לשלבים קשים או לתחנות החדשות, המנהל צריך להריץ את הקובץ supabase/update-2.sql ב-Supabase.");
+        } else throw new Error("כדי להציע שאלות לשלבים קשים, לתחנות החדשות או לכוללים, המנהל צריך להריץ את הקובץ supabase/update-2.sql ב-Supabase.");
       }
       if (error) throw error;
     },

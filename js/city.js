@@ -19,6 +19,7 @@
     { id: "yafo", name: "יפו", icon: "⛵", x: 330, y: 790, color: "#5fb6e8", desc: "עיר נמל עתיקה על חוף הים", torah: "teiva" },
     { id: "bnei-brak", name: "בני ברק", icon: "🌴", x: 405, y: 880, color: "#f97316", desc: "הישיבה של רבי עקיבא", torah: "mishna" },
     { id: "yavne", name: "יבנה", icon: "🍇", x: 300, y: 990, color: "#8b5cf6", desc: "כרם ביבנה: רבי אליעזר ורבי יהושע" },
+    { id: "torah", name: "קריית התורה", icon: "🏙️", x: 705, y: 925, color: "#1e3a8a", desc: "כוללי הרבנים, אתגרים, חדר הוויכוח והספרייה" },
     { id: "jerusalem", name: "ירושלים", icon: "🏛️", x: 580, y: 1000, color: "#eab308", desc: "בית המדרש של הלל ושמאי, ואבן השתייה שממנה הושתת העולם", torah: "gan-eden", duel: true },
     { id: "shuk", name: "שוק מחנה יהודה", icon: "🛍️", x: 455, y: 1085, color: "#ec4899", desc: "חנות הבגדים והאביזרים", href: "#/me" },
     { id: "hebron", name: "חברון", icon: "🌳", x: 560, y: 1175, color: "#65a30d", desc: "מערת המכפלה", torah: "ohel" },

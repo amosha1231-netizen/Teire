@@ -904,6 +904,312 @@
     });
   }
 
+  // ---------- משחקים בקריית התורה ----------
+  let game = null; // המשחק שרץ עכשיו (נעצר במעבר עמוד)
+  function stopGame() { if (game) { game.stop(); game = null; } }
+  const X = window.TeireExtras;
+  const backToTorah = `<div class="row center-row"><a class="btn ghost" href="#/town/torah">חזרה לקריית התורה</a></div>`;
+  function bestOf(key, score) {
+    player.best = player.best || {};
+    const was = player.best[key] || 0;
+    if (score > was) player.best[key] = score;
+    return score > was && score > 0;
+  }
+  // החלקה ימינה/שמאלה, חיצים או הקשה על צד. cb("left" | "right")
+  function sideInput(el, cb) {
+    let sx = null;
+    el.addEventListener("pointerdown", e => { sx = e.clientX; });
+    el.addEventListener("pointerup", e => {
+      if (sx == null) return;
+      const dx = e.clientX - sx; sx = null;
+      if (Math.abs(dx) > 40) cb(dx > 0 ? "right" : "left");
+      else { const side = e.target.closest("[data-side]"); if (side) cb(side.dataset.side); }
+    });
+    const onKey = e => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); cb(e.key === "ArrowLeft" ? "left" : "right"); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }
+  // מקור נכון בצד אקראי
+  const sidesFor = item => Math.random() < .5 ? { left: item.right, right: item.wrong, correct: "left" } : { left: item.wrong, right: item.right, correct: "right" };
+
+  function gameIntro(key, title, icon, rules, start) {
+    setTab("map");
+    const best = (player.best || {})[key] || 0;
+    app.innerHTML = `
+      <div class="place-hero" style="--c:${key === "race" ? "#dc2626" : "#db2777"}">
+        <div class="place-icon">${icon}</div><h1>${title}</h1>
+        <p>השיא שלכם: ${best}</p>
+      </div>
+      <div class="card center">
+        <p>${rules}</p>
+        <button class="btn gold big-btn" id="go">מתחילים!</button>
+      </div>${backToTorah}`;
+    document.getElementById("go").onclick = start;
+  }
+
+  function gameOver(key, score, perPoint) {
+    const coins = score * perPoint, record = bestOf(key, score);
+    player.coins += coins; savePlayer();
+    if (record) confetti();
+    return `<div class="card center result">
+      <h2>${record ? "🏆 שיא חדש!" : "המשחק נגמר"}</h2>
+      <div class="big">${score}</div>
+      <p>הרווחתם <b>🪙 ${coins}</b></p>
+      <div class="row center-row"><button class="btn gold" id="again">שוב</button><a class="btn ghost" href="#/town/torah">לקריית התורה</a></div>
+    </div>`;
+  }
+
+  // ---- אתגר המקורות: משפט רץ אליכם, 5 שניות להחליק לצד של המקור הנכון ----
+  function viewSwipe() {
+    if (!player.name) return viewOnboarding();
+    gameIntro("swipe", "אתגר המקורות", "⚡", "משפט רץ אליכם! יש לכם <b>5 שניות</b> להחליק ימינה או שמאלה (או ללחוץ על החיצים במקלדת) אל הצד של המקור הנכון. שלוש טעויות והמשחק נגמר.", playSwipe);
+  }
+  function playSwipe() {
+    stopGame();
+    const deck = db.shuffle(X.SOURCES);
+    let i = 0, score = 0, lives = 3, timer = 0, locked = false, offKeys = null;
+    app.innerHTML = `
+      <div class="swipe-arena" id="arena">
+        <div class="arena-top"><span id="lives"></span><span class="pill dark" id="score">⭐ 0</span></div>
+        <button class="side-pad left" data-side="left"><span>⬅</span><b id="sl"></b></button>
+        <button class="side-pad right" data-side="right"><b id="sr"></b><span>➡</span></button>
+        <div class="runner" id="card"></div>
+        <div class="timebar"><span id="tb"></span></div>
+        <div class="swipe-hint">החליקו או הקישו על הצד הנכון</div>
+      </div>${backToTorah}`;
+    const card = document.getElementById("card"), tb = document.getElementById("tb"), arena = document.getElementById("arena");
+    let sides;
+    function round() {
+      if (lives <= 0) return end();
+      const item = deck[i++ % deck.length];
+      sides = sidesFor(item); sides.item = item;
+      document.getElementById("lives").textContent = "❤️".repeat(lives) + "🤍".repeat(3 - lives);
+      document.getElementById("score").textContent = "⭐ " + score;
+      document.getElementById("sl").textContent = sides.left;
+      document.getElementById("sr").textContent = sides.right;
+      arena.querySelectorAll(".side-pad").forEach(p => p.classList.remove("good", "bad"));
+      card.className = "runner"; card.textContent = item.text;
+      tb.style.transition = "none"; tb.style.width = "100%";
+      void card.offsetWidth;
+      card.classList.add("run"); tb.style.transition = "width 5s linear"; tb.style.width = "0%";
+      locked = false;
+      timer = setTimeout(() => answer(null), 5000);
+    }
+    function answer(side) {
+      if (locked) return; locked = true; clearTimeout(timer);
+      const ok = side === sides.correct;
+      if (ok) score++; else lives--;
+      card.className = "runner " + (side ? "fly-" + side : "fly-timeout");
+      arena.querySelector(`.side-pad.${sides.correct}`).classList.add("good");
+      if (side && !ok) arena.querySelector(`.side-pad.${side}`).classList.add("bad");
+      tb.style.transition = "none";
+      document.getElementById("score").textContent = "⭐ " + score;
+      if (!ok) toast((side ? "❌ " : "⏰ ") + "המקור: " + sides.item.right);
+      timer = setTimeout(round, ok ? 600 : 1300);
+    }
+    function end() {
+      stopGame();
+      app.innerHTML = gameOver("swipe", score, 3) + backToTorah;
+      document.getElementById("again").onclick = playSwipe;
+    }
+    offKeys = sideInput(arena, s => answer(s));
+    game = { stop() { clearTimeout(timer); if (offKeys) offKeys(); } };
+    round();
+  }
+
+  // ---- מרוץ המקורות: מכשול עם משפט מתקרב, נוסעים לנתיב של המקור הנכון ----
+  function viewRace() {
+    if (!player.name) return viewOnboarding();
+    gameIntro("race", "מרוץ המקורות", "🏎️", "מכשול עם משפט נוסע אליכם! בכל נתיב כתוב מקור אחר. עברו לנתיב של המקור הנכון (החלקה, הקשה על הנתיב או חיצים) ועקפו את המכשול. נתיב לא נכון, או להישאר באמצע, ואתם בחוץ!", playRace);
+  }
+  function playRace() {
+    stopGame();
+    const deck = db.shuffle(X.SOURCES);
+    let i = 0, score = 0, lane = "mid", raf = 0, offKeys = null, item, sides, t0 = 0, dur = 4600, done = false;
+    app.innerHTML = `
+      <div class="race" id="race">
+        <div class="race-q" id="rq"></div>
+        <div class="road" id="road">
+          <div class="lane-label left" data-side="left" id="ll"></div>
+          <div class="lane-label right" data-side="right" id="lr"></div>
+          <div class="obstacle" id="ob">🚧</div>
+          <div class="car mid" id="car">🏎️</div>
+        </div>
+        <div class="arena-top"><span class="pill dark" id="rs">🏁 0</span><span class="small muted">החליקו או הקישו על הנתיב</span></div>
+      </div>${backToTorah}`;
+    const ob = document.getElementById("ob"), car = document.getElementById("car"), road = document.getElementById("road");
+    function next() {
+      item = deck[i++ % deck.length]; sides = sidesFor(item);
+      document.getElementById("rq").textContent = "\"" + item.text + "\"";
+      document.getElementById("ll").textContent = sides.left;
+      document.getElementById("lr").textContent = sides.right;
+      road.classList.remove("crash");
+      lane = "mid"; car.className = "car mid";
+      dur = Math.max(2300, 4600 - score * 180);
+      t0 = performance.now();
+      raf = requestAnimationFrame(tick);
+    }
+    function tick(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      ob.style.top = (p * 78) + "%";
+      ob.style.transform = `translateX(-50%) scale(${.5 + p * .7})`;
+      if (p < 1) { raf = requestAnimationFrame(tick); return; }
+      if (lane === sides.correct) { score++; document.getElementById("rs").textContent = "🏁 " + score; next(); }
+      else crash();
+    }
+    function crash() {
+      done = true; road.classList.add("crash"); car.textContent = "💥";
+      toast("המקור הנכון: " + item.right);
+      setTimeout(() => {
+        stopGame();
+        app.innerHTML = gameOver("race", score, 4) + backToTorah;
+        document.getElementById("again").onclick = playRace;
+      }, 1400);
+    }
+    offKeys = sideInput(road, s => {
+      if (done) return;
+      lane = lane === "mid" ? s : (lane === s ? s : "mid"); // מהצד השני חוזרים קודם לאמצע
+      car.className = "car " + lane;
+    });
+    game = { stop() { cancelAnimationFrame(raf); if (offKeys) offKeys(); } };
+    next();
+  }
+
+  // ---- חדר הוויכוח: חדר חשוך, זרקור על מי שמדבר, רווח או הקשה להמשך ----
+  function viewDebate(id) {
+    if (!player.name) return viewOnboarding();
+    setTab("map");
+    const d = X.DEBATES.find(x => x.id === id);
+    if (!d) {
+      app.innerHTML = `
+        <div class="place-hero" style="--c:#111827"><div class="place-icon">🎭</div><h1>חדר הוויכוח</h1><p>שני חכמים, סוגיא אחת. מי צודק?</p></div>
+        ${X.DEBATES.map(x => `<a class="card debate-pick" href="#/debate/${x.id}">
+          <span class="dp-faces">${x.pair.map(w => Sages.sageSVG(X.SPEAKERS[w], 40)).join("")}</span>
+          <span><b>${x.title}</b><br><span class="small muted">${x.pair.map(w => X.SPEAKERS[w].name).join(" נגד ")} · ${x.source}</span></span>
+          ${(player.debates || []).includes(x.id) ? "✓" : ""}</a>`).join("")}
+        ${backToTorah}`;
+      return;
+    }
+    Music.mood("dark");
+    const [A, B] = d.pair;
+    app.innerHTML = `
+      <div class="dark-room" id="room">
+        <div class="room-title">${d.title} <span>· ${d.source}</span></div>
+        <div class="speaker left" data-w="${A}">${Sages.sageSVG(X.SPEAKERS[A], 110)}<b>${X.SPEAKERS[A].name}</b></div>
+        <div class="speaker right" data-w="${B}">${Sages.sageSVG(X.SPEAKERS[B], 110)}<b>${X.SPEAKERS[B].name}</b></div>
+        <div class="debate-bubble" id="bub"></div>
+        <div class="room-hint">רווח או הקשה להמשך ▸</div>
+      </div>
+      <div class="row center-row"><a class="btn ghost" href="#/debate">לוויכוחים אחרים</a></div>`;
+    const room = document.getElementById("room"), bub = document.getElementById("bub");
+    let k = -1, typing = 0, full = "";
+    function show() {
+      k++;
+      if (k >= d.lines.length) return finish();
+      const [who, text] = d.lines[k];
+      room.querySelectorAll(".speaker").forEach(s => s.classList.toggle("on", s.dataset.w === who));
+      room.classList.toggle("narrator", !who);
+      bub.className = "debate-bubble " + (who === A ? "from-left" : who === B ? "from-right" : "from-mid");
+      full = (who ? X.SPEAKERS[who].name + ": " : "") + text;
+      let n = 0;
+      clearInterval(typing);
+      typing = setInterval(() => { n += 2; bub.textContent = full.slice(0, n); if (n >= full.length) clearInterval(typing); }, 30);
+    }
+    function step() {
+      if (bub.textContent.length < full.length) { clearInterval(typing); bub.textContent = full; return; } // קודם משלימים את המשפט
+      show();
+    }
+    function finish() {
+      stopGame();
+      player.debates = player.debates || [];
+      const first = !player.debates.includes(d.id);
+      if (first) { player.debates.push(d.id); player.coins += 15; savePlayer(); }
+      room.querySelectorAll(".speaker").forEach(s => s.classList.add("on"));
+      bub.className = "debate-bubble from-mid";
+      bub.innerHTML = `<b>סוף הוויכוח</b><br>מקור: ${esc(d.source)}${first ? "<br>🪙 +15" : ""}`;
+      room.querySelector(".room-hint").textContent = "";
+    }
+    const onKey = e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); step(); } };
+    window.addEventListener("keydown", onKey);
+    room.addEventListener("click", step);
+    game = { stop() { clearInterval(typing); window.removeEventListener("keydown", onKey); } };
+    show();
+  }
+
+  // ---------- ספריית הלימוד: משנה, גמרא ושולחן ערוך מספריא ----------
+  // רק תגיות עיצוב פשוטות נשארות מהטקסט שמגיע מבחוץ
+  function cleanHTML(str) {
+    const dec = document.createElement("textarea");
+    return String(str).split(/(<[^>]*>)/).map(tok => {
+      const m = tok.match(/^<(\/?)(b|strong|i|em|br)\b[^>]*>$/i);
+      if (m) return `<${m[1]}${m[2].toLowerCase()}>`;
+      if (tok.startsWith("<")) return "";
+      dec.innerHTML = tok; return esc(dec.value);
+    }).join("");
+  }
+  const flat = a => Array.isArray(a) ? a.flatMap(flat) : [a];
+  async function sefaria(ref) {
+    const r = await fetch("https://www.sefaria.org/api/texts/" + encodeURIComponent(ref) + "?context=0&commentary=0");
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    return j;
+  }
+  function viewLearn(arg) {
+    if (!player.name) return viewOnboarding();
+    setTab("map");
+    const L = X.LIBRARY, kind = L[arg] ? arg : "mishna", K = L[kind];
+    const st = Object.assign({ book: 0, n: 1, amud: "a" }, (player.learn || {})[kind]);
+    app.innerHTML = `
+      <div class="place-hero" style="--c:#7c2d12"><div class="place-icon">📚</div><h1>ספריית הלימוד</h1><p>לומדים משנה, גמרא ושולחן ערוך</p></div>
+      <div class="tabs">${Object.entries(L).map(([k, v]) => `<a class="tab ${k === kind ? "on" : ""}" href="#/learn/${k}">${v.name}</a>`).join("")}</div>
+      <div class="card learn-pick">
+        <select id="lbook">${K.books.map((b, i) => `<option value="${i}" ${i === st.book ? "selected" : ""}>${b.he}</option>`).join("")}</select>
+        <label class="small">${K.unit} <input id="ln" type="number" min="${kind === "gemara" ? 2 : 1}" value="${st.n}"></label>
+        ${kind === "gemara" ? `<select id="lamud"><option value="a" ${st.amud === "a" ? "selected" : ""}>עמוד א</option><option value="b" ${st.amud === "b" ? "selected" : ""}>עמוד ב</option></select>` : ""}
+        <button class="btn small-btn" id="lgo">ללמוד</button>
+        ${kind === "gemara" ? `<button class="btn gold small-btn" id="daf">📅 הדף היומי</button>` : ""}
+      </div>
+      <div class="card learn-text" id="ltext"><p class="muted center">בחרו ${K.unit} ולחצו "ללמוד".</p></div>
+      <div class="row center-row"><button class="btn ghost" id="lprev" hidden>⬅ הקודם</button><button class="btn ghost" id="lnext" hidden>הבא ➡</button></div>
+      <p class="small muted center">הטקסטים מגיעים מספריא (sefaria.org).</p>
+      ${backToTorah}`;
+    const box = document.getElementById("ltext");
+    let nav = {};
+    async function load(ref) {
+      box.innerHTML = `<p class="muted center">טוען...</p>`;
+      try {
+        const j = await sefaria(ref);
+        const parts = flat(j.he).filter(Boolean);
+        if (!parts.length) throw new Error("empty");
+        box.innerHTML = `<h3>${esc(j.heRef || ref)}</h3>` + parts.map((t, i) => `<p><span class="seg">${i + 1}</span> ${cleanHTML(t)}</p>`).join("");
+        nav = { next: j.next, prev: j.prev };
+        document.getElementById("lnext").hidden = !j.next; document.getElementById("lprev").hidden = !j.prev;
+      } catch (e) {
+        box.innerHTML = `<p class="notice err">לא הצלחנו לטעון את הטקסט. בדקו את המספר ונסו שוב, או פתחו <a href="https://www.sefaria.org/${encodeURIComponent(ref.replace(/ /g, "_"))}" target="_blank" rel="noopener">בספריא</a>.</p>`;
+        document.getElementById("lnext").hidden = document.getElementById("lprev").hidden = true;
+      }
+    }
+    document.getElementById("lgo").onclick = () => {
+      const book = Number(document.getElementById("lbook").value), n = Math.max(1, Number(document.getElementById("ln").value) || 1);
+      const amud = kind === "gemara" ? document.getElementById("lamud").value : "";
+      player.learn = Object.assign(player.learn || {}, { [kind]: { book, n, amud } }); savePlayer();
+      load(K.ref(K.books[book].en, n + amud));
+    };
+    document.getElementById("lnext").onclick = () => nav.next && load(nav.next);
+    document.getElementById("lprev").onclick = () => nav.prev && load(nav.prev);
+    const daf = document.getElementById("daf");
+    if (daf) daf.onclick = async () => {
+      box.innerHTML = `<p class="muted center">מחפש את הדף היומי...</p>`;
+      try {
+        const r = await fetch("https://www.sefaria.org/api/calendars");
+        const it = (await r.json()).calendar_items.find(c => c.title && c.title.en === "Daf Yomi");
+        load(it.ref);
+      } catch (e) { box.innerHTML = `<p class="notice err">לא הצלחנו למצוא את הדף היומי כרגע.</p>`; }
+    };
+  }
+
   // ---------- טבלת האלופים ----------
   async function viewLeaders() {
     if (!player.name) return viewOnboarding();
@@ -1223,6 +1529,7 @@
   function showShabbat(st) {
     shabbatShown = true;
     document.body.classList.add("shabbat");
+    Music.stop();
     document.body.classList.remove("in-city");
     document.getElementById("pre-shabbat").hidden = true;
     app.innerHTML = `
@@ -1250,6 +1557,8 @@
     const [page, arg] = h.split("/");
     stopCity();
     stopDuel();
+    stopGame();
+    Music.mood(page === "debate" && arg ? "dark" : "calm");
     if (checkShabbat()) return;
     window.scrollTo(0, 0);
     if (page === "place" && arg) return viewPlace(arg);
@@ -1259,6 +1568,10 @@
     if (page === "duel" && arg) return viewDuel(arg);
     if (page === "souls") return viewSouls();
     if (page === "leaders") return viewLeaders();
+    if (page === "swipe") return viewSwipe();
+    if (page === "race") return viewRace();
+    if (page === "debate") return viewDebate(arg);
+    if (page === "learn") return viewLearn(arg);
     if (page === "me") return viewMe();
     if (page === "suggest") return viewSuggest(arg);
     if (page === "admin") return viewAdmin();

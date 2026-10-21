@@ -6,11 +6,9 @@ alter table public.questions add column if not exists level smallint not null de
 alter table public.questions drop constraint if exists questions_level_check;
 alter table public.questions add constraint questions_level_check check (level between 1 and 3);
 
--- אפשר להציע שאלות גם למשנה, לגמרא, לבית המקדש ולדוד המלך
+-- אפשר להציע שאלות לכל התחנות (גם משנה, גמרא, בית המקדש, דוד המלך והכוללים), גם לתחנות שיתווספו בעתיד
 alter table public.questions drop constraint if exists questions_place_check;
-alter table public.questions add constraint questions_place_check check (place in (
-  'gan-eden', 'teiva', 'ohel', 'mitzrayim', 'sinai', 'midbar', 'beit-midrash', 'beit-knesset',
-  'mishna', 'gemara', 'mikdash', 'david'));
+alter table public.questions add constraint questions_place_check check (place ~ '^[a-z][a-z-]{1,29}$');
 
 -- טבלת האלופים. מצטרפים רק מי שבחר בכך באתר, ונשמרים רק שם, כוכבים ונשמות.
 create table if not exists public.players (

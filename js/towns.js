@@ -36,6 +36,7 @@
           text: "מול הר הבית, מעבר לנחל קדרון. כאן נמצא בית הקברות היהודי החשוב ביותר, ועליו אמר הנביא: \"ועמדו רגליו ביום ההוא על הר הזיתים אשר על פני ירושלים מקדם\" (זכריה יד, ד).",
           links: [],
         } },
+      { id: "torah-city", name: "לקריית התורה", icon: "🏙️", x: 870, y: 1060, color: "#1e3a8a", href: "#/town/torah" },
       { id: "shuk", name: "שוק מחנה יהודה", icon: "🛍️", x: 120, y: 190, color: "#ec4899", href: "#/me" },
       { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 1040, color: "#16a34a", href: "#/", exit: true },
     ],
@@ -331,6 +332,44 @@
     ],
   };
 
-  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron };
+  // קריית התורה: הכוללים של הרבנים, האתגרים, חדר הוויכוח והספרייה
+  const torah = {
+    id: "torah", name: "קריית התורה", W: 1000, H: 1000,
+    start: { x: 500, y: 900 },
+    blocked: [],
+    spots: [
+      { id: "k-ovadia", name: "כולל הרב עובדיה יוסף", icon: "📘", x: 200, y: 180, color: "#1e3a8a", href: "#/place/kollel-ovadia" },
+      { id: "k-yitzhak", name: "כולל הרב יצחק יוסף", icon: "📗", x: 420, y: 150, color: "#155e75", href: "#/place/kollel-yitzhak" },
+      { id: "k-david", name: "כולל הרב דוד יוסף", icon: "📙", x: 640, y: 150, color: "#3730a3", href: "#/place/kollel-david" },
+      { id: "k-orlezion", name: "כולל האור לציון", icon: "📕", x: 860, y: 180, color: "#065f46", href: "#/place/kollel-orlezion" },
+      { id: "k-yigal", name: "כולל הרב יגאל כהן", icon: "📒", x: 860, y: 420, color: "#9a3412", href: "#/place/kollel-yigal" },
+      { id: "library", name: "ספריית הלימוד", icon: "📚", x: 180, y: 430, color: "#7c2d12", href: "#/learn" },
+      { id: "debate", name: "חדר הוויכוח", icon: "🎭", x: 500, y: 430, color: "#111827", href: "#/debate" },
+      { id: "swipe", name: "אתגר המקורות", icon: "⚡", x: 220, y: 680, color: "#db2777", href: "#/swipe" },
+      { id: "race", name: "מרוץ המקורות", icon: "🏎️", x: 780, y: 680, color: "#dc2626", href: "#/race" },
+      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <rect width="${W}" height="${H}" fill="#cfe3a0"/>
+        <rect x="60" y="60" width="880" height="300" rx="30" fill="#efe1bf"/>
+        <path d="M80 270 H 920 M500 270 V 900 M120 560 H 880" stroke="#f8efd8" stroke-width="34" stroke-linecap="round"/>
+        <circle cx="500" cy="560" r="70" fill="#bfdbfe" stroke="#f8efd8" stroke-width="14"/>
+        <circle cx="500" cy="560" r="30" fill="#93c5fd"/>
+        <!-- מסלול המרוץ -->
+        <rect x="690" y="610" width="180" height="250" rx="40" fill="none" stroke="#6b7280" stroke-width="26"/>
+        <rect x="690" y="610" width="180" height="250" rx="40" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="14 12"/>
+      </svg>`;
+    },
+    labels: [
+      { text: "שדרת הכוללים", x: 500, y: 330, cls: "land small" },
+    ],
+    decorations: [
+      ["🌳", 330, 520], ["🌳", 670, 520], ["⛲", 500, 560], ["🌲", 60, 600], ["🌳", 950, 560], ["🌷", 380, 820],
+      ["🌳", 620, 820], ["🕊️", 300, 80], ["🌲", 950, 900], ["🌿", 100, 820],
+    ],
+  };
+
+  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron, torah };
   window.Towns = { TOWNS, byId: id => TOWNS[id] };
 })();

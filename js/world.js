@@ -28,6 +28,17 @@
       guide: { name: "תורי", emoji: "🐦", hello: "שלום! אני תורי, מ\"תורים ובני יונה\" שהביאו למקדש. בואו נלמד על בית המקדש!" } },
     { id: "david", name: "דוד המלך", icon: "👑", color: "#7c3aed", desc: "נעים זמירות ישראל", free: true, bank: true, home: "#/town/jerusalem",
       guide: { name: "דובי", emoji: "🐻", hello: "\"גם את הארי גם את הדוב הכה עבדך\". אני דובי, וטוב שדוד לא נלחם בי היום! בואו נלמד עליו."} },
+    // הכוללים ב"קריית התורה"
+    { id: "kollel-ovadia", name: "הכולל של הרב עובדיה יוסף", icon: "📘", color: "#1e3a8a", desc: "פסקי מרן הרב עובדיה", free: true, bank: true, home: "#/town/torah",
+      guide: { name: "ספרי", emoji: "📚", hello: "שלום! אני ספרי, ספר ההלכה של הכולל. כאן נבחנים על ההלכה. (לימוד בלבד: למעשה שואלים רב.)" } },
+    { id: "kollel-yitzhak", name: "הכולל של הרב יצחק יוסף", icon: "📘", color: "#155e75", desc: "ילקוט יוסף וברכות", free: true, bank: true, home: "#/town/torah",
+      guide: { name: "ספרי", emoji: "📚", hello: "שלום! אני ספרי, ספר ההלכה של הכולל. כאן נבחנים על ההלכה. (לימוד בלבד: למעשה שואלים רב.)" } },
+    { id: "kollel-david", name: "הכולל של הרב דוד יוסף", icon: "📘", color: "#3730a3", desc: "הלכה ברורה וברכות", free: true, bank: true, home: "#/town/torah",
+      guide: { name: "ספרי", emoji: "📚", hello: "שלום! אני ספרי, ספר ההלכה של הכולל. כאן נבחנים על ההלכה. (לימוד בלבד: למעשה שואלים רב.)" } },
+    { id: "kollel-orlezion", name: "הכולל של האור לציון", icon: "📘", color: "#065f46", desc: "הרב בן ציון אבא שאול והלכות שבת", free: true, bank: true, home: "#/town/torah",
+      guide: { name: "ספרי", emoji: "📚", hello: "שלום! אני ספרי, ספר ההלכה של הכולל. כאן נבחנים על ההלכה. (לימוד בלבד: למעשה שואלים רב.)" } },
+    { id: "kollel-yigal", name: "הכולל של הרב יגאל כהן", icon: "📘", color: "#9a3412", desc: "הלכות יום יום מהשולחן ערוך", free: true, bank: true, home: "#/town/torah",
+      guide: { name: "ספרי", emoji: "📚", hello: "שלום! אני ספרי, ספר ההלכה של הכולל. כאן נבחנים על ההלכה. (לימוד בלבד: למעשה שואלים רב.)" } },
   ];
 
   // פריטים לדמות. price 0 = חינם מההתחלה.
