@@ -1321,17 +1321,37 @@
   }
 
   // ---------- טופס הצעת שאלה ----------
+  // קבוצות הנושאים בטופס הצעת שאלה
+  const TOPIC_GROUPS = [
+    { name: "📜 תורה ומקרא", test: p => !p.free },
+    { name: "📖 משנה וגמרא", test: p => p.id === "mishna" || p.id === "gemara" },
+    { name: "🏛️ ירושלים", test: p => p.home === "#/town/jerusalem" },
+    { name: "📘 כוללי הרבנים", test: p => p.id.startsWith("kollel-") },
+  ];
   function questionForm(q) {
     q = q || { place: PLACES[0].id, question: "", answers: ["", "", "", ""], correct: 0, source: "" };
     return `
-      <label>לאיזה מקום במפה?</label>
-      <select name="place">
-        ${PLACES.map(p => `<option value="${p.id}" ${q.place === p.id ? "selected" : ""}>${p.icon} ${p.name} (${p.desc})</option>`).join("")}
-      </select>
-      <label>באיזה שלב?</label>
-      <select name="level">
-        ${[1, 2, 3].map(l => `<option value="${l}" ${(q.level || 1) === l ? "selected" : ""}>${LEVEL_NAMES[l]}</option>`).join("")}
-      </select>
+      <label>על איזה נושא השאלה?</label>
+      <div class="topic-pick">
+        ${TOPIC_GROUPS.map(g => {
+          const list = PLACES.filter(g.test);
+          return list.length ? `
+          <div class="topic-group">${g.name}</div>
+          <div class="topic-grid">
+            ${list.map(p => `
+              <label class="topic" style="--c:${p.color}">
+                <input type="radio" name="place" value="${p.id}" ${q.place === p.id ? "checked" : ""} required>
+                <span class="topic-icon">${p.icon}</span>
+                <span class="topic-text"><b>${esc(p.name.replace("הכולל של ", ""))}</b><small>${esc(p.desc)}</small></span>
+              </label>`).join("")}
+          </div>` : "";
+        }).join("")}
+      </div>
+      <label>רמת קושי</label>
+      <div class="lvl-pick">
+        ${[1, 2, 3].map(l => `
+          <label><input type="radio" name="level" value="${l}" ${(q.level || 1) === l ? "checked" : ""}><span>${"⭐".repeat(l)}<br>${LEVEL_NAMES[l].split(": ")[1]}</span></label>`).join("")}
+      </div>
       <label>השאלה</label>
       <textarea name="question" rows="2" required maxlength="300">${esc(q.question)}</textarea>
       <label>ארבע תשובות <span class="hint">(סמנו את העיגול ליד התשובה הנכונה)</span></label>
@@ -1342,6 +1362,11 @@
         </div>`).join("")}
       <label>מקור <span class="hint">(לא חובה, למשל: בראשית א, א או ברכות ב, א)</span></label>
       <input name="source" maxlength="100" value="${esc(q.source || "")}">`;
+  }
+  // מגלגל את רשימת הנושאים אל הנושא שנבחר
+  function showPicked(form) {
+    const box = form.querySelector(".topic-pick"), t = form.querySelector(".topic input:checked");
+    if (box && t) box.scrollTop = t.closest(".topic").offsetTop - box.offsetTop - 40;
   }
   function readForm(form) {
     const f = new FormData(form);
@@ -1370,6 +1395,7 @@
         </form>
       </div>`;
     const form = document.getElementById("sform");
+    showPicked(form);
     form.onsubmit = async ev => {
       ev.preventDefault();
       const q = readForm(form);
@@ -1469,6 +1495,7 @@
     card.innerHTML = `<form>${questionForm(q)}
       <div class="row"><button class="btn good" type="submit">שמירה ואישור</button><button class="btn ghost" type="button" id="cancel">ביטול</button></div></form>`;
     const form = card.querySelector("form");
+    showPicked(form);
     card.querySelector("#cancel").onclick = () => viewAdmin();
     form.onsubmit = async ev => {
       ev.preventDefault();
