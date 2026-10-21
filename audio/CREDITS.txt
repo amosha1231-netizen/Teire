@@ -1,0 +1,3 @@
+Instrument samples: FluidR3_GM soundfont by Frank Wen, rendered to mp3 by github.com/gleitz/midi-js-soundfonts.
+License: Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
+Changes: trimmed to 3.5 seconds, faded out, converted to mono 64 kbps.

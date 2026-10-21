@@ -1291,7 +1291,8 @@
         <div class="row"><button class="btn ghost small-btn" id="mypos">📍 לפי המיקום שלי</button></div>
         <p class="small muted" id="nextsh"></p>
       </div>
-      <div class="row center-row"><button class="btn ghost" id="redo">שינוי שם ומראה</button></div>`;
+      <div class="row center-row"><button class="btn ghost" id="redo">שינוי שם ומראה</button></div>
+      <p class="small muted center">🎵 צלילי הכלים במוזיקה: FluidR3 GM מאת Frank Wen, ברישיון <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></p>`;
 
     app.querySelectorAll(".item").forEach(b => b.onclick = () => {
       const slot = b.dataset.slot, it = ITEMS[slot].find(x => x.id === b.dataset.id);
@@ -1579,13 +1580,22 @@
     );
   }
 
+  // איזו מוזיקה מתנגנת בכל מקום באתר
+  function moodFor(page, arg) {
+    if (page === "debate") return arg ? "dark" : "study";
+    if (page === "swipe" || page === "race" || page === "duel") return "upbeat";
+    if ((page === "town" || page === "b") && (arg === "tzfat" || arg === "meron")) return "mystic";
+    if (page === "town" && arg === "jerusalem") return "jerusalem";
+    if (page === "b" || page === "place" || page === "learn" || page === "souls") return "study";
+    return "calm";
+  }
   function route() {
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
     stopCity();
     stopDuel();
     stopGame();
-    Music.mood(page === "debate" && arg ? "dark" : "calm");
+    Music.mood(moodFor(page, arg));
     if (checkShabbat()) return;
     window.scrollTo(0, 0);
     if (page === "place" && arg) return viewPlace(arg);
