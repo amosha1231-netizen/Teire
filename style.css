@@ -375,3 +375,6 @@ body.shabbat { background: linear-gradient(180deg, #1e2a52, #3b2f6b); }
   100% { opacity: 0; transform: translate(-25%, -140px) rotate(30deg) scale(.2); }
 }
 #note { width: 100%; box-sizing: border-box; font: inherit; padding: 10px; border-radius: 12px; border: 2px solid #e5d9b6; resize: vertical; margin-bottom: 10px; }
+.map-svg .fire { transform-box: fill-box; transform-origin: 50% 100%; animation: flicker .5s ease-in-out infinite alternate; }
+.map-svg .fire:nth-child(2n) { animation-delay: .25s; }
+@keyframes flicker { to { transform: scaleY(1.18) scaleX(.9); } }

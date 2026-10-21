@@ -188,7 +188,7 @@
           text: "על מדרון ההר קבורים גדולי צפת: האר\"י הקדוש, רבי יוסף קארו, הרמ\"ק (רבי משה קורדובירו), רבי שלמה אלקבץ ועוד צדיקים רבים.",
           links: [],
         } },
-      { id: "meron-road", name: "הדרך למירון", icon: "🔥", x: 120, y: 260, color: "#ea580c", href: "#/b/meron" },
+      { id: "meron-road", name: "הדרך למירון", icon: "🔥", x: 120, y: 260, color: "#ea580c", href: "#/town/meron" },
       { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 870, y: 980, color: "#16a34a", href: "#/", exit: true },
     ],
     svg(W, H) {
@@ -224,6 +224,113 @@
     ],
   };
 
-  const TOWNS = { jerusalem, hebron, tzfat };
+  const tiberias = {
+    id: "tiberias", name: "טבריה", W: 1000, H: 1000,
+    start: { x: 160, y: 880 },
+    // הכנרת: הדמות הולכת על החוף ולא נכנסת למים
+    blocked: [{ x1: 700, y1: 0, x2: 1000, y2: 1000 }],
+    spots: [
+      { id: "arena", name: "זירת הדו-קרב", icon: "⚔️", x: 560, y: 520, color: "#0891b2", href: "#/duel/tiberias", duel: true },
+      { id: "rambam", name: "קבר הרמב\"ם", icon: "📗", x: 330, y: 300, color: "#15803d",
+        info: {
+          title: "📗 קבר הרמב\"ם",
+          text: "רבנו משה בן מימון, שכתב את \"משנה תורה\" (היד החזקה) ואת \"מורה הנבוכים\". הוא נפטר במצרים, ולפי המסורת הביאו אותו לקבורה בטבריה. אמרו עליו: \"ממשה עד משה לא קם כמשה\".",
+          links: [["📖 מסע בגמרא", "#/place/gemara"]],
+        } },
+      { id: "meir", name: "רבי מאיר בעל הנס", icon: "🕯️", x: 590, y: 820, color: "#1d4ed8",
+        info: {
+          title: "🕯️ רבי מאיר בעל הנס",
+          text: "רבי מאיר, תלמידו של רבי עקיבא, מגדולי התנאים. \"סתם משנה רבי מאיר\" (סנהדרין פו, א): משנה בלי שם בעל הדעה היא בדרך כלל לפי רבי מאיר.",
+          links: [["📜 מסע במשנה", "#/place/mishna"]],
+        } },
+      { id: "akiva", name: "קבר רבי עקיבא", icon: "🌴", x: 200, y: 520, color: "#f97316",
+        info: {
+          title: "🌴 קבר רבי עקיבא",
+          text: "לפי המסורת רבי עקיבא קבור על ההר שמעל טבריה. הוא התחיל ללמוד בגיל ארבעים והיו לו עשרים וארבעה אלף תלמידים.",
+          links: [["🌴 לבית המדרש של רבי עקיבא בבני ברק", "#/b/bnei-brak"]],
+        } },
+      { id: "sanhedrin", name: "מקום הסנהדרין", icon: "⚖️", x: 470, y: 180, color: "#7c3aed",
+        info: {
+          title: "⚖️ הסנהדרין בטבריה",
+          text: "אחרי החורבן גלתה הסנהדרין עשר גלויות, והמקום האחרון שלה היה טבריה (ראש השנה לא, א-ב). בטבריה לימד רבי יוחנן, ושם נערך רוב התלמוד הירושלמי.",
+          links: [],
+        } },
+      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 110, y: 950, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <defs><pattern id="lake" width="80" height="40" patternUnits="userSpaceOnUse"><path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="3" stroke-linecap="round"/></pattern></defs>
+        <rect width="${W}" height="${H}" fill="#cfe3a0"/>
+        <ellipse cx="160" cy="420" rx="230" ry="300" fill="#bcd58c"/>
+        <path d="M700 0 C 660 200, 690 420, 660 600 S 690 860, 700 1000 H 1000 V 0 Z" fill="#f2e2a8"/>
+        <path d="M735 0 C 700 200, 730 420, 700 600 S 730 860, 740 1000 H 1000 V 0 Z" fill="#3fa0e0"/>
+        <path d="M735 0 C 700 200, 730 420, 700 600 S 730 860, 740 1000 H 1000 V 0 Z" fill="url(#lake)" class="waves"/>
+        <path d="M110 950 C 250 820, 380 700, 520 600 S 620 400, 560 150" fill="none" stroke="#eadcb4" stroke-width="30" stroke-linecap="round"/>
+        <path d="M520 600 C 560 700, 600 760, 600 850" fill="none" stroke="#eadcb4" stroke-width="24" stroke-linecap="round"/>
+        <path d="M230 560 C 300 420, 320 350, 340 330" fill="none" stroke="#eadcb4" stroke-width="22" stroke-linecap="round"/>
+        <path d="M640 120 V 900" stroke="#e7d6a6" stroke-width="16" stroke-dasharray="2 18" stroke-linecap="round"/>
+      </svg>`;
+    },
+    labels: [
+      { text: "ים כנרת", x: 860, y: 500, cls: "sea" },
+      { text: "הטיילת", x: 610, y: 330, cls: "land small" },
+    ],
+    decorations: [
+      ["⛵", 860, 250], ["🐟", 820, 700], ["⛵", 900, 860], ["🌴", 640, 420], ["🌴", 650, 700], ["🌴", 120, 300],
+      ["🌳", 380, 450], ["🌿", 300, 760], ["🪨", 90, 640], ["🌴", 450, 900], ["🐟", 950, 120],
+    ],
+  };
+
+  const meron = {
+    id: "meron", name: "מירון", W: 1000, H: 950,
+    start: { x: 180, y: 860 },
+    blocked: [],
+    spots: [
+      { id: "rashbi", name: "ציון רשב\"י", icon: "🔥", x: 560, y: 330, color: "#ea580c", href: "#/b/meron", sagesOf: "meron" },
+      { id: "hadlaka", name: "מתחם ההדלקה", icon: "🎆", x: 800, y: 260, color: "#f59e0b",
+        info: {
+          title: "🎆 ל\"ג בעומר במירון",
+          text: "בל\"ג בעומר, יום ההילולא של רבי שמעון בר יוחאי, עולים רבים למירון, מדליקים מדורות ושרים \"בר יוחאי נמשחת אשריך\". רבי שמעון ובנו רבי אלעזר קבורים יחד במקום הזה.",
+          links: [["🔥 לרבי שמעון: עיבור נשמה ולימוד", "#/b/meron"]],
+        } },
+      { id: "hillel", name: "קברי הלל ושמאי", icon: "📜", x: 300, y: 520, color: "#eab308",
+        info: {
+          title: "📜 קברי הלל ושמאי",
+          text: "לפי המסורת, במורד ההר ליד מירון קבורים הלל הזקן ושמאי הזקן ותלמידיהם. בית הלל ובית שמאי נחלקו בהרבה דברים, אבל \"אלו ואלו דברי אלוקים חיים\" (עירובין יג, ב).",
+          links: [["🏛️ לבית המדרש של הלל ושמאי בירושלים", "#/b/jerusalem"]],
+        } },
+      { id: "mearah", name: "מערת רשב\"י", icon: "🪨", x: 780, y: 620, color: "#78716c",
+        info: {
+          title: "🪨 שתים עשרה שנה במערה",
+          text: "רבי שמעון ובנו ברחו מהרומאים והתחבאו במערה שתים עשרה שנה. נברא להם נס: עץ חרוב ומעיין מים, והם למדו תורה כל היום (שבת לג, ב). לפי המסורת המערה הייתה בפקיעין, לא רחוק ממירון.",
+          links: [["📖 מסע בגמרא", "#/place/gemara"]],
+        } },
+      { id: "tzfat-road", name: "הדרך לצפת", icon: "🕯️", x: 880, y: 860, color: "#2563eb", href: "#/town/tzfat" },
+      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 110, y: 900, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      const fires = [[760, 200], [840, 210], [800, 170]].map(([x, y]) => `<g class="fire"><path d="M${x - 14} ${y + 20} Q ${x} ${y - 30} ${x + 14} ${y + 20} Z" fill="#f97316"/><path d="M${x - 7} ${y + 20} Q ${x} ${y - 6} ${x + 7} ${y + 20} Z" fill="#fde047"/></g>`).join("");
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <rect width="${W}" height="${H}" fill="#b9d58a"/>
+        <ellipse cx="560" cy="330" rx="420" ry="300" fill="#a9cb7a"/>
+        <ellipse cx="560" cy="300" rx="260" ry="190" fill="#c9dd9a"/>
+        <path d="M110 900 C 260 800, 330 650, 420 520 S 520 420, 560 400" fill="none" stroke="#eadcb4" stroke-width="30" stroke-linecap="round"/>
+        <path d="M560 400 C 700 420, 800 560, 880 860" fill="none" stroke="#eadcb4" stroke-width="26" stroke-linecap="round"/>
+        <path d="M620 320 C 700 300, 760 280, 800 280" fill="none" stroke="#eadcb4" stroke-width="22" stroke-linecap="round"/>
+        <circle cx="800" cy="220" r="62" fill="#e7d3a0"/>
+        ${fires}
+        <path d="M740 640 a40 34 0 0 1 80 0 z" fill="#57534e"/>
+      </svg>`;
+    },
+    labels: [
+      { text: "הר מירון", x: 560, y: 130, cls: "land" },
+    ],
+    decorations: [
+      ["🌲", 300, 200], ["🌲", 380, 120], ["🌳", 200, 380], ["🌲", 950, 420], ["🌲", 680, 520], ["🌳", 460, 700],
+      ["🐐", 640, 760], ["🌲", 120, 600], ["🌿", 960, 700], ["🌲", 920, 120], ["🌳", 400, 860],
+    ],
+  };
+
+  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron };
   window.Towns = { TOWNS, byId: id => TOWNS[id] };
 })();
