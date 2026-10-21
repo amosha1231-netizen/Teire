@@ -511,3 +511,10 @@ body.shabbat .music-btn { display: none; }
 .review-src.missing { color: #b45309; }
 .review-item details p { margin: 4px 0; }
 .tiny { font-size: .7rem; margin-top: 2px; direction: ltr; text-align: right; }
+
+/* פסוק מעל השאלה בהיכלות הפרשנים */
+.verse { background: #fdf6e3; border: 1px solid #e9d8a6; border-right: 5px solid #b45309; border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
+.verse-text { font-family: "Frank Ruhl Libre", "David", "Times New Roman", serif; font-size: 1.25rem; line-height: 1.7; }
+.verse-ref { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+.review-verse { font-family: "Frank Ruhl Libre", serif; font-size: 1rem; color: #7c2d12; margin-bottom: 2px; }
+.quote { margin-top: 10px; padding: 8px 12px; background: #fdf6e3; border-right: 4px solid #b45309; border-radius: 10px; font-family: "Frank Ruhl Libre", serif; font-size: 1.05rem; }

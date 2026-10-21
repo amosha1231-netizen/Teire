@@ -114,5 +114,13 @@
     </svg>`;
   }
 
+  // היכלות הפרשנים בהיכל פרשת השבוע (הרשימה ב-content/parasha.js)
+  const PAR = window.TEIRE_PARASHA;
+  if (PAR) PAR.COMMENTATORS.forEach(c => PLACES.push({
+    id: "parasha-" + c.id, name: `היכל ${c.name}`, icon: c.icon, color: c.color, desc: `פרשת ${PAR.current.name} · ${c.desc}`,
+    free: true, bank: true, home: "#/town/parasha",
+    guide: { name: "מגילי", emoji: "📜", hello: `ברוכים הבאים להיכל ${c.name} (${c.full})! השבוע פרשת ${PAR.current.name}. קראו את הפסוק, ודייקו: מה ${c.name} אומר עליו?` },
+  }));
+
   window.TeireWorld = { PLACES, ITEMS, SKINS, HAIR, avatarSVG };
 })();

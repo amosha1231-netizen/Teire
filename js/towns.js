@@ -370,6 +370,40 @@
     ],
   };
 
-  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron, torah };
+  // היכל פרשת השבוע: חדר לכל פרשן, ובאמצע ספר התורה עם הפרשה של השבוע
+  const PAR = window.TEIRE_PARASHA;
+  const SEATS = [[170, 260], [400, 170], [600, 170], [830, 260], [190, 560], [810, 560]];
+  const parasha = {
+    id: "parasha", name: "היכל פרשת השבוע", W: 1000, H: 1000,
+    start: { x: 500, y: 880 },
+    blocked: [],
+    spots: [
+      ...(PAR ? PAR.COMMENTATORS : []).map((c, i) => ({ id: "h-" + c.id, name: `היכל ${c.name}`, icon: c.icon, x: SEATS[i][0], y: SEATS[i][1], color: c.color, href: `#/place/parasha-${c.id}` })),
+      { id: "sefer", name: PAR ? `פרשת ${PAR.current.name}` : "פרשת השבוע", icon: "📖", x: 500, y: 470, color: "#a16207",
+        info: {
+          title: PAR ? `📖 פרשת השבוע: ${PAR.current.name}` : "📖 פרשת השבוע",
+          text: PAR ? `השבוע קוראים את פרשת ${PAR.current.name} (${PAR.current.ref}). בכל היכל מופיע פסוק מהפרשה, וצריך לדייק מה הפרשן אומר עליו. בכל שבוע מתחלפות השאלות לפרשה החדשה.` : "",
+          links: (PAR ? PAR.COMMENTATORS : []).map(c => [`${c.icon} היכל ${c.name}`, `#/place/parasha-${c.id}`]),
+        } },
+      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      const cols = [230, 360, 640, 770].map(x => `<rect x="${x - 14}" y="330" width="28" height="420" rx="8" fill="#f5e6c8" stroke="#d6b77a" stroke-width="3"/>`).join("");
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <rect width="${W}" height="${H}" fill="#e7d3a8"/>
+        <rect x="40" y="40" width="920" height="920" rx="40" fill="#f3e5c4" stroke="#c9a467" stroke-width="10"/>
+        <path d="M500 960 V 560" stroke="#b91c1c" stroke-width="90" opacity=".55"/>
+        <path d="M500 960 V 560" stroke="#fbbf24" stroke-width="6" stroke-dasharray="2 18" opacity=".7"/>
+        <circle cx="500" cy="470" r="120" fill="#fde68a" opacity=".55"/>
+        <circle cx="500" cy="470" r="80" fill="#fcd34d" opacity=".5"/>
+        ${cols}
+        <path d="M120 120 Q 500 20 880 120" fill="none" stroke="#c9a467" stroke-width="8"/>
+      </svg>`;
+    },
+    labels: [{ text: PAR ? `פרשת ${PAR.current.name}` : "", x: 500, y: 600, cls: "land small" }],
+    decorations: [["🕯️", 300, 470], ["🕯️", 700, 470], ["📚", 90, 420], ["📚", 910, 420], ["🪔", 500, 90], ["🌿", 90, 760], ["🌿", 910, 760]],
+  };
+
+  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron, torah, parasha };
   window.Towns = { TOWNS, byId: id => TOWNS[id] };
 })();

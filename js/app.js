@@ -463,6 +463,7 @@
         <div class="dots">${items.map((_, i) => `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("")}</div>
         ${guideBubble(guide, q.prompt || `שאלה ${idx + 1} מתוך ${items.length}`)}
         <div class="card">
+          ${q.verse ? `<div class="verse"><div class="verse-text">${esc(q.verse)}</div><div class="verse-ref">${esc(q.ref || "")}</div></div>` : ""}
           <div class="qtext">${esc(q.question)}</div>
           <div class="answers">
             ${order.map((orig, i) => `<button class="answer" data-orig="${orig}"><span class="letter">${LETTERS[i]}</span>${esc(q.answers[orig])}</button>`).join("")}
@@ -486,6 +487,7 @@
         const last = idx === items.length - 1;
         document.getElementById("fb").innerHTML = `
           ${q.explain ? `<div class="explain">${q.explain}</div>` : ""}
+          ${q.quote ? `<div class="quote">«${esc(q.quote)}»</div>` : ""}
           ${q.source ? `<div class="small muted" style="margin-top:10px">מקור: ${esc(q.source)}</div>` : ""}
           <button class="btn big-btn" id="next">${last ? "לסיום" : "לשאלה הבאה"}</button>`;
         document.getElementById("next").onclick = () => { if (last) onDone(score, items.length, coins); else { idx++; show(); } };
@@ -542,7 +544,7 @@
             : `<div class="small">🔒 נפתח אחרי ${LEVEL_NAMES[l - 1].split(":")[0]}</div>`}
         </div>`;
       }).join("") : `<div class="card center"><p>אין עדיין שאלות במקום הזה.</p></div>`}
-      <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a><a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a></div>`;
+      <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a>${place.id.startsWith("parasha-") ? "" : `<a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a>`}</div>`;
     app.querySelectorAll("[data-level]").forEach(btn => btn.onclick = () => {
       const l = Number(btn.dataset.level);
       runMission(place, pools[l], l);
@@ -727,6 +729,7 @@
       app.innerHTML = `${header()}
         <div class="timer"><span id="tbar"></span></div>
         <div class="card">
+          ${q.verse ? `<div class="verse"><div class="verse-text">${esc(q.verse)}</div><div class="verse-ref">${esc(q.ref || "")}</div></div>` : ""}
           <div class="qtext">${esc(q.question)}</div>
           <div class="answers">${order.map((orig, i) => `<button class="answer" data-orig="${orig}"><span class="letter">${LETTERS[i]}</span>${esc(q.answers[orig])}</button>`).join("")}</div>
           <div id="fb" class="small muted center" style="margin-top:12px"></div>
@@ -1591,10 +1594,14 @@
       if (q.followup) quiz(prefix, group, file, where, q.followup, (depth || 0) + 1);
     };
     (window.TEIRE_SEED || []).forEach(q => quiz("ת", "שאלות התחנות", "content/torah.js", `${pname(q.place)} · ${LEVEL_NAMES[1]}`, q));
-    Object.entries(window.TEIRE_LEVELS || {}).forEach(([place, lv]) => Object.entries(lv).forEach(([l, list]) => list.forEach(q => {
+    Object.entries(window.TEIRE_LEVELS || {}).filter(([place]) => !place.startsWith("parasha-")).forEach(([place, lv]) => Object.entries(lv).forEach(([l, list]) => list.forEach(q => {
       const kollel = place.startsWith("kollel-");
       quiz(kollel ? "כ" : "ש", kollel ? "כוללי הרבנים" : "שאלות התחנות", kollel ? "content/kollels.js" : "content/levels.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
     })));
+    const PAR = window.TEIRE_PARASHA;
+    if (PAR) PAR.WEEKS.forEach(w => PAR.COMMENTATORS.forEach(c => (w.q[c.id] || []).forEach(q =>
+      add("פ", "פרשת השבוע", "content/parasha.js", `פרשת ${w.name} · היכל ${c.name} · ${LEVEL_NAMES[q.level || 1]}`,
+        { text: q.question, verse: q.verse && `${q.verse} (${q.ref})`, answer: q.answers[q.correct], others: q.answers.filter((_, i) => i !== q.correct), source: q.source, quote: q.quote }))));
     Sages.SAGES.forEach(sg => sg.quest.forEach(q => quiz("נ", "עיבור נשמה", "content/sages.js", `${sg.name}`, q)));
     Sages.MACHLOKOT.forEach(m => add("מ", "מחלוקות", "content/sages.js", Object.keys(m.opinions).map(id => Sages.byId(id) ? Sages.byId(id).school : id).join(" · "), {
       text: m.question, answer: Object.entries(m.opinions).map(([id, i]) => `${Sages.byId(id) ? Sages.byId(id).school : id}: ${m.answers[i]}`).join(" | "), others: [], source: m.source }));
@@ -1629,9 +1636,11 @@
     const card = i => `
       <div class="review-item">
         <div class="review-top"><button class="code" data-code="${i.code}" title="העתקת הקוד">${i.code}</button><span class="small muted">${esc(i.where)}</span></div>
+        ${i.verse ? `<div class="review-verse">📜 ${esc(i.verse)}</div>` : ""}
         <div class="review-q">${esc(i.text)}</div>
         ${i.answer ? `<div class="review-a">✓ ${esc(i.answer)}</div>` : ""}
         ${i.others.length ? `<div class="small muted">${i.others.map(esc).join(" · ")}</div>` : ""}
+        ${i.quote ? `<div class="small">«${esc(i.quote)}»</div>` : ""}
         ${i.lines ? `<details><summary class="small">מה כל אחד אומר</summary>${i.lines.map(l => `<p class="small">${esc(l)}</p>`).join("")}</details>` : ""}
         <div class="review-src ${i.source ? "" : "missing"}">${i.source ? `📖 ${esc(i.source)}` : "⚠️ אין מקור"}</div>
         <div class="tiny muted">${i.file}</div>
@@ -1649,7 +1658,7 @@
         shown = dbItems;
       } else shown = items.filter(i => !group || i.group === group);
       if (noSource) shown = shown.filter(i => !i.source);
-      if (query) shown = shown.filter(i => [i.code, i.text, i.answer, i.source, i.where, ...(i.others || []), ...(i.lines || [])].join(" ").includes(query));
+      if (query) shown = shown.filter(i => [i.code, i.text, i.verse, i.answer, i.source, i.where, ...(i.others || []), ...(i.lines || [])].join(" ").includes(query));
       list.innerHTML = shown.length ? `<p class="small muted">${shown.length} פריטים</p>` + shown.map(card).join("") : `<div class="card muted center">לא נמצא כלום</div>`;
     }
     document.getElementById("rq").oninput = ev => { query = ev.target.value.trim(); draw(); };
@@ -1679,6 +1688,7 @@
     if (page === "swipe" || page === "race" || page === "duel") return "upbeat";
     if ((page === "town" || page === "b") && (arg === "tzfat" || arg === "meron")) return "mystic";
     if (page === "town" && arg === "jerusalem") return "jerusalem";
+    if (page === "town" && arg === "parasha") return "study";
     if (page === "b" || page === "place" || page === "learn" || page === "souls") return "study";
     return "calm";
   }
