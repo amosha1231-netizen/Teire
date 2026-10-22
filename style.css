@@ -523,3 +523,10 @@ body.shabbat .music-btn { display: none; }
 .me.other { opacity: .92; pointer-events: none; }
 .me.other .me-name { background: #fef3c7; color: #92400e; }
 .peers-chip { top: auto; bottom: 14px; }
+
+/* בחירת חומש ופרשה, והפסוק, בטופס ההצעה */
+.parasha-box { border: 2px dashed #d6b77a; background: #fffbeb; border-radius: 16px; padding: 10px 12px; margin: 10px 0 4px; }
+.parasha-box[hidden] { display: none; }
+.parasha-box select { margin-bottom: 4px; }
+.parasha-box textarea { font-family: "Frank Ruhl Libre", serif; font-size: 1.1rem; }
+.review-verse + .review-q { margin-top: 0; }

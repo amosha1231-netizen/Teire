@@ -1,6 +1,7 @@
 // היכל פרשת השבוע: לכל פרשה, שאלות על שיטת כל פרשן. בכל שאלה מופיע הפסוק (verse) והמקום שלו (ref),
 // ו-quote הוא לשון הפרשן שממנה לומדים את התשובה.
-// כדי להוסיף פרשה: מוסיפים עוד פרשה ל-WEEKS, עם תאריך השבת שבה קוראים אותה (shabbat). האתר מציג את פרשת השבוע לפי התאריך.
+// השאלות הקבועות לפרשה (WEEKS) הן רק תוכן מוכן מראש. השאלות שגולשים מציעים ומנהל מאשר נשמרות במסד הנתונים לפי שם הפרשה (parasha),
+// ולכן סבב שנתי לא מוחק אותן. איזו פרשה עכשיו נקבעת לפי לוח הפרשות של ספריא, ואם אין חיבור, לפי התאריך (shabbat).
 (function () {
   const COMMENTATORS = [
     { id: "rashi", name: "רש\"י", full: "רבי שלמה יצחקי", icon: "📜", color: "#7c2d12", desc: "פשוטו של מקרא" },
@@ -145,16 +146,40 @@
     } },
   ];
 
-  // פרשת השבוע: הפרשה הראשונה שהשבת שלה עוד לא עברה (ואם כולן עברו, האחרונה)
-  const today = new Date().toISOString().slice(0, 10);
-  const current = WEEKS.find(w => w.shabbat >= today) || WEEKS[WEEKS.length - 1];
+  const { PARASHOT, byId } = window.TEIRE_PARASHOT;
+  const norm = s => (s || "").replace(/[^\u05D0-\u05EA]/g, ""); // רק אותיות, בלי ניקוד ורווחים
 
-  // השאלות של פרשת השבוע נכנסות לשלבים של כל היכל
-  COMMENTATORS.forEach(c => {
-    const levels = {};
-    (current.q[c.id] || []).forEach(q => { (levels[q.level || 1] = levels[q.level || 1] || []).push(q); });
-    window.TEIRE_LEVELS["parasha-" + c.id] = levels;
-  });
+  // הפרשה (או שתיים בשבוע אחד) שנקראת עכשיו. ההיכלות מציגים רק את שאלות שלה.
+  const current = { ids: [], name: "" };
+  function setCurrent(list) {
+    current.ids = list.map(p => p.id);
+    current.name = list.map(p => p.name).join("-");
+    const week = WEEKS.find(w => current.ids.includes(w.id));
+    COMMENTATORS.forEach(c => {
+      const levels = {};
+      ((week && week.q[c.id]) || []).forEach(q => { (levels[q.level || 1] = levels[q.level || 1] || []).push(q); });
+      window.TEIRE_LEVELS["parasha-" + c.id] = levels;
+    });
+  }
+  function byDate() {
+    const today = new Date().toISOString().slice(0, 10);
+    const w = WEEKS.find(x => x.shabbat >= today) || WEEKS[WEEKS.length - 1];
+    return [byId(w.id)].filter(Boolean);
+  }
+  // לוח הפרשות של ספריא (אותו מקור כמו הדף היומי). אם אי אפשר להגיע אליו, משתמשים בתאריך.
+  const ready = (async () => {
+    setCurrent(byDate());
+    try {
+      const data = await Promise.race([
+        fetch("https://www.sefaria.org/api/calendars").then(r => r.json()),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000)),
+      ]);
+      const item = (data.calendar_items || []).find(i => i.title && i.title.en === "Parashat Hashavua");
+      if (!item) return;
+      const found = item.displayValue.he.split("-").map(part => PARASHOT.find(p => p.names.some(n => norm(n) === norm(part)))).filter(Boolean);
+      if (found.length) setCurrent(found);
+    } catch (e) { /* בלי חיבור: נשארים עם התאריך */ }
+  })();
 
-  window.TEIRE_PARASHA = { COMMENTATORS, WEEKS, current };
+  window.TEIRE_PARASHA = { COMMENTATORS, WEEKS, current, ready };
 })();

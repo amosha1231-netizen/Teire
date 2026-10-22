@@ -2,6 +2,7 @@
   const db = window.TeireDB;
   const cfg = window.TEIRE_CONFIG;
   const { PLACES, ITEMS, SKINS, HAIR, avatarSVG } = window.TeireWorld;
+  const Parasha = window.TEIRE_PARASHA, Parashot = window.TEIRE_PARASHOT;
   const Sages = window.TeireSages, City = window.TeireCity;
   const app = document.getElementById("app");
   const placeById = id => PLACES.find(p => p.id === id);
@@ -340,9 +341,10 @@
   }
 
   // ---------- עולם בתוך עיר (ירושלים) ----------
-  function viewTown(id) {
+  async function viewTown(id) {
     const T = Towns.byId(id);
     if (!T || !player.name) return viewCity();
+    if (id === "parasha") await Parasha.ready; // שם הפרשה של השבוע מוצג בעיירה
     setTab("map");
     document.body.classList.add("in-city");
     const soul = player.activeSoul && Sages.byId(player.activeSoul);
@@ -587,8 +589,11 @@
     if (!isOpen(PLACES.indexOf(place))) return viewCity();
 
     app.innerHTML = `<p class="muted center">טוען...</p>`;
+    if (isParashaPlace(placeId)) await Parasha.ready; // קודם יודעים איזו פרשה עכשיו
     let dbPool = [];
     try { dbPool = await db.approved(placeId); } catch (e) { app.innerHTML = errorBox(e); return; }
+    // בהיכל פרשת השבוע רק שאלות של הפרשה (או השתיים) של השבוע. השאר נשמרות לשנה הבאה.
+    if (isParashaPlace(placeId)) dbPool = dbPool.filter(q => Parasha.current.ids.includes(q.parasha));
     // שאלות ממסד הנתונים לפי השלב שלהן (בלי שלב = שלב 1), ועוד השאלות המובנות של אותו שלב
     const pools = [null, 1, 2, 3].map(l => l && dbPool.filter(q => (q.level || 1) === l).concat(bankFor(placeId, l)));
     const levels = [1, 2, 3].filter(l => pools[l].length);
@@ -613,7 +618,7 @@
             : `<div class="small">🔒 נפתח אחרי ${LEVEL_NAMES[l - 1].split(":")[0]}</div>`}
         </div>`;
       }).join("") : `<div class="card center"><p>אין עדיין שאלות במקום הזה.</p></div>`}
-      <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a>${place.id.startsWith("parasha-") ? "" : `<a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a>`}</div>`;
+      <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a><a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a></div>`;
     app.querySelectorAll("[data-level]").forEach(btn => btn.onclick = () => {
       const l = Number(btn.dataset.level);
       runMission(place, pools[l], l);
@@ -1401,9 +1406,17 @@
     { name: "🏛️ ירושלים", test: p => p.home === "#/town/jerusalem" },
     { name: "📘 כוללי הרבנים", test: p => p.id.startsWith("kollel-") },
     { name: "🌍 גדולי ישראל בגולה", test: p => p.gola },
+    { name: "📜 היכל פרשת השבוע", test: p => isParashaPlace(p.id) },
+    { name: "🔤 השלמת הפסוק", test: p => p.id === "verse-hall" },
   ];
+  const isParashaPlace = id => !!id && id.startsWith("parasha-");
+  // אפשרויות הפרשה בתוך חומש אחד
+  const parashaOptions = (book, selected) => Parashot.PARASHOT.filter(p => p.book === book)
+    .map(p => `<option value="${p.id}" ${p.id === selected ? "selected" : ""}>${p.name}</option>`).join("");
   function questionForm(q) {
     q = q || { place: PLACES[0].id, question: "", answers: ["", "", "", ""], correct: 0, source: "" };
+    // בטופס של פרשה: מתחילים מהפרשה של הנושא השמור, ואחרת מהפרשה של השבוע
+    const cur = (q.parasha && Parashot.byId(q.parasha)) || Parashot.byId(Parasha.current.ids[0]) || Parashot.PARASHOT[0];
     return `
       <label>על איזה נושא השאלה?</label>
       <div class="topic-pick">
@@ -1420,6 +1433,21 @@
               </label>`).join("")}
           </div>` : "";
         }).join("")}
+      </div>
+      <div class="parasha-box" id="pbox" hidden>
+        <div class="pb-parasha">
+          <label>איזה חומש?</label>
+          <select name="book">${Parashot.BOOKS.map(b => `<option value="${b.id}" ${b.id === cur.book ? "selected" : ""}>${b.he}</option>`).join("")}</select>
+          <label>איזו פרשה?</label>
+          <select name="parasha">${parashaOptions(cur.book, cur.id)}</select>
+          <label>הפסוק כמו שהוא בחומש <span class="hint">(בלי הפירוש)</span></label>
+          <textarea name="verse" rows="2" maxlength="400" placeholder="וַיֵּרָא ה' אֶל אַבְרָם...">${esc(q.verse || "")}</textarea>
+          <label>מקום הפסוק <span class="hint">(למשל: בראשית יב, ז)</span></label>
+          <input name="ref" maxlength="60" value="${esc(q.ref || "")}">
+          <label>מה הפרשן כותב <span class="hint">(לא חובה: מוצג אחרי התשובה)</span></label>
+          <textarea name="quote" rows="2" maxlength="400">${esc(q.quote || "")}</textarea>
+        </div>
+        <div class="pb-verse small muted">בשאלת השלמת הפסוק כותבים את הפסוק כמו שהוא, ומשאירים ____ במקום המילה החסרה. התשובה הנכונה היא המילה שחסרה.</div>
       </div>
       <label>רמת קושי</label>
       <div class="lvl-pick">
@@ -1442,9 +1470,31 @@
     const box = form.querySelector(".topic-pick"), t = form.querySelector(".topic input:checked");
     if (box && t) box.scrollTop = t.closest(".topic").offsetTop - box.offsetTop - 40;
   }
+  // מחברים את הטופס: בחירת חומש מעדכנת את רשימת הפרשות, ובחירת נושא מראה את השדות הנכונים
+  function wireForm(form) {
+    const book = form.querySelector("select[name=book]"), par = form.querySelector("select[name=parasha]");
+    book.onchange = () => { par.innerHTML = parashaOptions(book.value, null); };
+    const pbox = form.querySelector("#pbox");
+    const sync = () => {
+      const pl = (form.querySelector("input[name=place]:checked") || {}).value || "";
+      pbox.hidden = !(isParashaPlace(pl) || pl === "verse-hall");
+      pbox.querySelector(".pb-parasha").hidden = !isParashaPlace(pl);
+      pbox.querySelector(".pb-verse").hidden = pl !== "verse-hall";
+    };
+    form.querySelectorAll("input[name=place]").forEach(r => r.addEventListener("change", sync));
+    sync();
+  }
+  // מה חסר בשדות של פרשת השבוע (או null אם הכול תקין)
+  const formProblem = q => {
+    if (!isParashaPlace(q.place)) return null;
+    if (!q.parasha) return "בחרו חומש ופרשה.";
+    if (!q.verse) return "כתבו את הפסוק כמו שהוא בחומש.";
+    if (!q.ref) return "כתבו את מקום הפסוק, למשל: בראשית יב, ז.";
+    return null;
+  };
   function readForm(form) {
     const f = new FormData(form);
-    return {
+    const q = {
       place: f.get("place"),
       level: Number(f.get("level")) || 1,
       question: f.get("question").trim(),
@@ -1452,10 +1502,18 @@
       correct: Number(f.get("correct")),
       source: (f.get("source") || "").trim(),
     };
+    if (isParashaPlace(q.place)) Object.assign(q, {
+      parasha: f.get("parasha"),
+      verse: (f.get("verse") || "").trim(),
+      ref: (f.get("ref") || "").trim(),
+      quote: (f.get("quote") || "").trim() || null,
+    });
+    return q;
   }
 
-  function viewSuggest(placeId) {
+  async function viewSuggest(placeId) {
     setTab("suggest");
+    if (isParashaPlace(placeId)) await Parasha.ready; // ברירת המחדל היא פרשת השבוע
     app.innerHTML = `
       <div class="card">
         <h2>הציעו שאלה</h2>
@@ -1470,11 +1528,14 @@
       </div>`;
     const form = document.getElementById("sform");
     showPicked(form);
+    wireForm(form);
     form.onsubmit = async ev => {
       ev.preventDefault();
       const q = readForm(form);
       const msg = document.getElementById("smsg");
       if (new Set(q.answers).size < 4) { msg.innerHTML = `<div class="notice err">כל ארבע התשובות צריכות להיות שונות זו מזו.</div>`; return; }
+      const problem = formProblem(q);
+      if (problem) { msg.innerHTML = `<div class="notice err">${problem}</div>`; return; }
       q.author_name = (new FormData(form).get("author") || "").trim() || null;
       form.querySelector("button[type=submit]").disabled = true;
       try {
@@ -1518,6 +1579,8 @@
       return `
       <div class="card pending" data-id="${q.id}">
         <div><span class="chip">${p.icon} ${esc(p.name)}</span><span class="chip">${LEVEL_NAMES[q.level || 1].split(":")[0]}</span><span class="small muted">${q.author_name ? "מאת " + esc(q.author_name) : "אנונימי"}</span></div>
+        ${q.parasha && Parashot.byId(q.parasha) ? `<span class="chip">📜 ${esc(Parashot.byId(q.parasha).name)}</span>` : ""}
+        ${q.verse ? `<div class="verse"><div class="verse-text">${esc(q.verse)}</div><div class="verse-ref">${esc(q.ref || "")}</div></div>` : ""}
         <h3 style="margin-top:8px">${esc(q.question)}</h3>
         <ol>${q.answers.map((a, i) => `<li class="${i === q.correct ? "is-correct" : ""}">${esc(a)}${i === q.correct ? " ✓" : ""}</li>`).join("")}</ol>
         ${q.source ? `<div class="small muted">מקור: ${esc(q.source)}</div>` : ""}
@@ -1570,11 +1633,14 @@
       <div class="row"><button class="btn good" type="submit">שמירה ואישור</button><button class="btn ghost" type="button" id="cancel">ביטול</button></div></form>`;
     const form = card.querySelector("form");
     showPicked(form);
+    wireForm(form);
     card.querySelector("#cancel").onclick = () => viewAdmin();
     form.onsubmit = async ev => {
       ev.preventDefault();
+      const data = readForm(form), problem = formProblem(data);
+      if (problem) { card.insertAdjacentHTML("beforeend", `<div class="notice err">${problem}</div>`); return; }
       try {
-        await db.update(q.id, { ...readForm(form), status: "approved" });
+        await db.update(q.id, { ...data, status: "approved" });
         card.innerHTML = `<div class="notice ok">השאלה עודכנה ואושרה</div>`;
       } catch (e) { card.insertAdjacentHTML("beforeend", errorBox(e)); }
     };
@@ -1666,7 +1732,8 @@
     (window.TEIRE_SEED || []).forEach(q => quiz("ת", "שאלות התחנות", "content/torah.js", `${pname(q.place)} · ${LEVEL_NAMES[1]}`, q));
     Object.entries(window.TEIRE_LEVELS || {}).filter(([place]) => !place.startsWith("parasha-")).forEach(([place, lv]) => Object.entries(lv).forEach(([l, list]) => list.forEach(q => {
       const kollel = place.startsWith("kollel-");
-      quiz(kollel ? "כ" : "ש", kollel ? "כוללי הרבנים" : "שאלות התחנות", kollel ? "content/kollels.js" : "content/levels.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
+      const verse = place === "verse-hall";
+      quiz(kollel ? "כ" : verse ? "ה" : "ש", kollel ? "כוללי הרבנים" : verse ? "השלמת הפסוק" : "שאלות התחנות", verse ? "content/verses.js" : kollel ? "content/kollels.js" : "content/levels.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
     })));
     const PAR = window.TEIRE_PARASHA;
     if (PAR) PAR.WEEKS.forEach(w => PAR.COMMENTATORS.forEach(c => (w.q[c.id] || []).forEach(q =>
@@ -1722,7 +1789,8 @@
         if (!dbItems) {
           try {
             dbItems = (await db.allApproved()).map((q, n) => ({ code: `ג-${q.id}`, where: `${(placeById(q.place) || { name: q.place }).name} · ${LEVEL_NAMES[q.level || 1]}${q.author_name ? " · " + q.author_name : ""}`,
-              text: q.question, answer: q.answers[q.correct], others: q.answers.filter((_, i) => i !== q.correct), source: q.source, file: "מסד הנתונים (עריכה בלשונית ניהול)" }));
+              text: q.question, answer: q.answers[q.correct], others: q.answers.filter((_, i) => i !== q.correct), source: q.source, quote: q.quote,
+              verse: q.verse && `${q.verse}${q.ref ? " (" + q.ref + ")" : ""}`, file: "מסד הנתונים (עריכה בלשונית ניהול)" }));
           } catch (e) { list.innerHTML = errorBox(e); return; }
         }
         shown = dbItems;

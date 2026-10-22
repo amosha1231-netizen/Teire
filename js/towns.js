@@ -370,23 +370,28 @@
     ],
   };
 
-  // היכל פרשת השבוע: חדר לכל פרשן, ובאמצע ספר התורה עם הפרשה של השבוע
+  // היכל פרשת השבוע: חדר לכל פרשן, חדר השלמת הפסוק, ובאמצע ספר התורה עם הפרשה של השבוע.
+  // שם הפרשה נקבע בכל פתיחה (אחרי שנקבע הלוח), לכן spots ו-labels הם getters.
   const PAR = window.TEIRE_PARASHA;
   const SEATS = [[170, 260], [400, 170], [600, 170], [830, 260], [190, 560], [810, 560]];
   const parasha = {
     id: "parasha", name: "היכל פרשת השבוע", W: 1000, H: 1000,
     start: { x: 500, y: 880 },
     blocked: [],
-    spots: [
-      ...(PAR ? PAR.COMMENTATORS : []).map((c, i) => ({ id: "h-" + c.id, name: `היכל ${c.name}`, icon: c.icon, x: SEATS[i][0], y: SEATS[i][1], color: c.color, href: `#/place/parasha-${c.id}` })),
-      { id: "sefer", name: PAR ? `פרשת ${PAR.current.name}` : "פרשת השבוע", icon: "📖", x: 500, y: 470, color: "#a16207",
-        info: {
-          title: PAR ? `📖 פרשת השבוע: ${PAR.current.name}` : "📖 פרשת השבוע",
-          text: PAR ? `השבוע קוראים את פרשת ${PAR.current.name} (${PAR.current.ref}). בכל היכל מופיע פסוק מהפרשה, וצריך לדייק מה הפרשן אומר עליו. בכל שבוע מתחלפות השאלות לפרשה החדשה.` : "",
-          links: (PAR ? PAR.COMMENTATORS : []).map(c => [`${c.icon} היכל ${c.name}`, `#/place/parasha-${c.id}`]),
-        } },
-      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
-    ],
+    get spots() {
+      const pname = PAR && PAR.current.name;
+      return [
+        ...(PAR ? PAR.COMMENTATORS : []).map((c, i) => ({ id: "h-" + c.id, name: `היכל ${c.name}`, icon: c.icon, x: SEATS[i][0], y: SEATS[i][1], color: c.color, href: `#/place/parasha-${c.id}` })),
+        { id: "verse", name: "היכל השלמת הפסוק", icon: "🔤", x: 500, y: 790, color: "#0f172a", href: "#/place/verse-hall" },
+        { id: "sefer", name: pname ? `פרשת ${pname}` : "פרשת השבוע", icon: "📖", x: 500, y: 470, color: "#a16207",
+          info: {
+            title: pname ? `📖 פרשת השבוע: ${pname}` : "📖 פרשת השבוע",
+            text: pname ? `השבוע קוראים את פרשת ${pname}. בכל היכל מופיע פסוק מהפרשה, וצריך לדייק מה הפרשן אומר עליו. בהיכל השלמת הפסוק משלימים מילה חסרה מכל התורה.` : "",
+            links: (PAR ? PAR.COMMENTATORS : []).map(c => [`${c.icon} היכל ${c.name}`, `#/place/parasha-${c.id}`]),
+          } },
+        { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
+      ];
+    },
     svg(W, H) {
       const cols = [230, 360, 640, 770].map(x => `<rect x="${x - 14}" y="330" width="28" height="420" rx="8" fill="#f5e6c8" stroke="#d6b77a" stroke-width="3"/>`).join("");
       return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
@@ -400,7 +405,10 @@
         <path d="M120 120 Q 500 20 880 120" fill="none" stroke="#c9a467" stroke-width="8"/>
       </svg>`;
     },
-    labels: [{ text: PAR ? `פרשת ${PAR.current.name}` : "", x: 500, y: 600, cls: "land small" }],
+    get labels() {
+      const pname = PAR && PAR.current.name;
+      return [{ text: pname ? `פרשת ${pname}` : "", x: 500, y: 600, cls: "land small" }];
+    },
     decorations: [["🕯️", 300, 470], ["🕯️", 700, 470], ["📚", 90, 420], ["📚", 910, 420], ["🪔", 500, 90], ["🌿", 90, 760], ["🌿", 910, 760]],
   };
 

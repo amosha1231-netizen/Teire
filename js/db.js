@@ -111,14 +111,16 @@
       return c;
     },
     async submit(q) {
-      // בלי select: משתמש אנונימי לא רשאי לקרוא שאלות שממתינות לאישור
-      let { error } = await sb.from("questions").insert({ ...q, status: "pending" });
+      // בלי select: משתמש אנונימי לא רשאי לקרוא שאלות שממתינות לאישור.
+      // שדות ריקים לא נשלחים, כדי שמסד נתונים ישן (בלי עדכון 3) יקבל שאלות רגילות בלי שגיאה.
+      const row = Object.fromEntries(Object.entries(q).filter(([, v]) => v != null && v !== ""));
+      let { error } = await sb.from("questions").insert({ ...row, status: "pending" });
       if (error && needsUpdate(error)) {
         // מסד הנתונים עוד בלי עדכון 2: שאלה רגילה לשלב 1 עוברת גם בלי השדה level
-        if ((q.level || 1) === 1 && OLD_PLACES.includes(q.place)) {
-          const { level, ...rest } = q;
+        if ((row.level || 1) === 1 && OLD_PLACES.includes(row.place)) {
+          const { level, ...rest } = row;
           ({ error } = await sb.from("questions").insert({ ...rest, status: "pending" }));
-        } else throw new Error("כדי להציע שאלות לשלבים קשים, לתחנות החדשות או לכוללים, המנהל צריך להריץ את הקובץ supabase/update-2.sql ב-Supabase.");
+        } else throw new Error("כדי להציע שאלות לשלבים קשים, לתחנות החדשות, לכוללים או לפרשת השבוע, המנהל צריך להריץ ב-Supabase את הקובץ supabase/update-2.sql ואחריו את supabase/update-3.sql.");
       }
       if (error) throw error;
     },

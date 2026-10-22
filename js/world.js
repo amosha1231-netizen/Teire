@@ -121,13 +121,18 @@
     .forEach(([id, name, icon, color]) => PLACES.push({ id, name, icon, color, desc: "בקרוב", free: true, bank: true, soon: true, gola: true,
       guide: { name: "ינשופי", emoji: "🦉", hello: `ברוכים הבאים! כאן נלמד על ${name}.` } }));
 
-  // היכלות הפרשנים בהיכל פרשת השבוע (הרשימה ב-content/parasha.js)
+  // היכלות הפרשנים בהיכל פרשת השבוע (הרשימה ב-content/parasha.js). השם והתיאור נקבעים בכל פתיחה, לפי הפרשה של השבוע.
   const PAR = window.TEIRE_PARASHA;
   if (PAR) PAR.COMMENTATORS.forEach(c => PLACES.push({
-    id: "parasha-" + c.id, name: `היכל ${c.name}`, icon: c.icon, color: c.color, desc: `פרשת ${PAR.current.name} · ${c.desc}`,
-    free: true, bank: true, home: "#/town/parasha",
-    guide: { name: "מגילי", emoji: "📜", hello: `ברוכים הבאים להיכל ${c.name} (${c.full})! השבוע פרשת ${PAR.current.name}. קראו את הפסוק, ודייקו: מה ${c.name} אומר עליו?` },
+    id: "parasha-" + c.id, name: `היכל ${c.name}`, icon: c.icon, color: c.color,
+    get desc() { return `פרשת ${PAR.current.name || "השבוע"} · ${c.desc}`; },
+    free: true, bank: true, parasha: true, home: "#/town/parasha",
+    guide: { name: "מגילי", emoji: "📜", hello: `ברוכים הבאים להיכל ${c.name} (${c.full})! קראו את הפסוק, ודייקו: מה ${c.name} אומר עליו?` },
   }));
+  // היכל השלמת הפסוק: מכל התורה, לא קשור לפרשה
+  PLACES.push({ id: "verse-hall", name: "היכל השלמת הפסוק", icon: "🔤", color: "#0f172a", desc: "השלימו את המילה החסרה, מכל התורה",
+    free: true, bank: true, home: "#/town/parasha",
+    guide: { name: "אותיות", emoji: "🔤", hello: "ברוכים הבאים! אני אותיות. תראו את הפסוק עם המילה החסרה, ותשלימו אותה מהזיכרון." } });
 
   window.TeireWorld = { PLACES, ITEMS, SKINS, HAIR, avatarSVG };
 })();
