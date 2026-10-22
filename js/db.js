@@ -2,6 +2,8 @@
 (function () {
   const cfg = window.TEIRE_CONFIG;
   const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
+  // חשבונות שחקנים (שם משתמש וסיסמה) דורשים Supabase, ואת עדכון 4 ב-SQL. מכבים עם ACCOUNTS: false ב-config.js.
+  const accounts = useSupabase && cfg.ACCOUNTS !== false;
 
   function shuffle(arr) {
     const a = arr.slice();
@@ -74,7 +76,15 @@
     async leaderboard() { return null; },
     async submitScore() {},
     async leaveBoard() {},
+    async signUp() { throw new Error("חשבונות זמינים רק כשהאתר מחובר לשרת"); },
+    async signIn() { throw new Error("חשבונות זמינים רק כשהאתר מחובר לשרת"); },
+    async currentUser() { return null; },
+    async signOutPlayer() {},
+    async loadProgress() { return null; },
+    async saveProgress() {},
   };
+
+  const playerEmail = u => u + "@players.teire-app.com";
 
   // ---------- מצב Supabase ----------
   const OLD_PLACES = ["gan-eden", "teiva", "ohel", "mitzrayim", "sinai", "midbar", "beit-midrash", "beit-knesset"];
@@ -167,10 +177,48 @@
       }
     },
     async logout() { await sb.auth.signOut(); },
+    // ---------- חשבונות שחקנים ----------
+    // שם המשתמש הופך לכתובת דמה (שלא נשלחת לשום מקום) כדי שאפשר להשתמש ב-Supabase Auth
+    async signUp(username, password) {
+      const u = (username || "").trim().toLowerCase();
+      if (!/^[a-z0-9_]{3,20}$/.test(u)) throw new Error("שם המשתמש: 3 עד 20 תווים, אנגלית, ספרות או קו תחתון");
+      if ((password || "").length < 6) throw new Error("הסיסמה חייבת להיות לפחות 6 תווים");
+      const { data, error } = await sb.auth.signUp({ email: playerEmail(u), password, options: { data: { username: u } } });
+      if (error) throw new Error(/already|registered/i.test(error.message) ? "שם המשתמש הזה כבר תפוס" : error.message);
+      if (!data.session) throw new Error("החשבון נוצר, אבל לא נכנסנו. צריך לכבות ב-Supabase את Confirm email");
+      return u;
+    },
+    async signIn(username, password) {
+      const u = (username || "").trim().toLowerCase();
+      const { error } = await sb.auth.signInWithPassword({ email: playerEmail(u), password });
+      if (error) throw new Error("שם משתמש או סיסמה שגויים");
+      return u;
+    },
+    // החשבון של השחקן (לא של מנהל). מנהל בלי שם משתמש נחשב כלא מחובר לשחקן.
+    async currentUser() {
+      const { data: { session } } = await sb.auth.getSession();
+      const name = session && session.user.user_metadata && session.user.user_metadata.username;
+      return name ? { id: session.user.id, username: name } : null;
+    },
+    async signOutPlayer() { await sb.auth.signOut(); },
+    async loadProgress() {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) throw new Error("לא מחוברים");
+      const { data, error } = await sb.from("progress").select("data").eq("user_id", session.user.id).maybeSingle();
+      if (error) throw error;
+      return data ? data.data : null;
+    },
+    async saveProgress(player) {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return;
+      const { error } = await sb.from("progress").upsert({ user_id: session.user.id, data: player, updated_at: new Date().toISOString() });
+      if (error) throw error;
+    },
   };
 
   if (useSupabase) sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   window.TeireDB = useSupabase ? remote : local;
+  window.TeireDB.accounts = accounts;
   window.TeireDB.shuffle = shuffle;
   window.TeireDB.realtime = sb; // לדו-קרב בזמן אמת (null במצב מקומי)
 })();

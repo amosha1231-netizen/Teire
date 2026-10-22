@@ -7,4 +7,6 @@ window.TEIRE_CONFIG = {
   // קוד מנהל למצב מקומי בלבד (לבדיקה על המחשב שלכם). במצב Supabase הכניסה היא עם אימייל וסיסמה.
   LOCAL_ADMIN_PIN: "1234",
   QUESTIONS_PER_MISSION: 5,
+  // חשבונות שחקנים (שם משתמש וסיסמה). להפעיל רק אחרי שמריצים supabase/update-4.sql ב-Supabase.
+  ACCOUNTS: false,
 };

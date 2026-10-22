@@ -14,8 +14,17 @@
     try { return JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) { return {}; }
   }
   let player = Object.assign({ name: "", look: { ...DEFAULT_LOOK }, owned: [], coins: 0, stars: {}, souls: [], activeSoul: null, pos: null }, loadPlayer());
+  // חשבון שחקן: ההתקדמות נשמרת בשרת, ורק אחרי שנטענה בהצלחה (כדי לא לדרוס אותה בטעות)
+  const accountState = { user: null, loaded: false };
+  let progressTimer = 0;
+  function saveProgressSoon() {
+    if (!db.accounts || !accountState.loaded) return;
+    clearTimeout(progressTimer);
+    progressTimer = setTimeout(() => db.saveProgress(player).catch(() => toast("לא הצלחנו לשמור את ההתקדמות. בדקו את החיבור")), 800);
+  }
   function savePlayer() {
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
+    saveProgressSoon();
     renderHud();
     syncScore();
   }
@@ -106,6 +115,68 @@
     let typed = player.name;
     function keepName() { const el = document.getElementById("pname"); if (el) typed = el.value; }
     draw();
+  }
+
+  // ---------- חשבון שחקן ----------
+  // שחקן חדש מתחיל מהתחלה. ההתקדמות של מי שנכנס נטענת מהשרת בלבד, ולא מהדפדפן.
+  const freshPlayer = () => ({ name: "", look: { ...DEFAULT_LOOK }, owned: [], coins: 0, stars: {}, souls: [], activeSoul: null, pos: null });
+  async function loadAccountProgress() {
+    const data = await db.loadProgress();
+    player = data ? Object.assign(freshPlayer(), data) : freshPlayer();
+    try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
+    accountState.loaded = true;
+    if (!data) await db.saveProgress(player);
+  }
+  async function startAccount() {
+    if (!db.accounts) return;
+    try {
+      accountState.user = await db.currentUser();
+      if (accountState.user) await loadAccountProgress();
+    } catch (e) {
+      accountState.loaded = false;
+      toast("לא הצלחנו לטעון את ההתקדמות שלכם. נסו לרענן את העמוד");
+    }
+  }
+  function viewAccount(mode = "login", msg = "") {
+    setTab("map");
+    app.innerHTML = `
+      <div class="card center">
+        <h1>מסע בתורה</h1>
+        <p class="muted">${mode === "signup" ? "פתחו חשבון חדש. ההתקדמות שלכם תישמר, וכך תוכלו לשחק מכל מכשיר." : "היכנסו לחשבון שלכם כדי להמשיך מאיפה שעצרתם."}</p>
+        <div class="seg">
+          <button class="${mode === "login" ? "on" : ""}" data-m="login">כניסה</button>
+          <button class="${mode === "signup" ? "on" : ""}" data-m="signup">הרשמה</button>
+        </div>
+        <input id="uname" placeholder="שם משתמש (אנגלית, ספרות או _)" maxlength="20" autocomplete="username" autocapitalize="off">
+        <input id="upw" type="password" placeholder="סיסמה (לפחות 6 תווים)" maxlength="72" autocomplete="${mode === "signup" ? "new-password" : "current-password"}">
+        <button class="btn big-btn" id="acc-go">${mode === "signup" ? "פותחים חשבון" : "נכנסים"}</button>
+        <div id="accmsg" style="margin-top:12px">${msg}</div>
+      </div>`;
+    app.querySelectorAll("[data-m]").forEach(b => b.onclick = () => viewAccount(b.dataset.m));
+    const go = document.getElementById("acc-go");
+    go.onclick = async () => {
+      const u = document.getElementById("uname").value, pw = document.getElementById("upw").value;
+      go.disabled = true;
+      try {
+        if (mode === "signup") await db.signUp(u, pw); else await db.signIn(u, pw);
+        accountState.user = await db.currentUser();
+        await loadAccountProgress();
+        location.hash = "#/";
+        route();
+      } catch (e) {
+        go.disabled = false;
+        document.getElementById("accmsg").innerHTML = errorBox(e);
+      }
+    };
+  }
+  async function logoutPlayer() {
+    try { await db.signOutPlayer(); } catch (e) { /* ignore */ }
+    accountState.user = null; accountState.loaded = false;
+    clearTimeout(progressTimer);
+    player = freshPlayer();
+    try { localStorage.removeItem(PKEY); } catch (e) { /* ignore */ }
+    location.hash = "#/";
+    route();
   }
 
   // ---------- העיר ----------
@@ -1343,6 +1414,8 @@
       <div class="card center">
         <div class="avatar-stage">${avatarSVG(player.look, 120)}</div>
         <h2>${esc(player.name)}</h2>
+        ${db.accounts && accountState.user ? `<p class="muted small">שם משתמש: ${esc(accountState.user.username)} </p>` : ""}
+        ${db.accounts && accountState.user ? `<button class="btn ghost" id="logout">יציאה מהחשבון</button>` : ""}
         <div class="row center-row"><span class="pill dark">⭐ ${totalStars()} כוכבים</span><span class="pill dark">🪙 ${player.coins} מטבעות</span></div>
         <div id="shopmsg"></div>
       </div>
@@ -1386,6 +1459,8 @@
       savePlayer(); viewMe();
     });
     document.getElementById("redo").onclick = viewOnboarding;
+    const lo = document.getElementById("logout");
+    if (lo) lo.onclick = logoutPlayer;
     const showNext = () => {
       const st = TeireShabbat.status(), el = document.getElementById("nextsh");
       if (el && st.next) el.textContent = `האתר ייסגר ל${st.next.name} ב${dayName(st.next.start)} בשעה ${hm(st.next.start)}`;
@@ -1838,6 +1913,7 @@
     stopGame();
     Music.mood(moodFor(page, arg));
     if (checkShabbat()) return;
+    if (db.accounts && !accountState.user && page !== "admin") return viewAccount();
     window.scrollTo(0, 0);
     if (page === "place" && arg) return viewPlace(arg);
     if (page === "b" && arg) return viewBuilding(arg);
@@ -1864,5 +1940,5 @@
     if (a && a.getAttribute("href") === (location.hash || "#/")) { ev.preventDefault(); route(); }
   });
   renderHud();
-  route();
+  startAccount().then(route);
 })();
