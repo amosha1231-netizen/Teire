@@ -108,8 +108,9 @@
   }
 
   // ---------- העיר ----------
-  let cityLoop = null;
+  let cityLoop = null, townPeers = null;
   function stopCity() {
+    if (townPeers) { townPeers.leave(); townPeers = null; }
     if (cityLoop) { cancelAnimationFrame(cityLoop.raf); window.removeEventListener("keydown", cityLoop.onKey); window.removeEventListener("keyup", cityLoop.onKey); cityLoop = null; }
     document.body.classList.remove("in-city");
   }
@@ -117,6 +118,7 @@
   // מידע על מקום במפה: האם פתוח, כמה כוכבים ולאן נכנסים
   function locInfo(L) {
     const t = L.torah && placeById(L.torah);
+    if (t && t.soon) return { name: L.name, icon: L.icon, color: L.color, open: false, soon: true, stars: 0, href: "#/" };
     const torahOpen = !t || isOpen(PLACES.indexOf(t));
     const hasSages = Sages.SAGES.some(s => s.building === L.id);
     return {
@@ -134,7 +136,7 @@
     if (!player.name) return viewOnboarding();
     setTab("map");
     document.body.classList.add("in-city");
-    const { W, H, LAND, SINAI, BAVEL, LOCATIONS, LABELS, START } = City;
+    const { W, H, LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, START } = City;
     const soul = player.activeSoul && Sages.byId(player.activeSoul);
     const pos = Object.assign({}, player.pos || START);
     const pts = arr => arr.map(p => p.join(",")).join(" ");
@@ -154,10 +156,12 @@
             </defs>
             <rect width="${W}" height="${H}" fill="#3fa0e0"/>
             <rect width="${W}" height="${H}" fill="url(#waves)" class="waves"/>
-            ${[LAND, SINAI, BAVEL].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
+            ${[LAND, SINAI, BAVEL, EUROPE, MIZRACH].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
             <polygon points="${pts(LAND)}" fill="url(#landg)" stroke="#8fbf5a" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(SINAI)}" fill="#e9b468" stroke="#d39a4a" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(BAVEL)}" fill="#e8c27a" stroke="#c99a50" stroke-width="4" stroke-linejoin="round"/>
+            <polygon points="${pts(EUROPE)}" fill="#9ccf7a" stroke="#6fa34f" stroke-width="4" stroke-linejoin="round"/>
+            <polygon points="${pts(MIZRACH)}" fill="#ecc98a" stroke="#c99a50" stroke-width="4" stroke-linejoin="round"/>
             <path d="M712 432 C 725 600, 705 800, 722 1000 S 712 1080, 706 1110" fill="none" stroke="#3fa0e0" stroke-width="9" stroke-linecap="round"/>
             <ellipse cx="712" cy="395" rx="28" ry="42" fill="#3fa0e0" stroke="#f5dc8c" stroke-width="6"/>
             <ellipse cx="706" cy="1215" rx="24" ry="100" fill="#4fb3d9" stroke="#f5dc8c" stroke-width="6"/>
@@ -188,6 +192,7 @@
       savePos: p => { player.pos = p; savePlayer(); },
       onBuilding(bEl, walkTo) {
         const b = City.byId(bEl.dataset.b), info = locInfo(b);
+        if (info.soon) { walkTo(b.x, b.y + 62, () => toast(`🔒 ${info.name}, ${b.desc}: השאלות יתווספו בקרוב`)); return; }
         if (!info.open) { toast("🔒 " + info.name + " ייפתח אחרי שתעברו את המשימה הקודמת במסע"); return; }
         walkTo(b.x, b.y + 62, () => { location.hash = info.href; });
       },
@@ -204,7 +209,8 @@
 
   // מנוע ההליכה, משותף למפת הארץ ולעולמות שבתוך הערים.
   // onBuilding(el, walkTo) נקרא בלחיצה על מקום; blocked = מלבנים שהדמות עוקפת ולא נכנסת אליהם.
-  function startWalker({ W, H, pos, savePos, onBuilding, onGround, blocked = [] }) {
+  // onMove(pos, target) מדווח על תזוזה (למשל לשחקנים אחרים באותה עיירה); target = null כשהדמות עומדת.
+  function startWalker({ W, H, pos, savePos, onBuilding, onGround, onMove, blocked = [] }) {
     const city = document.getElementById("city"), world = document.getElementById("world");
     const me = document.getElementById("me"), body = me.querySelector(".me-body"), tgt = document.getElementById("target");
     const SPEED = 260; // פיקסלים לשנייה
@@ -272,7 +278,9 @@
       onArrive = cb || null;
       tgt.style.left = t.x + "px"; tgt.style.top = t.y + "px"; tgt.classList.add("show");
       document.getElementById("hint").classList.add("hide");
+      if (onMove) onMove(pos, path[path.length - 1]);
     }
+    let lastSent = 0;
 
     function frame(now) {
       const dt = Math.min((now - last) / 1000, .05); last = now;
@@ -292,6 +300,7 @@
         me.style.zIndex = Math.round(pos.y);
         if (Math.abs(dx) > 1) body.style.transform = dx < 0 ? "scaleX(-1)" : "";
         me.classList.add("walking");
+        if (manual && onMove && now - lastSent > 400) { lastSent = now; onMove(pos, null); }
       } else {
         me.classList.remove("walking");
       }
@@ -300,6 +309,7 @@
         if (!path.length) {
           tgt.classList.remove("show"); me.classList.remove("walking");
           store();
+          if (onMove) onMove(pos, null);
           // ממשיכים את הלולאה גם אחרי ההגעה (בעולם של עיר נשארים באותו מסך)
           if (onArrive) { const cb = onArrive; onArrive = null; camera(false); cityLoop.raf = requestAnimationFrame(frame); cb(); return; }
         }
@@ -320,7 +330,7 @@
     const onKey = ev => {
       if (!ev.key.startsWith("Arrow") || ev.target.closest("input, textarea, select")) return;
       keys[ev.key] = ev.type === "keydown"; ev.preventDefault();
-      if (ev.type === "keyup") store();
+      if (ev.type === "keyup") { store(); if (onMove) onMove(pos, null); }
     };
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKey);
     cityLoop = { raf: 0, onKey };
@@ -360,7 +370,9 @@
         <a class="town-sign" href="#/">⬅ ${esc(T.name)} · למפת הארץ</a>
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
         <div class="town-info card" id="townInfo" hidden></div>
+        <div class="soul-chip peers-chip" id="peersChip" hidden></div>
       </div>`;
+    townPeers = joinTown(id, pos, soul);
     const box = document.getElementById("townInfo");
     const hideInfo = () => { box.hidden = true; };
     function showInfo(sp) {
@@ -376,6 +388,7 @@
     startWalker({
       W: T.W, H: T.H, pos, blocked: T.blocked,
       savePos: p => { player.townPos[id] = p; savePlayer(); },
+      onMove: (p, t) => townPeers && townPeers.move(p, t),
       onGround: hideInfo,
       onBuilding(bEl, walkTo) {
         const sp = T.spots.find(x => x.id === bEl.dataset.b);
@@ -388,6 +401,62 @@
         });
       },
     });
+  }
+
+  // ---------- שחקנים אחרים באותה עיירה ----------
+  // כל מי שנמצא באותה עיירה רואה את האחרים הולכים (רק בעיירות, לא במפת הארץ). נשלחים רק שם, מראה הדמות ומיקום.
+  const TAB_ID = Math.random().toString(36).slice(2, 8);
+  window.addEventListener("pagehide", () => { if (townPeers) { townPeers.leave(); townPeers = null; } });
+  function joinTown(townId, pos, soul) {
+    if (!player.id) { player.id = Math.random().toString(36).slice(2, 10); savePlayer(); }
+    const SPEED = 260;
+    let meta = { id: player.id + "-" + TAB_ID, name: player.name, look: player.look, soul: soul ? soul.name : "", x: Math.round(pos.x), y: Math.round(pos.y), tx: null, ty: null };
+    const els = {};
+    function place(el, p) {
+      // מציבים בנקודה הנוכחית, ואם יש יעד, הולכים אליו באותה מהירות של השחקן
+      const from = { x: p.x, y: p.y };
+      el.style.transition = "none";
+      el.style.left = from.x + "px"; el.style.top = from.y + "px"; el.style.zIndex = Math.round(from.y);
+      if (p.tx == null) { el.classList.remove("walking"); return; }
+      const dist = Math.hypot(p.tx - from.x, p.ty - from.y), sec = dist / SPEED;
+      el.querySelector(".me-body").style.transform = p.tx < from.x ? "scaleX(-1)" : "";
+      void el.offsetWidth;
+      el.style.transition = `left ${sec}s linear, top ${sec}s linear`;
+      el.style.left = p.tx + "px"; el.style.top = p.ty + "px"; el.style.zIndex = Math.round(p.ty);
+      el.classList.add("walking");
+      clearTimeout(el._stop); el._stop = setTimeout(() => el.classList.remove("walking"), sec * 1000);
+    }
+    function onPeers(list) {
+      const world = document.getElementById("world"), chip = document.getElementById("peersChip");
+      if (!world) return;
+      const others = list.filter(p => p && p.id !== meta.id && p.name);
+      const seen = new Set();
+      others.forEach(p => {
+        seen.add(p.id);
+        let el = els[p.id];
+        if (!el) {
+          el = document.createElement("div");
+          el.className = "me other";
+          el.innerHTML = `<span class="me-name">${esc(p.soul ? "🕯️ " + p.soul : p.name)}</span><span class="me-body">${avatarSVG(p.look, 46)}</span><span class="me-shadow"></span>`;
+          world.appendChild(el); els[p.id] = el;
+        }
+        const key = [p.x, p.y, p.tx, p.ty].join();
+        if (el._key !== key) { el._key = key; place(el, p); }
+      });
+      Object.keys(els).forEach(k => { if (!seen.has(k)) { els[k].remove(); delete els[k]; } });
+      if (chip) { chip.hidden = !others.length; chip.textContent = `👥 עוד ${others.length === 1 ? "שחקן אחד" : others.length + " שחקנים"} כאן`; }
+    }
+    let t;
+    try { t = TeireDuel.transport("town-" + townId, onPeers, () => {}); t.join(meta); } catch (e) { return null; }
+    let timer = null;
+    return {
+      move(p, target) {
+        meta = { ...meta, x: Math.round(p.x), y: Math.round(p.y), tx: target ? Math.round(target.x) : null, ty: target ? Math.round(target.y) : null };
+        // לא שולחים יותר מפעם בשליש שנייה
+        clearTimeout(timer); timer = setTimeout(() => t.update(meta), 120);
+      },
+      leave() { clearTimeout(timer); t.close(); },
+    };
   }
 
   // ---------- הכותל המערבי ----------
@@ -1331,6 +1400,7 @@
     { name: "📖 משנה וגמרא", test: p => p.id === "mishna" || p.id === "gemara" },
     { name: "🏛️ ירושלים", test: p => p.home === "#/town/jerusalem" },
     { name: "📘 כוללי הרבנים", test: p => p.id.startsWith("kollel-") },
+    { name: "🌍 גדולי ישראל בגולה", test: p => p.gola },
   ];
   function questionForm(q) {
     q = q || { place: PLACES[0].id, question: "", answers: ["", "", "", ""], correct: 0, source: "" };

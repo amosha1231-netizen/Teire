@@ -1,10 +1,13 @@
 // מפת ארץ ישראל: צורת הארץ, הימים והמקומות הקדושים. כל מספר הוא בפיקסלים בתוך עולם בגודל W x H.
 (function () {
-  const W = 1000, H = 2000;
+  const W = 1400, H = 2000;
 
   // צורת הארץ (מצפון לדרום, קו החוף במערב והירדן במזרח)
   const LAND = [[470, 95], [620, 62], [770, 40], [805, 120], [735, 290], [742, 430], [748, 700], [742, 1000], [728, 1300], [668, 1600], [600, 1940], [560, 1940], [430, 1500], [270, 1215], [200, 1135], [262, 1000], [330, 800], [372, 520], [392, 345], [425, 125]];
   const SINAI = [[150, 1460], [380, 1520], [470, 1640], [430, 1900], [330, 1960], [180, 1820], [110, 1640]];
+  // ארצות הגולה: אירופה בצפון, וארצות המזרח בדרום
+  const EUROPE = [[1060, 80], [1250, 40], [1360, 120], [1370, 420], [1340, 720], [1190, 790], [1070, 670], [1040, 330]];
+  const MIZRACH = [[1070, 1100], [1250, 1060], [1360, 1150], [1350, 1500], [1250, 1620], [1100, 1590], [1050, 1350]];
   const BAVEL = [[810, 560], [950, 520], [985, 700], [970, 1040], [880, 1100], [815, 960], [800, 720]];
 
   // kind: sage = חכמים ומחלוקות, torah = משימה מהמסע בתורה, duel = זירת דו-קרב, href = מעבר לעמוד באתר
@@ -30,6 +33,16 @@
     { id: "sura", name: "סורא", icon: "🏫", x: 880, y: 640, color: "#9333ea", desc: "הישיבה של רב" },
     { id: "nehardea", name: "נהרדעא", icon: "🌙", x: 900, y: 770, color: "#1d4ed8", desc: "העיר של שמואל" },
     { id: "pumbedita", name: "פומבדיתא", icon: "📖", x: 880, y: 900, color: "#15803d", desc: "הישיבה של אביי", torah: "gemara" },
+    // גדולי ישראל בגולה. soon = השאלות עוד לא נכתבו, והמקום נעול
+    { id: "vilna", name: "וילנה", icon: "🏰", x: 1150, y: 160, color: "#1e40af", desc: "הגאון מוילנה", torah: "vilna" },
+    { id: "volozhin", name: "וולוז'ין", icon: "📚", x: 1290, y: 250, color: "#0f766e", desc: "ישיבת וולוז'ין של רבי חיים", torah: "volozhin" },
+    { id: "radin", name: "ראדין", icon: "📖", x: 1140, y: 350, color: "#7c3aed", desc: "החפץ חיים", torah: "radin" },
+    { id: "mezhibozh", name: "מז'יבוז'", icon: "🌲", x: 1285, y: 450, color: "#15803d", desc: "הבעל שם טוב", torah: "mezhibozh" },
+    { id: "breslov", name: "ברסלב", icon: "🎶", x: 1150, y: 560, color: "#0369a1", desc: "רבי נחמן מברסלב", torah: "breslov" },
+    { id: "prague", name: "פראג", icon: "🕍", x: 1270, y: 660, color: "#9f1239", desc: "המהר\"ל מפראג", torah: "prague" },
+    { id: "baghdad", name: "בגדאד", icon: "🌴", x: 1170, y: 1190, color: "#b45309", desc: "הבן איש חי", torah: "baghdad" },
+    { id: "morocco", name: "מרוקו", icon: "🏜️", x: 1275, y: 1340, color: "#be123c", desc: "אור החיים הקדוש", torah: "morocco" },
+    { id: "fustat", name: "פוסטאט, מצרים", icon: "🏺", x: 1165, y: 1480, color: "#a16207", desc: "הרמב\"ם", torah: "fustat" },
     { id: "mechoza", name: "מחוזא", icon: "🏙️", x: 900, y: 1020, color: "#be123c", desc: "העיר של רבא, זירת דו-קרב", duel: true },
   ];
 
@@ -41,10 +54,12 @@
     { text: "הנגב", x: 560, y: 1560, cls: "land" },
     { text: "מדבר סיני", x: 300, y: 1600, cls: "land" },
     { text: "בבל", x: 900, y: 560, cls: "land big" },
+    { text: "אירופה", x: 1215, y: 75, cls: "land big" },
+    { text: "ארצות המזרח", x: 1210, y: 1095, cls: "land" },
     { text: "ים כנרת", x: 712, y: 395, cls: "lake" },
     { text: "ים המלח", x: 705, y: 1230, cls: "lake" },
   ];
 
   const START = { x: 520, y: 1060 };
-  window.TeireCity = { W, H, LAND, SINAI, BAVEL, LOCATIONS, LABELS, START, byId: id => LOCATIONS.find(b => b.id === id) };
+  window.TeireCity = { W, H, LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, START, byId: id => LOCATIONS.find(b => b.id === id) };
 })();

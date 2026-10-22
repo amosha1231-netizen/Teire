@@ -114,6 +114,13 @@
     </svg>`;
   }
 
+  // גדולי ישראל בגולה: המקומות כבר במפה, והשאלות יתווספו בהמשך (soon = נעול עד אז)
+  [["vilna", "הגאון מוילנה", "🏰", "#1e40af"], ["volozhin", "ישיבת וולוז'ין", "📚", "#0f766e"], ["radin", "החפץ חיים", "📖", "#7c3aed"],
+   ["mezhibozh", "הבעל שם טוב", "🌲", "#15803d"], ["breslov", "רבי נחמן מברסלב", "🎶", "#0369a1"], ["prague", "המהר\"ל מפראג", "🕍", "#9f1239"],
+   ["baghdad", "הבן איש חי", "🌴", "#b45309"], ["morocco", "אור החיים הקדוש", "🏜️", "#be123c"], ["fustat", "הרמב\"ם", "🏺", "#a16207"]]
+    .forEach(([id, name, icon, color]) => PLACES.push({ id, name, icon, color, desc: "בקרוב", free: true, bank: true, soon: true, gola: true,
+      guide: { name: "ינשופי", emoji: "🦉", hello: `ברוכים הבאים! כאן נלמד על ${name}.` } }));
+
   // היכלות הפרשנים בהיכל פרשת השבוע (הרשימה ב-content/parasha.js)
   const PAR = window.TEIRE_PARASHA;
   if (PAR) PAR.COMMENTATORS.forEach(c => PLACES.push({

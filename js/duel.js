@@ -42,7 +42,7 @@
         bc = new BroadcastChannel("teire-duel-" + room);
         bc.onmessage = ev => {
           const m = ev.data;
-          if (m.t === "hb") { const isNew = !peers[m.meta.id] || peers[m.meta.id].meta.state !== m.meta.state; peers[m.meta.id] = { meta: m.meta, seen: Date.now() }; if (isNew) emit(); }
+          if (m.t === "hb") { const isNew = !peers[m.meta.id] || JSON.stringify(peers[m.meta.id].meta) !== JSON.stringify(m.meta); peers[m.meta.id] = { meta: m.meta, seen: Date.now() }; if (isNew) emit(); }
           else if (m.t === "bye" && m.id !== me.id) { delete peers[m.id]; emit(); }
           else if (m.t === "m") onMsg(m.payload);
         };
@@ -113,5 +113,7 @@
     };
   }
 
-  window.TeireDuel = { lobby, bot };
+  // ערוץ משותף לכל מי שבאותו חדר (משמש גם לשחקנים שהולכים באותה עיירה)
+  const transport = (room, onPeers, onMsg) => (db.realtime ? supabaseTransport : localTransport)(room, onPeers, onMsg);
+  window.TeireDuel = { lobby, bot, transport };
 })();

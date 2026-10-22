@@ -518,3 +518,8 @@ body.shabbat .music-btn { display: none; }
 .verse-ref { font-size: .8rem; color: var(--muted); margin-top: 2px; }
 .review-verse { font-family: "Frank Ruhl Libre", serif; font-size: 1rem; color: #7c2d12; margin-bottom: 2px; }
 .quote { margin-top: 10px; padding: 8px 12px; background: #fdf6e3; border-right: 4px solid #b45309; border-radius: 10px; font-family: "Frank Ruhl Libre", serif; font-size: 1.05rem; }
+
+/* שחקנים אחרים בעיירה */
+.me.other { opacity: .92; pointer-events: none; }
+.me.other .me-name { background: #fef3c7; color: #92400e; }
+.peers-chip { top: auto; bottom: 14px; }
