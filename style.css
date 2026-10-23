@@ -547,3 +547,10 @@ body.shabbat .music-btn { display: none; }
 .weekly-sug { margin-top: 10px; border-top: 1px dashed #e5c46a; padding-top: 8px; }
 .weekly-sug summary { cursor: pointer; color: #92400e; font-weight: 600; }
 .weekly-sug textarea, .weekly-sug input { width: 100%; box-sizing: border-box; margin: 6px 0; border-radius: 10px; padding: 8px; font: inherit; }
+
+/* פינג להצעת שאלה: מופיע בכניסה לאתר, אפשר לסגור ב-X */
+.suggest-ping { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 30; max-width: 480px; margin: 0 auto; background: #fff; border: 2px solid var(--primary, #2b4c8c); border-radius: 16px; box-shadow: 0 8px 22px rgba(0,0,0,.2); padding: 14px 40px 14px 14px; display: grid; gap: 8px; animation: pingIn .35s ease-out; }
+.suggest-ping .ping-text { font-size: 15px; line-height: 1.5; }
+.suggest-ping .btn { justify-self: start; }
+.suggest-ping .ping-x { position: absolute; top: 6px; left: 8px; background: none; border: 0; font-size: 18px; color: var(--muted, #6b7280); cursor: pointer; padding: 4px 8px; }
+@keyframes pingIn { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }

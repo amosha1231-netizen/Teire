@@ -197,20 +197,21 @@
         ${q ? `
           <div class="qtext">${esc(q.question)}</div>
           <a class="btn ghost small" href="#/place/parasha-${q.commentator.id}">לענות בהיכל ${esc(q.commentator.name)}</a>` : `<p class="small muted">שאלת השבוע תתעדכן בקרוב.</p>`}
-        <details class="weekly-sug">
-          <summary>יש לכם שאלה טובה? הציעו שאלה ותשובה</summary>
-          <textarea id="wq" rows="2" maxlength="300" placeholder="כתבו את השאלה"></textarea>
-          <input id="wa" maxlength="150" placeholder="התשובה הנכונה">
-          <button class="btn small" id="wgo">להמשך ההצעה</button>
-        </details>
       </details>`;
-    const go = document.getElementById("wgo");
-    if (go) go.onclick = () => {
-      const question = document.getElementById("wq").value.trim(), answer = document.getElementById("wa").value.trim();
-      if (!question) { document.getElementById("wq").focus(); return; }
-      try { sessionStorage.setItem("teire.draft", JSON.stringify({ question, answer })); } catch (e) { /* ignore */ }
-      location.hash = "#/suggest/parasha-rashi";
-    };
+  }
+
+  // פינג קטן שמציע להציע שאלה. מופיע רק בכניסה לאתר (פעם בכל ביקור), ואפשר לסגור אותו ב-X.
+  function showSuggestPing() {
+    try { if (sessionStorage.getItem("teire.pinged")) return; sessionStorage.setItem("teire.pinged", "1"); } catch (e) { /* ignore */ }
+    const ping = document.createElement("div");
+    ping.className = "suggest-ping";
+    ping.innerHTML = `
+      <button class="ping-x" aria-label="סגירה">✕</button>
+      <div class="ping-text">✏️ יש לכם שאלה טובה? הציעו שאלה ותשובה, ואם מנהל יאשר אותה, היא תופיע באתר.</div>
+      <a class="btn small" href="#/suggest">להציע שאלה</a>`;
+    ping.querySelector(".ping-x").onclick = () => ping.remove();
+    ping.querySelector("a").onclick = () => ping.remove();
+    document.body.appendChild(ping);
   }
 
   // ---------- העיר ----------
@@ -296,6 +297,7 @@
 
     renderWeekly();
     Parasha.ready.then(renderWeekly);
+    showSuggestPing();
     startWalker({
       W, H, pos,
       savePos: p => { player.pos = p; savePlayer(); },
@@ -1651,15 +1653,12 @@
   async function viewSuggest(placeId) {
     setTab("suggest");
     if (isParashaPlace(placeId)) await Parasha.ready; // ברירת המחדל היא פרשת השבוע
-    // טיוטה מהתיבה בדף הבית ("הציעו שאלה לשבוע")
-    let draft = null;
-    try { draft = JSON.parse(sessionStorage.getItem("teire.draft") || "null"); sessionStorage.removeItem("teire.draft"); } catch (e) { draft = null; }
     app.innerHTML = `
       <div class="card">
         <h2>הציעו שאלה</h2>
         <p class="muted small">השאלה תופיע במפה אחרי שמנהל יאשר אותה.</p>
         <form id="sform">
-          ${questionForm(placeId ? { place: placeId, question: (draft && draft.question) || "", answers: [(draft && draft.answer) || "", "", "", ""], correct: 0 } : null)}
+          ${questionForm(placeId ? { place: placeId, question: "", answers: ["", "", "", ""], correct: 0 } : null)}
           <label>השם שלך <span class="hint">(לא חובה)</span></label>
           <input name="author" maxlength="50" value="${esc(player.name)}">
           <button class="btn big-btn" type="submit">שליחה לאישור</button>
@@ -2004,6 +2003,7 @@
     stopCity();
     stopDuel();
     stopGame();
+    document.querySelectorAll(".suggest-ping").forEach(e => e.remove()); // הפינג נסגר כשעוברים לעמוד אחר
     Music.mood(moodFor(page, arg));
     if (checkShabbat()) return;
     if (db.accounts && !accountState.user && page !== "admin") return viewAccount();
