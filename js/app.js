@@ -179,6 +179,40 @@
     route();
   }
 
+  // ---------- שאלת השבוע בדף הבית ----------
+  // שאלה מההיכלות של הפרשה של השבוע, עם תיבה להצעת שאלה ותשובה. מתחלפת כל שבוע.
+  function weeklyQuestion() {
+    const all = (Parasha.COMMENTATORS || []).flatMap(c => [1, 2, 3].flatMap(l => (((window.TEIRE_LEVELS || {})["parasha-" + c.id] || {})[l] || []).map(q => ({ ...q, commentator: c }))));
+    if (!all.length) return null;
+    const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
+    return all[week % all.length];
+  }
+  function renderWeekly() {
+    const box = document.getElementById("weekly");
+    if (!box) return;
+    const q = weeklyQuestion();
+    box.innerHTML = `
+      <details class="weekly card" open>
+        <summary class="weekly-tag">📜 שאלת השבוע · ${esc(Parasha.current.name || "")}</summary>
+        ${q ? `
+          <div class="qtext">${esc(q.question)}</div>
+          <a class="btn ghost small" href="#/place/parasha-${q.commentator.id}">לענות בהיכל ${esc(q.commentator.name)}</a>` : `<p class="small muted">שאלת השבוע תתעדכן בקרוב.</p>`}
+        <details class="weekly-sug">
+          <summary>יש לכם שאלה טובה? הציעו שאלה ותשובה</summary>
+          <textarea id="wq" rows="2" maxlength="300" placeholder="כתבו את השאלה"></textarea>
+          <input id="wa" maxlength="150" placeholder="התשובה הנכונה">
+          <button class="btn small" id="wgo">להמשך ההצעה</button>
+        </details>
+      </details>`;
+    const go = document.getElementById("wgo");
+    if (go) go.onclick = () => {
+      const question = document.getElementById("wq").value.trim(), answer = document.getElementById("wa").value.trim();
+      if (!question) { document.getElementById("wq").focus(); return; }
+      try { sessionStorage.setItem("teire.draft", JSON.stringify({ question, answer })); } catch (e) { /* ignore */ }
+      location.hash = "#/suggest/parasha-rashi";
+    };
+  }
+
   // ---------- העיר ----------
   let cityLoop = null, townPeers = null;
   function stopCity() {
@@ -214,6 +248,7 @@
     const pts = arr => arr.map(p => p.join(",")).join(" ");
 
     app.innerHTML = `
+      <div id="weekly"></div>
       <div class="city" id="city">
         <div class="world" id="world" style="width:${W}px;height:${H}px">
           <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
@@ -259,6 +294,8 @@
         <a class="soul-chip" href="#/souls">${soul ? `🕯️ נשמת ${esc(soul.name)}` : "🕯️ עוד אין נשמה"} · ${player.souls.length}/${Sages.SAGES.length}</a>
       </div>`;
 
+    renderWeekly();
+    Parasha.ready.then(renderWeekly);
     startWalker({
       W, H, pos,
       savePos: p => { player.pos = p; savePlayer(); },
@@ -628,11 +665,33 @@
         g.querySelector(".speech").innerHTML = `<b>${esc(guide.name)}:</b> ${ok ? (q.cheer || cheers[idx % cheers.length]) + " +🪙" + reward : "לא נורא! התשובה הנכונה מסומנת בירוק."}`;
         const last = idx === items.length - 1;
         document.getElementById("fb").innerHTML = `
+          ${q.note ? `<div class="note-box"><b>💡 למה?</b> ${esc(q.note)}</div>` : ""}
           ${q.explain ? `<div class="explain">${q.explain}</div>` : ""}
           ${q.quote ? `<div class="quote">«${esc(q.quote)}»</div>` : ""}
           ${q.source ? `<div class="small muted" style="margin-top:10px">מקור: ${esc(q.source)}</div>` : ""}
-          <button class="btn big-btn" id="next">${last ? "לסיום" : "לשאלה הבאה"}</button>`;
+          <button class="btn big-btn" id="next">${last ? "לסיום" : "לשאלה הבאה"}</button>
+          <div class="report-row"><button class="report-link" id="rep">🚩 לדווח שהתשובה לא נכונה</button></div>
+          <div id="repbox"></div>`;
         document.getElementById("next").onclick = () => { if (last) onDone(score, items.length, coins); else { idx++; show(); } };
+        document.getElementById("rep").onclick = () => {
+          document.getElementById("repbox").innerHTML = `
+            <div class="report-box">
+              <textarea id="repwhy" rows="2" maxlength="400" placeholder="מה לא נכון? (לא חובה)"></textarea>
+              <button class="btn ghost small" id="repsend">שליחה</button>
+            </div>`;
+          document.getElementById("repsend").onclick = async () => {
+            const btn = document.getElementById("repsend");
+            btn.disabled = true;
+            const reason = document.getElementById("repwhy").value.trim() || null;
+            try {
+              await db.report({ place: q.place || "", question: q.question, qkey: (q.place || "") + "|" + q.question, reason });
+              document.getElementById("repbox").innerHTML = `<div class="notice ok small">תודה! נבדוק את השאלה.</div>`;
+            } catch (e) {
+              btn.disabled = false;
+              toast("לא הצלחנו לשלוח את הדיווח, נסו שוב");
+            }
+          };
+        };
       });
     }
     show();
@@ -698,7 +757,7 @@
 
   function runMission(place, pool, level) {
     level = level || 1;
-    const items = db.shuffle(pool).slice(0, cfg.QUESTIONS_PER_MISSION).map(q => ({ ...q, reward: LEVEL_REWARD[level] }));
+    const items = db.shuffle(pool).slice(0, cfg.QUESTIONS_PER_MISSION).map(q => ({ ...q, place: place.id, reward: LEVEL_REWARD[level] }));
     runQuiz(placeGuide(place), items, (score, n, coins) => {
       const stars = starsFor(score, n);
       if (stars === 3) coins += 20 * level;
@@ -1538,7 +1597,9 @@
           <input name="a${i}" required maxlength="150" placeholder="תשובה ${LETTERS[i]}" value="${esc(q.answers[i])}">
         </div>`).join("")}
       <label>מקור <span class="hint">(לא חובה, למשל: בראשית א, א או ברכות ב, א)</span></label>
-      <input name="source" maxlength="100" value="${esc(q.source || "")}">`;
+      <input name="source" maxlength="100" value="${esc(q.source || "")}">
+      <label>הסבר לתשובה הנכונה <span class="hint">(לא חובה, מוצג אחרי שעונים)</span></label>
+      <textarea name="note" rows="2" maxlength="300">${esc(q.note || "")}</textarea>`;
   }
   // מגלגל את רשימת הנושאים אל הנושא שנבחר
   function showPicked(form) {
@@ -1576,6 +1637,7 @@
       answers: [0, 1, 2, 3].map(i => f.get("a" + i).trim()),
       correct: Number(f.get("correct")),
       source: (f.get("source") || "").trim(),
+      note: (f.get("note") || "").trim() || null,
     };
     if (isParashaPlace(q.place)) Object.assign(q, {
       parasha: f.get("parasha"),
@@ -1589,12 +1651,15 @@
   async function viewSuggest(placeId) {
     setTab("suggest");
     if (isParashaPlace(placeId)) await Parasha.ready; // ברירת המחדל היא פרשת השבוע
+    // טיוטה מהתיבה בדף הבית ("הציעו שאלה לשבוע")
+    let draft = null;
+    try { draft = JSON.parse(sessionStorage.getItem("teire.draft") || "null"); sessionStorage.removeItem("teire.draft"); } catch (e) { draft = null; }
     app.innerHTML = `
       <div class="card">
         <h2>הציעו שאלה</h2>
         <p class="muted small">השאלה תופיע במפה אחרי שמנהל יאשר אותה.</p>
         <form id="sform">
-          ${questionForm(placeId ? { place: placeId, question: "", answers: ["", "", "", ""], correct: 0 } : null)}
+          ${questionForm(placeId ? { place: placeId, question: (draft && draft.question) || "", answers: [(draft && draft.answer) || "", "", "", ""], correct: 0 } : null)}
           <label>השם שלך <span class="hint">(לא חובה)</span></label>
           <input name="author" maxlength="50" value="${esc(player.name)}">
           <button class="btn big-btn" type="submit">שליחה לאישור</button>
@@ -1626,6 +1691,31 @@
   }
 
   // ---------- ניהול ----------
+  // דיווחים: מי שעונה על שאלה ורואה שהתשובה לא נכונה, שולח דיווח. המנהל בודק ומוחק.
+  async function loadReports() {
+    const box = document.getElementById("rlist");
+    if (!box) return;
+    let rows;
+    try { rows = await db.reports(); } catch (e) { box.innerHTML = errorBox(e); return; }
+    if (!rows.length) { box.innerHTML = `<div class="card muted center">אין דיווחים 👍</div>`; return; }
+    // מקבצים לפי שאלה, כדי לראות כמה דיווחו על אותה שאלה
+    const groups = new Map();
+    rows.forEach(r => { const g = groups.get(r.qkey) || { q: r, items: [] }; g.items.push(r); groups.set(r.qkey, g); });
+    box.innerHTML = [...groups.values()].map(g => `
+      <div class="card" data-qkey="${esc(g.q.qkey)}">
+        <div class="small muted">${g.items.length} דיווחים${g.q.place ? " · " + esc((placeById(g.q.place) || { name: g.q.place }).name) : ""}</div>
+        <h3 style="margin:6px 0">${esc(g.q.question)}</h3>
+        ${g.items.filter(r => r.reason).map(r => `<div class="small">• ${esc(r.reason)}</div>`).join("")}
+        <div class="row" style="margin-top:8px"><button class="btn ghost small" data-dismiss="${esc(g.q.id)}" data-qkey="${esc(g.q.qkey)}">סגרתי את הדיווחים</button></div>
+      </div>`).join("");
+    box.querySelectorAll("[data-dismiss]").forEach(b => b.onclick = async () => {
+      try {
+        const ids = rows.filter(r => r.qkey === b.dataset.qkey).map(r => r.id);
+        for (const id of ids) await db.dismissReport(id);
+        loadReports();
+      } catch (e) { toast("לא הצלחנו לסגור את הדיווחים, נסו שוב"); }
+    });
+  }
   async function viewAdmin() {
     setTab("admin");
     app.innerHTML = `<p class="muted center">בודק הרשאות...</p>`;
@@ -1639,11 +1729,14 @@
         <button class="btn ghost" id="logout">יציאה</button>
       </div>
       <div id="plist"><p class="muted">טוען...</p></div>
+      <h2 style="margin:18px 0 8px">🚩 דיווחים על תשובות</h2>
+      <div id="rlist"><p class="muted">טוען...</p></div>
       <div class="row center-row"><button class="btn ghost" id="showapproved">📋 השאלות שכבר אושרו</button><a class="btn ghost" href="#/review">📖 כל השאלות והמקורות באתר</a></div>
       <div id="alist"></div>`;
     document.getElementById("logout").onclick = async () => { await db.logout(); viewAdmin(); };
     document.getElementById("showapproved").onclick = showApproved;
 
+    loadReports();
     let list;
     try { list = await db.pending(); } catch (e) { document.getElementById("plist").innerHTML = errorBox(e); return; }
     const box = document.getElementById("plist");

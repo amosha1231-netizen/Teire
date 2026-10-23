@@ -76,6 +76,18 @@
     async leaderboard() { return null; },
     async submitScore() {},
     async leaveBoard() {},
+    async report(r) {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem("teire.reports") || "[]"); } catch (e) { /* ignore */ }
+      list.push({ ...r, id: Date.now(), created_at: new Date().toISOString() });
+      try { localStorage.setItem("teire.reports", JSON.stringify(list.slice(-200))); } catch (e) { /* ignore */ }
+    },
+    async reports() {
+      try { return (JSON.parse(localStorage.getItem("teire.reports") || "[]")).reverse(); } catch (e) { return []; }
+    },
+    async dismissReport(id) {
+      try { localStorage.setItem("teire.reports", JSON.stringify((JSON.parse(localStorage.getItem("teire.reports") || "[]")).filter(x => x.id !== id))); } catch (e) { /* ignore */ }
+    },
     async signUp() { throw new Error("חשבונות זמינים רק כשהאתר מחובר לשרת"); },
     async signIn() { throw new Error("חשבונות זמינים רק כשהאתר מחובר לשרת"); },
     async currentUser() { return null; },
@@ -207,6 +219,19 @@
       const { data, error } = await sb.from("progress").select("data").eq("user_id", session.user.id).maybeSingle();
       if (error) throw error;
       return data ? data.data : null;
+    },
+    async report(r) {
+      const { error } = await sb.from("reports").insert(r);
+      if (error) throw error;
+    },
+    async reports() {
+      const { data, error } = await sb.from("reports").select("*").order("created_at", { ascending: false }).limit(200);
+      if (error) throw error;
+      return data || [];
+    },
+    async dismissReport(id) {
+      const { error } = await sb.from("reports").delete().eq("id", id);
+      if (error) throw error;
     },
     async saveProgress(player) {
       const { data: { session } } = await sb.auth.getSession();
