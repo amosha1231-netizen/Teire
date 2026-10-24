@@ -1183,12 +1183,34 @@
     const coins = score * perPoint, record = bestOf(key, score);
     player.coins += coins; savePlayer();
     if (record) confetti();
+    // אחרי שהדף מוצג: שומרים את הציון ומציגים את הטופ 10 של המשחק
+    setTimeout(() => loadTop10(key, score), 0);
     return `<div class="card center result">
       <h2>${record ? "🏆 שיא חדש!" : "המשחק נגמר"}</h2>
       <div class="big">${score}</div>
       <p>הרווחתם <b>🪙 ${coins}</b></p>
-      <div class="row center-row"><button class="btn gold" id="again">שוב</button><a class="btn ghost" href="#/town/torah">לקריית התורה</a></div>
+      <div id="top10"><p class="muted small">טוענים את הטופ 10...</p></div>
+      <div class="row center-row"><button class="btn gold" id="again">שוב</button><a class="btn ghost" href="${gameExitHash()}">חזרה</a></div>
     </div>`;
+  }
+  const GAME_TITLES = { swipe: "אתגר המקורות", race: "מרוץ המקורות", duel: "דו-קרב" };
+  async function loadTop10(key, score) {
+    const box = document.getElementById("top10");
+    if (!box) return;
+    try {
+      if (score > 0 && player.name) await db.addGameScore(key, player.name, score);
+      const rows = await db.topGameScores(key);
+      const el = document.getElementById("top10");
+      if (!el) return;
+      el.innerHTML = `
+        <h3 style="margin:10px 0 6px">🏅 טופ 10 · ${GAME_TITLES[key] || key}</h3>
+        ${rows.length ? `<ol class="leaders">${rows.map((r, i) => `
+          <li class="${r.name === player.name && r.score === score ? "me-row" : ""}"><span>${i + 1}. ${esc(r.name)}</span><b>${r.score}</b></li>`).join("")}</ol>`
+          : `<p class="muted small">עוד אין ציונים במשחק הזה.</p>`}`;
+    } catch (e) {
+      const el = document.getElementById("top10");
+      if (el) el.innerHTML = `<p class="muted small">הטופ 10 לא זמין כרגע.</p>`;
+    }
   }
 
   // ---- אתגר המקורות: משפט רץ אליכם, 5 שניות להחליק לצד של המקור הנכון ----

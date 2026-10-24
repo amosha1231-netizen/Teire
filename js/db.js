@@ -76,6 +76,17 @@
     async leaderboard() { return null; },
     async submitScore() {},
     async leaveBoard() {},
+    async addGameScore(game, name, score) {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem("teire.gamescores") || "[]"); } catch (e) { /* ignore */ }
+      list.push({ game, name, score, created_at: new Date().toISOString() });
+      try { localStorage.setItem("teire.gamescores", JSON.stringify(list.slice(-500))); } catch (e) { /* ignore */ }
+    },
+    async topGameScores(game) {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem("teire.gamescores") || "[]"); } catch (e) { /* ignore */ }
+      return list.filter(x => x.game === game).sort((a, b) => b.score - a.score || a.created_at.localeCompare(b.created_at)).slice(0, 10);
+    },
     async report(r) {
       let list = [];
       try { list = JSON.parse(localStorage.getItem("teire.reports") || "[]"); } catch (e) { /* ignore */ }
@@ -219,6 +230,15 @@
       const { data, error } = await sb.from("progress").select("data").eq("user_id", session.user.id).maybeSingle();
       if (error) throw error;
       return data ? data.data : null;
+    },
+    async addGameScore(game, name, score) {
+      const { error } = await sb.from("game_scores").insert({ game, name, score });
+      if (error) throw error;
+    },
+    async topGameScores(game) {
+      const { data, error } = await sb.from("game_scores").select("name, score, created_at").eq("game", game).order("score", { ascending: false }).order("created_at", { ascending: true }).limit(10);
+      if (error) throw error;
+      return data || [];
     },
     async report(r) {
       const { error } = await sb.from("reports").insert(r);
