@@ -1117,7 +1117,15 @@
   let game = null; // המשחק שרץ עכשיו (נעצר במעבר עמוד)
   function stopGame() { if (game) { game.stop(); game = null; } }
   const X = window.TeireExtras;
-  const backToTorah = `<div class="row center-row"><a class="btn ghost" href="#/town/torah">חזרה לקריית התורה</a></div>`;
+  // חוזרים למקום שממנו נכנסו למשחק (חברון, קריית התורה וכו'). אם אין, חוזרים לקריית התורה.
+  const gameExitHash = () => { try { return sessionStorage.getItem("teire.returnTo") || "#/town/torah"; } catch (e) { return "#/town/torah"; } };
+  const backToTorah = {
+    toString() {
+      const h = gameExitHash();
+      const label = h.startsWith("#/town/") ? (Towns.byId(h.split("/")[2]) || { name: "הקודם" }).name : "הקודם";
+      return `<div class="row center-row"><a class="btn ghost" href="${h}">חזרה ל${label}</a></div>`;
+    },
+  };
   function bestOf(key, score) {
     player.best = player.best || {};
     const was = player.best[key] || 0;
@@ -2000,6 +2008,8 @@
   function route() {
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
+    // משחקים (מירוץ, החלפה, ויכוח): שומרים את המקום שממנו נכנסו, כדי לחזור אליו
+    if (!["swipe", "race", "debate"].includes(page)) { try { sessionStorage.setItem("teire.returnTo", location.hash || "#/"); } catch (e) { /* ignore */ } }
     stopCity();
     stopDuel();
     stopGame();
