@@ -191,14 +191,25 @@
   function renderWeekly() {
     const box = document.getElementById("weekly");
     if (!box) return;
+    const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
+    let hidden = false;
+    try { hidden = localStorage.getItem("teire.weeklyHidden") === String(week); } catch (e) { /* ignore */ }
+    if (hidden) { box.innerHTML = ""; return; } // נסגרה ב-X השבוע, תחזור בשבוע הבא
     const q = weeklyQuestion();
     box.innerHTML = `
-      <details class="weekly card" open>
-        <summary class="weekly-tag">📜 שאלת השבוע · ${esc(Parasha.current.name || "")}</summary>
-        ${q ? `
-          <div class="qtext">${esc(q.question)}</div>
-          <a class="btn ghost small" href="#/place/parasha-${q.commentator.id}">לענות בהיכל ${esc(q.commentator.name)}</a>` : `<p class="small muted">שאלת השבוע תתעדכן בקרוב.</p>`}
-      </details>`;
+      <div class="weekly-wrap">
+        <details class="weekly card" open>
+          <summary class="weekly-tag">📜 שאלת השבוע · ${esc(Parasha.current.name || "")}</summary>
+          ${q ? `
+            <div class="qtext">${esc(q.question)}</div>
+            <a class="btn ghost small" href="#/place/parasha-${q.commentator.id}">לענות בהיכל ${esc(q.commentator.name)}</a>` : `<p class="small muted">שאלת השבוע תתעדכן בקרוב.</p>`}
+        </details>
+        <button class="weekly-x" aria-label="סגירת שאלת השבוע">✕</button>
+      </div>`;
+    box.querySelector(".weekly-x").onclick = () => {
+      try { localStorage.setItem("teire.weeklyHidden", String(week)); } catch (e) { /* ignore */ }
+      box.innerHTML = "";
+    };
   }
 
   // פינג קטן שמציע להציע שאלה. מופיע רק בכניסה לאתר (פעם בכל ביקור), ואפשר לסגור אותו ב-X.
