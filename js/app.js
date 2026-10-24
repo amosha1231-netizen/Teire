@@ -1278,7 +1278,7 @@
   }
   function playRace() {
     stopGame();
-    const deck = db.shuffle(X.SOURCES);
+    const deck = db.shuffle(X.RACE);
     let i = 0, score = 0, lane = "mid", raf = 0, offKeys = null, item, sides, t0 = 0, dur = 4600, done = false;
     app.innerHTML = `
       <div class="race" id="race">

@@ -21,5 +21,5 @@
   };
 
   const { SPEAKERS, DEBATES } = window.TEIRE_DEBATES;
-  window.TeireExtras = { SOURCES: window.TEIRE_CHALLENGES, SPEAKERS, DEBATES, LIBRARY };
+  window.TeireExtras = { SOURCES: window.TEIRE_CHALLENGES, RACE: window.TEIRE_RACE || [], SPEAKERS, DEBATES, LIBRARY };
 })();
