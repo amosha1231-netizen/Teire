@@ -40,8 +40,9 @@
   // תחנה פתוחה אם זו הראשונה, או שבתחנה הקודמת יש לפחות כוכב אחד
   const isOpen = i => i === 0 || (PLACES[i] && PLACES[i].free) || (player.stars[PLACES[i - 1].id] || 0) >= 1;
   // שלבים: שלב 1 שומר כוכבים תחת שם המקום, שלבים גבוהים תחת "מקום@שלב"
-  const LEVEL_NAMES = ["", "שלב 1: קל", "שלב 2: בינוני", "שלב 3: קשה"];
-  const LEVEL_REWARD = [0, 10, 15, 25];
+  const LEVEL_MAX = 8;
+  const LEVEL_NAMES = ["", "שלב 1: קל", "שלב 2: בינוני", "שלב 3: קשה", "שלב 4: מאתגר", "שלב 5: מתקדם", "שלב 6: למתקדמים", "שלב 7: קשה מאוד", "שלב 8: ממש קשה"];
+  const LEVEL_REWARD = [0, 10, 15, 25, 35, 50, 70, 90, 120];
   const starKey = (placeId, lvl) => lvl > 1 ? placeId + "@" + lvl : placeId;
   const levelStars = (placeId, lvl) => player.stars[starKey(placeId, lvl)] || 0;
   const bankFor = (placeId, lvl) => ((window.TEIRE_LEVELS || {})[placeId] || {})[lvl] || [];
@@ -182,7 +183,7 @@
   // ---------- שאלת השבוע בדף הבית ----------
   // שאלה מההיכלות של הפרשה של השבוע, עם תיבה להצעת שאלה ותשובה. מתחלפת כל שבוע.
   function weeklyQuestion() {
-    const all = (Parasha.COMMENTATORS || []).flatMap(c => [1, 2, 3].flatMap(l => (((window.TEIRE_LEVELS || {})["parasha-" + c.id] || {})[l] || []).map(q => ({ ...q, commentator: c }))));
+    const all = (Parasha.COMMENTATORS || []).flatMap(c => [1, 2, 3, 4, 5, 6, 7, 8].flatMap(l => (((window.TEIRE_LEVELS || {})["parasha-" + c.id] || {})[l] || []).map(q => ({ ...q, commentator: c }))));
     if (!all.length) return null;
     const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
     return all[week % all.length];
@@ -634,13 +635,14 @@
 
   // ---------- שאלון כללי ----------
   // items: [{ question, answers, correct, source, prompt, reward, explain }]
-  function runQuiz(guide, items, onDone) {
+  function runQuiz(guide, items, onDone, exitHref) {
     let idx = 0, score = 0, coins = 0;
     const cheers = ["כל הכבוד!", "יישר כח!", "מצוין!", "אשריך!", "נפלא!"];
     function show() {
       const q = items[idx];
       const order = db.shuffle([0, 1, 2, 3]);
       app.innerHTML = `
+        ${exitHref ? `<a class="quit-link" href="${exitHref}">✕ יציאה</a>` : ""}
         <div class="dots">${items.map((_, i) => `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("")}</div>
         ${guideBubble(guide, q.prompt || `שאלה ${idx + 1} מתוך ${items.length}`)}
         <div class="card">
@@ -727,8 +729,10 @@
     // בהיכל פרשת השבוע רק שאלות של הפרשה (או השתיים) של השבוע. השאר נשמרות לשנה הבאה.
     if (isParashaPlace(placeId)) dbPool = dbPool.filter(q => Parasha.current.ids.includes(q.parasha));
     // שאלות ממסד הנתונים לפי השלב שלהן (בלי שלב = שלב 1), ועוד השאלות המובנות של אותו שלב
-    const pools = [null, 1, 2, 3].map(l => l && dbPool.filter(q => (q.level || 1) === l).concat(bankFor(placeId, l)));
-    const levels = [1, 2, 3].filter(l => pools[l].length);
+    const pools = [null, ...Array.from({ length: LEVEL_MAX }, (_, i) => i + 1).map(l => dbPool.filter(q => (q.level || 1) === l).concat(bankFor(placeId, l)))];
+    const levels = Array.from({ length: LEVEL_MAX }, (_, i) => i + 1).filter(l => pools[l].length);
+    // השלב הקודם שיש בו שאלות (שלבים ריקים לא נועלים את מה שאחריהם)
+    const prevLevel = l => { for (let k = l - 1; k >= 1; k--) if (pools[k].length) return k; return 0; };
     const st = player.stars[placeId] || 0;
     app.innerHTML = `
       <div class="place-hero" style="--c:${place.color}">
@@ -739,7 +743,7 @@
       </div>
       ${guideBubble(placeGuide(place), esc(place.guide.hello))}
       ${levels.length ? levels.map(l => {
-        const ls = levelStars(placeId, l), open = l === 1 || levelStars(placeId, l - 1) >= 1;
+        const ls = levelStars(placeId, l), prev = prevLevel(l), open = prev === 0 || levelStars(placeId, prev) >= 1;
         return `<div class="card level-card ${open ? "" : "locked"}">
           <div style="flex:1">
             <h3>${LEVEL_NAMES[l]}</h3>
@@ -747,7 +751,7 @@
             <div class="station-stars">${"★".repeat(ls)}<span class="dim">${"★".repeat(3 - ls)}</span></div>
           </div>
           ${open ? `<button class="btn ${l > 1 ? "gold" : ""}" data-level="${l}">מתחילים!</button>`
-            : `<div class="small">🔒 נפתח אחרי ${LEVEL_NAMES[l - 1].split(":")[0]}</div>`}
+            : `<div class="small">🔒 נפתח אחרי ${LEVEL_NAMES[prev].split(":")[0]}</div>`}
         </div>`;
       }).join("") : `<div class="card center"><p>אין עדיין שאלות במקום הזה.</p></div>`}
       <div class="row center-row"><a class="btn ghost" href="${place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id)}">חזרה</a><a class="btn ghost" href="#/suggest/${place.id}">הציעו שאלה למשימה הזאת</a></div>`;
@@ -755,6 +759,14 @@
       const l = Number(btn.dataset.level);
       runMission(place, pools[l], l);
     });
+  }
+
+  // החזרה למקום שממנו נכנסו למשימה (עיירה או בניין), ולא רק למפה הראשית
+  function placeBack(place) {
+    const href = place.home || backOf(locOfTorah(place.id) && locOfTorah(place.id).id);
+    const T = href.startsWith("#/town/") ? Towns.byId(href.split("/")[2]) : null;
+    const B = !T && href.startsWith("#/b/") ? City.byId(href.split("/")[2]) : null;
+    return { href, name: (T || B || { name: "" }).name };
   }
 
   function runMission(place, pool, level) {
@@ -785,11 +797,12 @@
           <div class="row center-row">
             <button class="btn gold" id="again">שוב</button>
             <a class="btn" href="#/place/${place.id}">לשלבים</a>
+            ${placeBack(place).href !== "#/" && placeBack(place).name ? `<a class="btn ghost" href="${placeBack(place).href}">חזרה ל${placeBack(place).name}</a>` : ""}
             <a class="btn ghost" href="#/">למפה</a>
           </div>
         </div>`;
       document.getElementById("again").onclick = () => runMission(place, pool, level);
-    });
+    }, placeBack(place).href);
   }
   const resultStars = stars => `<div class="result-stars">${[0, 1, 2].map(k => `<span class="${k < stars ? "on" : ""}" style="animation-delay:${k * .25}s">★</span>`).join("")}</div>`;
 
@@ -1050,7 +1063,7 @@
         </div>`;
       const again = document.getElementById("again");
       if (again) again.onclick = () => runSoulQuest(sage, b);
-    });
+    }, sage.building ? "#/b/" + sage.building : "#/");
   }
 
   // מחלוקות: אם נשמת אחד מבעלי המחלוקת פעילה, התשובה הנכונה היא השיטה שלו
@@ -1081,7 +1094,7 @@
             <a class="btn ghost" href="#/">למפה</a>
           </div>
         </div>`;
-    });
+    }, host.building ? "#/b/" + host.building : "#/");
   }
 
   // ---------- היכל הנשמות ----------
@@ -1595,8 +1608,8 @@
       </div>
       <label>רמת קושי</label>
       <div class="lvl-pick">
-        ${[1, 2, 3].map(l => `
-          <label><input type="radio" name="level" value="${l}" ${(q.level || 1) === l ? "checked" : ""}><span>${"⭐".repeat(l)}<br>${LEVEL_NAMES[l].split(": ")[1]}</span></label>`).join("")}
+        ${Array.from({ length: LEVEL_MAX }, (_, i) => i + 1).map(l => `
+          <label><input type="radio" name="level" value="${l}" ${(q.level || 1) === l ? "checked" : ""}><span>${"⭐".repeat(Math.min(l, 3))}<br>${LEVEL_NAMES[l].split(": ")[1]}</span></label>`).join("")}
       </div>
       <label>השאלה</label>
       <textarea name="question" rows="2" required maxlength="300">${esc(q.question)}</textarea>

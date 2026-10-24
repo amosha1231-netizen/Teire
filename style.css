@@ -554,3 +554,6 @@ body.shabbat .music-btn { display: none; }
 .suggest-ping .btn { justify-self: start; }
 .suggest-ping .ping-x { position: absolute; top: 6px; left: 8px; background: none; border: 0; font-size: 18px; color: var(--muted, #6b7280); cursor: pointer; padding: 4px 8px; }
 @keyframes pingIn { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* יציאה מהשאלון, בפינה, קטנה ושקטה */
+.quit-link { display: inline-block; margin: 0 0 6px; font-size: 13px; color: var(--muted, #6b7280); text-decoration: none; }

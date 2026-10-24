@@ -121,7 +121,7 @@ end $$;
 -- שלב (1 קל, 2 בינוני, 3 קשה) לכל שאלה
 alter table public.questions add column if not exists level smallint not null default 1;
 alter table public.questions drop constraint if exists questions_level_check;
-alter table public.questions add constraint questions_level_check check (level between 1 and 3);
+alter table public.questions add constraint questions_level_check check (level between 1 and 8);
 
 -- אפשר להציע שאלות לכל התחנות (גם משנה, גמרא, בית המקדש, דוד המלך והכוללים), גם לתחנות שיתווספו בעתיד
 alter table public.questions drop constraint if exists questions_place_check;
