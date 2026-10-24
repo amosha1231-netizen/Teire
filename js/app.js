@@ -1164,7 +1164,7 @@
   // מקור נכון בצד אקראי
   const sidesFor = item => Math.random() < .5 ? { left: item.right, right: item.wrong, correct: "left" } : { left: item.wrong, right: item.right, correct: "right" };
 
-  function gameIntro(key, title, icon, rules, start) {
+  function gameIntro(key, title, icon, rules, start, extra = "") {
     setTab("map");
     const best = (player.best || {})[key] || 0;
     app.innerHTML = `
@@ -1174,6 +1174,7 @@
       </div>
       <div class="card center">
         <p>${rules}</p>
+        ${extra}
         <button class="btn gold big-btn" id="go">מתחילים!</button>
       </div>${backToTorah}`;
     document.getElementById("go").onclick = start;
@@ -1272,14 +1273,44 @@
   }
 
   // ---- מרוץ המקורות: מכשול עם משפט מתקרב, נוסעים לנתיב של המקור הנכון ----
+  // מכוניות המוסך: בונוס מהירות, ומגן שסופג פגיעה אחת
+  const CARS = [
+    { id: "basic", icon: "🏎️", name: "מירוץ רגיל", price: 0, boost: 1, shield: 0, note: "בלי בונוסים." },
+    { id: "sport", icon: "🚗", name: "ספורט", price: 40, boost: 1.2, shield: 0, note: "20% מהירות יותר מהרגיל." },
+    { id: "jeep", icon: "🚙", name: "ג׳יפ משוריין", price: 90, boost: 1.2, shield: 1, note: "20% מהירות יותר, ומגן אחד שסופג פגיעה אחת." }
+  ];
+  const raceCar = () => CARS.find(c => c.id === player.car) || CARS[0];
+  function garageHTML() {
+    const cur = raceCar();
+    return `<div class="garage">
+        <h3>🛠️ המוסך</h3>
+        <div class="row center-row">${CARS.map(c => {
+          const have = c.price === 0 || player.owned.includes("car:" + c.id);
+          const on = cur.id === c.id;
+          return `<button class="btn ghost small-btn garage-car ${on ? "on" : ""}" data-car="${c.id}">${c.icon} ${c.name}<br><span class="small">${on ? "בשימוש ✓" : have ? "לבחור" : "🪙 " + c.price}</span></button>`;
+        }).join("")}</div>
+        <p class="small muted">${cur.note}</p>
+        <p class="small" id="garmsg"></p>
+      </div>`;
+  }
   function viewRace() {
     if (!player.name) return viewOnboarding();
-    gameIntro("race", "מרוץ המקורות", "🏎️", "מכשול עם משפט נוסע אליכם! בכל נתיב כתוב מקור אחר. עברו לנתיב של המקור הנכון (החלקה, הקשה על הנתיב או חיצים) ועקפו את המכשול. נתיב לא נכון, או להישאר באמצע, ואתם בחוץ!", playRace);
+    gameIntro("race", "מרוץ המקורות", "🏎️", "מכשול עם משפט נוסע אליכם! בכל נתיב כתוב מקור אחר. עברו לנתיב של המקור הנכון (החלקה, הקשה על הנתיב או חיצים) ועקפו את המכשול. נתיב לא נכון, או להישאר באמצע, ואתם בחוץ!", playRace, garageHTML());
+    app.querySelectorAll(".garage-car").forEach(b => b.onclick = () => {
+      const c = CARS.find(x => x.id === b.dataset.car);
+      const have = c.price === 0 || player.owned.includes("car:" + c.id);
+      if (!have) {
+        if (player.coins < c.price) { document.getElementById("garmsg").innerHTML = `<span class="notice err">חסרים לכם ${c.price - player.coins} מטבעות.</span>`; return; }
+        player.coins -= c.price; player.owned.push("car:" + c.id); confetti();
+      }
+      player.car = c.id; savePlayer(); viewRace();
+    });
   }
   function playRace() {
     stopGame();
     const deck = db.shuffle(X.RACE);
-    let i = 0, score = 0, lane = "mid", raf = 0, offKeys = null, item, sides, t0 = 0, dur = 4600, done = false;
+    const car0 = raceCar();
+    let i = 0, score = 0, lane = "mid", raf = 0, offKeys = null, item, sides, t0 = 0, dur = 4600, done = false, shield = car0.shield, shieldT = 0;
     app.innerHTML = `
       <div class="race" id="race">
         <div class="race-q" id="rq"></div>
@@ -1288,7 +1319,7 @@
           <div class="lane-label left" data-side="left" id="ll"></div>
           <div class="lane-label right" data-side="right" id="lr"></div>
           <div class="obstacle" id="ob">🚧</div>
-          <div class="car mid" id="car">🏎️</div>
+          <div class="car mid" id="car">${car0.icon}</div>
         </div>
         <div class="arena-top"><span class="pill dark" id="rs">🏁 0</span><span class="pill dark" id="spd">60 קמ״ש</span><span class="small muted">החליקו או הקישו על הנתיב</span></div>
       </div>${backToTorah}`;
@@ -1324,7 +1355,7 @@
       document.getElementById("lr").textContent = sides.right;
       road.classList.remove("crash");
       lane = "mid"; car.className = "car mid";
-      dur = Math.max(2300, 4600 - score * 180);
+      dur = Math.max(2300, 4600 - score * 180) / car0.boost;
       speedMs = dur;
       spd.textContent = Math.round(60 * 4600 / dur) + " קמ״ש";
       t0 = performance.now();
@@ -1339,6 +1370,12 @@
       else crash();
     }
     function crash() {
+      if (shield > 0) { // המגן סופג את הפגיעה והמשחק ממשיך
+        shield--; done = true; road.classList.add("crash"); car.textContent = "🛡️";
+        toast("🛡️ המגן ספג את הפגיעה!");
+        shieldT = setTimeout(() => { done = false; car.textContent = car0.icon; road.classList.remove("crash"); lane = "mid"; car.className = "car mid"; next(); }, 1000);
+        return;
+      }
       done = true; road.classList.add("crash"); car.textContent = "💥";
       cancelAnimationFrame(sceneRaf); spd.textContent = "0 קמ״ש";
       toast("המקור הנכון: " + item.right);
@@ -1353,7 +1390,7 @@
       lane = lane === "mid" ? s : (lane === s ? s : "mid"); // מהצד השני חוזרים קודם לאמצע
       car.className = "car " + lane;
     });
-    game = { stop() { cancelAnimationFrame(raf); cancelAnimationFrame(sceneRaf); if (offKeys) offKeys(); } };
+    game = { stop() { cancelAnimationFrame(raf); cancelAnimationFrame(sceneRaf); clearTimeout(shieldT); if (offKeys) offKeys(); } };
     next();
     sceneRaf = requestAnimationFrame(sceneTick);
   }
