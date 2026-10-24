@@ -1284,14 +1284,39 @@
       <div class="race" id="race">
         <div class="race-q" id="rq"></div>
         <div class="road" id="road">
+          <div class="asphalt"></div><div class="scene" id="scene"></div>
           <div class="lane-label left" data-side="left" id="ll"></div>
           <div class="lane-label right" data-side="right" id="lr"></div>
           <div class="obstacle" id="ob">🚧</div>
           <div class="car mid" id="car">🏎️</div>
         </div>
-        <div class="arena-top"><span class="pill dark" id="rs">🏁 0</span><span class="small muted">החליקו או הקישו על הנתיב</span></div>
+        <div class="arena-top"><span class="pill dark" id="rs">🏁 0</span><span class="pill dark" id="spd">60 קמ״ש</span><span class="small muted">החליקו או הקישו על הנתיב</span></div>
       </div>${backToTorah}`;
     const ob = document.getElementById("ob"), car = document.getElementById("car"), road = document.getElementById("road");
+    // נוף שחולף לצדי הדרך: מתחיל באופק ונעלם מתחת למצלמה
+    const scene = document.getElementById("scene"), spd = document.getElementById("spd");
+    const SCENERY = ["🌳", "🏠", "🌲", "🏪", "🌾", "🪨", "🏡", "🌴"];
+    let items = [], sceneRaf = 0, lastT = 0, speedMs = 4600;
+    function spawnScenery() {
+      const el = document.createElement("div");
+      el.className = "scenery"; el.textContent = SCENERY[Math.floor(Math.random() * SCENERY.length)];
+      scene.appendChild(el);
+      items.push({ el, side: Math.random() < .5 ? -1 : 1, z: 0 });
+    }
+    function sceneTick(now) {
+      const dt = lastT ? now - lastT : 16; lastT = now;
+      if (Math.random() < dt / 350) spawnScenery();
+      items = items.filter(it => {
+        it.z += dt / speedMs;
+        if (it.z > 1.1) { it.el.remove(); return false; }
+        it.el.style.left = (50 + it.side * (6 + it.z * 44)) + "%";
+        it.el.style.top = (38 + it.z * 60) + "%";
+        it.el.style.transform = `translate(-50%, -50%) scale(${.15 + it.z * 2.2})`;
+        it.el.style.opacity = Math.min(it.z * 4, 1);
+        return true;
+      });
+      sceneRaf = requestAnimationFrame(sceneTick);
+    }
     function next() {
       item = deck[i++ % deck.length]; sides = sidesFor(item);
       document.getElementById("rq").textContent = "\"" + item.text + "\"";
@@ -1300,6 +1325,8 @@
       road.classList.remove("crash");
       lane = "mid"; car.className = "car mid";
       dur = Math.max(2300, 4600 - score * 180);
+      speedMs = dur;
+      spd.textContent = Math.round(60 * 4600 / dur) + " קמ״ש";
       t0 = performance.now();
       raf = requestAnimationFrame(tick);
     }
@@ -1313,6 +1340,7 @@
     }
     function crash() {
       done = true; road.classList.add("crash"); car.textContent = "💥";
+      cancelAnimationFrame(sceneRaf); spd.textContent = "0 קמ״ש";
       toast("המקור הנכון: " + item.right);
       setTimeout(() => {
         stopGame();
@@ -1325,8 +1353,9 @@
       lane = lane === "mid" ? s : (lane === s ? s : "mid"); // מהצד השני חוזרים קודם לאמצע
       car.className = "car " + lane;
     });
-    game = { stop() { cancelAnimationFrame(raf); if (offKeys) offKeys(); } };
+    game = { stop() { cancelAnimationFrame(raf); cancelAnimationFrame(sceneRaf); if (offKeys) offKeys(); } };
     next();
+    sceneRaf = requestAnimationFrame(sceneTick);
   }
 
   // ---- חדר הוויכוח: חדר חשוך, זרקור על מי שמדבר, רווח או הקשה להמשך ----

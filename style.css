@@ -424,18 +424,22 @@ body.shabbat .music-btn { display: none; }
 
 /* ---------- מרוץ המקורות ---------- */
 .race { position: relative; margin-bottom: 12px; width: 100%; }
+.race .arena-top { position: static; margin-bottom: 8px; gap: 6px; flex-wrap: wrap; }
 .race-q { background: #fff7d6; color: #3b2a00; border-radius: 16px; padding: 12px; text-align: center; font-weight: 800; font-size: 1.15rem; margin-bottom: 8px; box-shadow: 0 4px 0 rgba(0,0,0,.12); min-height: 2.6em; }
 .road {
   position: relative; width: 100%; height: min(60vh, 500px); border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; direction: ltr;
-  background: linear-gradient(90deg, #65a30d 0 8%, #4b5563 8% 92%, #65a30d 92%);
+  background: linear-gradient(180deg, #7dd3fc 0 38%, #65a30d 38% 100%);
 }
-.road::before { content: ""; position: absolute; left: 50%; top: -60px; bottom: 0; width: 8px; transform: translateX(-50%);
+.asphalt { position: absolute; inset: 0; z-index: 0; background: #4b5563; clip-path: polygon(44% 38%, 56% 38%, 100% 100%, 0 100%); }
+.scene { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.scenery { position: absolute; font-size: 2.4rem; line-height: 1; opacity: 0; }
+.road::before { content: ""; position: absolute; z-index: 1; left: 50%; top: -60px; bottom: 0; width: 8px; transform: translateX(-50%);
   background: repeating-linear-gradient(180deg, #fde047 0 30px, transparent 30px 60px); animation: lanes .5s linear infinite; }
 @keyframes lanes { to { transform: translate(-50%, 60px); } }
-.lane-label { position: absolute; bottom: 10px; width: 38%; text-align: center; color: #fff; font-weight: 800; background: rgba(0,0,0,.45); border-radius: 12px; padding: 8px 6px; font-size: .95rem; direction: rtl; cursor: pointer; }
+.lane-label { position: absolute; z-index: 3; bottom: 10px; width: 38%; text-align: center; color: #fff; font-weight: 800; background: rgba(0,0,0,.45); border-radius: 12px; padding: 8px 6px; font-size: .95rem; direction: rtl; cursor: pointer; }
 .lane-label.left { left: 10%; } .lane-label.right { right: 10%; }
-.obstacle { position: absolute; left: 50%; top: 0; font-size: 3rem; transform: translateX(-50%) scale(.5); }
-.car { position: absolute; bottom: 70px; font-size: 3.2rem; transition: left .25s; transform: translateX(-50%) rotate(-90deg); }
+.obstacle { position: absolute; z-index: 2; left: 50%; top: 0; font-size: 3rem; transform: translateX(-50%) scale(.5); }
+.car { position: absolute; z-index: 2; bottom: 70px; font-size: 3.2rem; transition: left .25s; transform: translateX(-50%) rotate(-90deg); }
 .car.mid { left: 50%; } .car.left { left: 29%; } .car.right { left: 71%; }
 .road.crash { animation: shake .4s; }
 @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
