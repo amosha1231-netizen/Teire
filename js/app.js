@@ -304,6 +304,7 @@
         </div>
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
         <a class="soul-chip lead-chip" href="#/leaders">🏆 טבלת האלופים</a>
+        <a class="soul-chip olama-chip" href="#/olama">🌐 היכל עלמא · משחק חי</a>
         <a class="soul-chip" href="#/souls">${soul ? `🕯️ נשמת ${esc(soul.name)}` : "🕯️ עוד אין נשמה"} · ${player.souls.length}/${Sages.SAGES.length}</a>
       </div>`;
 
@@ -2110,7 +2111,7 @@
   // איזו מוזיקה מתנגנת בכל מקום באתר
   function moodFor(page, arg) {
     if (page === "debate") return arg ? "dark" : "study";
-    if (page === "swipe" || page === "race" || page === "duel") return "upbeat";
+    if (page === "swipe" || page === "race" || page === "duel" || page === "olama") return "upbeat";
     if ((page === "town" || page === "b") && (arg === "tzfat" || arg === "meron")) return "mystic";
     if (page === "town" && arg === "jerusalem") return "jerusalem";
     if (page === "town" && arg === "parasha") return "study";
@@ -2125,6 +2126,7 @@
     stopCity();
     stopDuel();
     stopGame();
+    window.TeireOlama.stop();
     document.querySelectorAll(".suggest-ping").forEach(e => e.remove()); // הפינג נסגר כשעוברים לעמוד אחר
     Music.mood(moodFor(page, arg));
     if (checkShabbat()) return;
@@ -2135,6 +2137,7 @@
     if (page === "town" && arg) return viewTown(arg);
     if (page === "kotel") return viewKotel();
     if (page === "duel" && arg) return viewDuel(arg);
+    if (page === "olama") { setTab("map"); return window.TeireOlama.view(arg, { esc, toast, confetti, avatarSVG, get player() { return player; } }); }
     if (page === "souls") return viewSouls();
     if (page === "leaders") return viewLeaders();
     if (page === "swipe") return viewSwipe();
