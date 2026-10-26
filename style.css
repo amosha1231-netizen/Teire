@@ -567,3 +567,63 @@ body.shabbat .music-btn { display: none; }
 
 /* יציאה מהשאלון, בפינה, קטנה ושקטה */
 .quit-link { display: inline-block; margin: 0 0 6px; font-size: 13px; color: var(--muted, #6b7280); text-decoration: none; }
+
+/* היכל עלמא: משחקים חיים לכל החדר */
+.olama-chip { top: 90px; border-color: #7c3aed; color: #5b21b6; }
+.olama-hero { background: linear-gradient(135deg, #4c1d95, #7c3aed 55%, #c084fc); }
+.olama-join { display: flex; gap: 8px; max-width: 360px; margin: 8px auto 0; }
+.olama-join input { text-align: center; font-size: 1.4rem; font-weight: 800; letter-spacing: .2em; }
+.olama-join #gname { letter-spacing: 0; font-size: 1.1rem; }
+.olama-modes { display: grid; gap: 8px; margin: 10px 0 12px; }
+.olama-mode input { position: absolute; opacity: 0; pointer-events: none; }
+.olama-mode-in { display: grid; gap: 2px; padding: 12px 14px; border: 2px solid var(--line); border-radius: 16px; cursor: pointer; background: #fff; }
+.olama-mode input:checked + .olama-mode-in { border-color: #7c3aed; background: #f3e8ff; box-shadow: 0 3px 0 #c4b5fd; }
+.olama-mode-in b { color: #5b21b6; font-size: 1.05rem; }
+.olama-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; background: #4c1d95; color: #fff; padding: 8px 14px; border-radius: 16px; margin-bottom: 12px; font-weight: 700; }
+.olama-code-sm b { font-size: 1.3rem; letter-spacing: .1em; color: var(--gold); }
+.olama-lobby { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 820px) { .olama-lobby { grid-template-columns: 360px minmax(0, 1fr); } }
+.olama-qr { width: 240px; max-width: 100%; margin: 10px auto; }
+.olama-qr svg { width: 100%; height: auto; display: block; }
+.olama-code { font-size: 4.2rem; font-weight: 800; letter-spacing: .15em; color: #5b21b6; line-height: 1.1; }
+.olama-names { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.olama-name { font: inherit; font-weight: 700; border: 2px solid #ddd6fe; background: #f5f3ff; color: #4c1d95; border-radius: 99px; padding: 4px 12px; animation: olamaPop .3s ease-out; cursor: default; }
+button.olama-name { cursor: pointer; }
+.olama-name.one { background: var(--gold); border-color: #c48a12; color: #5b3b00; }
+.olama-name.out { opacity: .4; text-decoration: line-through; }
+@keyframes olamaPop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.olama-qhead { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-bottom: 6px; }
+.olama-clock { font-size: 1.8rem; font-weight: 800; color: #5b21b6; min-width: 2ch; text-align: center; }
+.olama-clock.hot { color: var(--bad); animation: olamaPulse .5s infinite alternate; }
+@keyframes olamaPulse { to { transform: scale(1.2); } }
+.olama-q .qtext { font-size: clamp(1.25rem, 3.2vw, 2.2rem); text-align: center; }
+.olama-answers { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.olama-ans { font: inherit; position: relative; display: flex; align-items: center; gap: 10px; text-align: right; background: var(--c); color: #fff; border: none; border-radius: 16px; padding: 14px; font-size: clamp(1rem, 2.2vw, 1.5rem); font-weight: 700; box-shadow: 0 4px 0 rgba(0,0,0,.25); overflow: hidden; min-height: 64px; }
+.olama-ans .letter { width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,.25); display: grid; place-items: center; flex: none; }
+.olama-answers.phone { grid-template-columns: minmax(0, 1fr); }
+.olama-answers.phone .olama-ans { min-height: 72px; cursor: pointer; }
+.olama-ans:active:not(:disabled) { transform: translateY(3px); }
+.olama-ans.dim { opacity: .35; }
+.olama-ans.picked { outline: 4px solid #1f2937; outline-offset: 2px; }
+.olama-ans.right { outline: 5px solid var(--good); outline-offset: 2px; }
+.olama-ans.right::after { content: "✓"; position: absolute; left: 12px; top: 6px; font-size: 1.4rem; }
+.olama-cnt { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; min-width: 70px; font-size: 1rem; }
+.olama-cnt i { display: block; height: 10px; background: rgba(255,255,255,.85); border-radius: 99px; flex: 1; max-width: 120px; }
+.olama-note { text-align: center; font-size: 1.3rem; font-weight: 800; color: #5b21b6; margin: 4px 0 12px; }
+.olama-rank { display: flex; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 1.1rem; }
+.olama-rank span { flex: 1; }
+.olama-one { display: flex; justify-content: space-around; gap: 8px; flex-wrap: wrap; background: linear-gradient(90deg, #f5b82e, #fcd34d); color: #5b3b00; font-weight: 700; padding: 8px 12px; border-radius: 16px; margin-bottom: 10px; }
+.olama-end h1 { font-size: clamp(1.6rem, 4vw, 2.6rem); }
+.olama-podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin-top: 12px; }
+.olama-podium .pod { display: grid; justify-items: center; gap: 2px; width: 110px; }
+.olama-podium .pod i { display: grid; place-items: center; width: 100%; color: #fff; font-style: normal; font-size: 1.6rem; font-weight: 800; border-radius: 12px 12px 0 0; }
+.olama-podium .p1 i { height: 110px; background: var(--gold); }
+.olama-podium .p2 i { height: 80px; background: #94a3b8; }
+.olama-podium .p3 i { height: 60px; background: #c2773a; }
+.olama-wait .olama-me { display: grid; justify-items: center; margin-bottom: 8px; }
+.olama-you-one { color: #b45309; font-size: 1.2rem; }
+.olama-res h1 { font-size: 2rem; }
+.olama-res.good { background: var(--good-soft); border-color: #a7e3bb; }
+.olama-res.bad { background: var(--bad-soft); border-color: #f5b5b5; }
+body.olama-host { padding-bottom: 20px; }
+body.olama-host .bottomnav { display: none; }

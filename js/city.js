@@ -43,6 +43,7 @@
     { id: "baghdad", name: "בגדאד", icon: "🌴", x: 1170, y: 1190, color: "#b45309", desc: "הבן איש חי", torah: "baghdad" },
     { id: "morocco", name: "מרוקו", icon: "🏜️", x: 1275, y: 1340, color: "#be123c", desc: "אור החיים הקדוש", torah: "morocco" },
     { id: "fustat", name: "פוסטאט, מצרים", icon: "🏺", x: 1165, y: 1480, color: "#a16207", desc: "הרמב\"ם", torah: "fustat" },
+    { id: "olama", name: "היכל עלמא", icon: "🌐", x: 640, y: 1330, color: "#7c3aed", desc: "משחקים חיים עם כל החדר", href: "#/olama" },
     { id: "mechoza", name: "מחוזא", icon: "🏙️", x: 900, y: 1020, color: "#be123c", desc: "העיר של רבא, זירת דו-קרב", duel: true },
   ];
 
