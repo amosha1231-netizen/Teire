@@ -14,14 +14,24 @@
   const MODES = {
     one: { name: "אחד נגד מאה", icon: "🦁", count: 12, rules: "שחקן אחד עומד מול כל החדר. כולם עונים על אותה שאלה. מי מהקהל שטועה, יוצא. אם האחד טועה, הקהל שנשאר מנצח. אם האחד מוציא את כל הקהל, הוא מנצח!" },
     quiz: { name: "חידון חי", icon: "⚡", count: 10, rules: "כולם עונים על כל שאלה. תשובה נכונה ומהירה שווה יותר נקודות. אחרי כל שאלה רואים את חמשת המובילים, ובסוף עולים לפודיום." },
+    team: { name: "שבט מול שבט", icon: "🏳️", count: 12, rules: "החדר מתחלק באקראי לשבטים. כל אחד עונה מהטלפון, והתשובה של השבט היא מה שרוב חברי השבט בחרו. שבט שצדק מקבל 100 נקודות. השבט עם הכי הרבה נקודות מנצח!" },
     survive: { name: "אחרון שורד", icon: "🔥", count: 20, rules: "טעית או לא ענית בזמן? יצאת. השאלות נעשות קשות יותר. אם כולם טועים באותה שאלה, כולם נשארים. האחרון שנשאר מנצח!" },
   };
   const TOPICS = {
-    mix: { name: "הכול מעורב", test: () => true },
+    mix: { name: "כל עולם התורה", test: () => true },
     shas: { name: "משנה וגמרא", test: p => p === "mishna" || p === "gemara" || p === "beit-midrash" || p === "sages" },
-    tanach: { name: "תורה ותנ\"ך", test: p => ["gan-eden", "teiva", "ohel", "mitzrayim", "sinai", "midbar", "mikdash", "david"].includes(p) || p.startsWith("parasha") || p === "verse-hall" },
+    tanach: { name: "תורה, תנ\"ך ופרשת השבוע", test: p => ["gan-eden", "teiva", "ohel", "mitzrayim", "sinai", "midbar", "mikdash", "david"].includes(p) || p.startsWith("parasha") || p === "verse-hall" },
     halacha: { name: "הלכה ומנהג", test: p => p.startsWith("kollel") || p === "beit-knesset" },
+    gdolim: { name: "חכמים וגדולי ישראל", test: p => p === "sages" || ["vilna", "volozhin", "radin", "mezhibozh", "breslov", "prague", "baghdad", "morocco", "fustat"].includes(p) },
   };
+  const LEVELS = {
+    ramp: { name: "מתחיל קל ונהיה קשה", min: 1 },
+    hard: { name: "קשות מההתחלה", min: 3 },
+  };
+
+  const TRIBES = [["יהודה", "#dc2626"], ["לוי", "#2563eb"], ["אפרים", "#16a34a"], ["דן", "#d97706"], ["נפתלי", "#7c3aed"], ["זבולון", "#0891b2"]];
+  // שבט מול שבט: כמה שבטים לפי מספר השחקנים
+  const tribeCount = n => n < 12 ? 2 : n < 24 ? 3 : 4;
 
   let ctx = null, session = null;
   const esc = s => ctx.esc(s);
@@ -51,13 +61,23 @@
     };
     (window.TEIRE_SEED || []).forEach(q => add(q, q.place, 1));
     const L = window.TEIRE_LEVELS || {};
-    Object.keys(L).forEach(place => [1, 2, 3].forEach(lvl => (L[place][lvl] || []).forEach(q => add(q, place, lvl))));
-    ((window.TeireSages || {}).SAGES || []).forEach(s => (s.quest || []).forEach(q => add(q, "sages", 2)));
+    Object.keys(L).forEach(place => Object.keys(L[place]).forEach(lvl => (L[place][lvl] || []).forEach(q => add(q, place, Number(lvl)))));
+    ((window.TeireSages || {}).SAGES || []).forEach(s => (s.quest || []).forEach(q => add(q, "sages", 3)));
     return out;
   }
-  // מערבבים, ומסדרים מהקל לקשה כדי שהמתח יעלה
-  function pickQuestions(topic, n) {
-    const qs = db.shuffle(questionPool(topic)).slice(0, n).sort((a, b) => a.lvl - b.lvl);
+  // מדרגות: כל שאלה נלקחת משלב קושי גבוה יותר, כך שהשאלות האחרונות הן הקשות ביותר
+  function pickQuestions(topic, n, level) {
+    let pool = questionPool(topic);
+    const hard = pool.filter(q => q.lvl >= LEVELS[level].min);
+    if (hard.length >= n) pool = hard;
+    const buckets = [...new Set(pool.map(q => q.lvl))].sort((a, b) => a - b).map(l => db.shuffle(pool.filter(q => q.lvl === l)));
+    const qs = [];
+    for (let i = 0; i < n && buckets.some(b => b.length); i++) {
+      let bi = Math.round(i * (buckets.length - 1) / Math.max(1, n - 1));
+      while (!buckets[bi].length) bi = (bi + 1) % buckets.length; // השלב נגמר: לוקחים מהשלב הבא
+      qs.push(buckets[bi].pop());
+    }
+    qs.sort((a, b) => a.lvl - b.lvl);
     return qs.map(q => {
       const order = db.shuffle([0, 1, 2, 3]);
       return { question: q.question, verse: q.verse, source: q.source, answers: order.map(i => q.answers[i]), correct: order.indexOf(q.correct) };
@@ -91,14 +111,20 @@
         </form>
       </div>
       <div class="card">
-        <h3>🎤 פותחים חדר (למנחה)</h3>
-        <p class="small muted">פותחים במחשב שמחובר למסך או למקרן. כולם יצטרפו מהטלפון.</p>
+        <h3>🎤 פותחים חדר חדש ומקבלים קוד (למנחה)</h3>
+        <p class="small muted">פותחים במחשב שמחובר למסך או למקרן. אחרי הלחיצה על "פתיחת חדר" יופיעו על המסך קוד וברקוד, וכולם יצטרפו מהטלפון.</p>
         <div class="olama-modes">
           ${Object.entries(MODES).map(([id, m]) => `<label class="olama-mode"><input type="radio" name="mode" value="${id}" ${id === "one" ? "checked" : ""}>
             <span class="olama-mode-in"><b>${m.icon} ${m.name}</b><span class="small">${m.rules}</span></span></label>`).join("")}
         </div>
-        <label class="small muted">נושא השאלות</label>
-        <select id="topic">${Object.entries(TOPICS).map(([id, t]) => `<option value="${id}">${t.name}</option>`).join("")}</select>
+        <div class="olama-opts">
+          <label><span class="small muted">נושא השאלות</span>
+            <select id="topic">${Object.entries(TOPICS).map(([id, t]) => `<option value="${id}">${t.name}</option>`).join("")}</select></label>
+          <label><span class="small muted">רמת קושי</span>
+            <select id="level">${Object.entries(LEVELS).map(([id, l]) => `<option value="${id}">${l.name}</option>`).join("")}</select></label>
+          <label><span class="small muted">התחלה אוטומטית</span>
+            <select id="auto">${[10, 15, 20, 30, 40].map(n => `<option value="${n}" ${n === 20 ? "selected" : ""}>כשיש ${n} שחקנים, אחרי דקה</option>`).join("")}<option value="0">רק כשאני לוחץ</option></select></label>
+        </div>
         <button class="btn big-btn" id="open">פתיחת חדר</button>
         ${sb ? "" : `<p class="notice small">האתר במצב מקומי, ולכן אפשר להצטרף רק מלשונית אחרת באותו דפדפן.</p>`}
       </div>`;
@@ -110,19 +136,21 @@
     };
     document.getElementById("open").onclick = () => {
       const mode = (document.querySelector("input[name=mode]:checked") || {}).value || "quiz";
-      host(mode, document.getElementById("topic").value);
+      host(mode, document.getElementById("topic").value, document.getElementById("level").value, Number(document.getElementById("auto").value));
     };
   }
 
   // ---------- המנחה ----------
-  function host(mode, topic) {
+  function host(mode, topic, level, autoN) {
     const M = MODES[mode];
     const code = String(1000 + Math.floor(Math.random() * 9000));
-    const questions = pickQuestions(topic, M.count);
+    const questions = pickQuestions(topic, M.count, level);
+    const AUTO_WAIT = 60000;
     if (questions.length < 3) { ctx.toast("אין מספיק שאלות בנושא הזה"); return; }
     const players = {}; // pid -> { name, score, alive, ans: { qi: {choice, ms} }, out }
-    const st = { phase: "lobby", idx: 0, oneId: null, endsAt: 0, winner: null, note: "" };
-    let lastId = 0, pollTimer = 0, beatTimer = 0, qTimer = 0, stopped = false;
+    const st = { phase: "lobby", idx: 0, oneId: null, endsAt: 0, winner: null, note: "", autoAt: 0 };
+    let teams = []; // [{ name, color, score, choice }]; לכל שחקן p.team = מספר השבט
+    let lastId = 0, pollTimer = 0, beatTimer = 0, qTimer = 0, autoTimer = 0, stopped = false;
     const ch = channel(code, m => { if (m.t === "g") onEvent(m.ev); });
 
     function onEvent(ev) {
@@ -130,8 +158,16 @@
       let p = players[ev.pid];
       if (!p) {
         // מי שמגיע באמצע משחק הדחה צופה בלבד
-        p = players[ev.pid] = { name: String(ev.name || "אורח").slice(0, 16), score: 0, alive: st.phase === "lobby" || mode === "quiz", ans: {} };
-        if (st.phase === "lobby") { draw(); broadcast(); }
+        p = players[ev.pid] = { name: String(ev.name || "אורח").slice(0, 16), score: 0, alive: st.phase === "lobby" || mode === "quiz" || mode === "team", ans: {} };
+        if (teams.length) p.team = smallestTeam(); // מאחר מצטרף לשבט הקטן ביותר
+        if (st.phase === "lobby") {
+          // כשמגיעים מספיק שחקנים, מחכים עוד דקה למאחרים ומתחילים לבד
+          if (autoN && !st.autoAt && Object.keys(players).length >= autoN) {
+            st.autoAt = Date.now() + AUTO_WAIT;
+            autoTimer = setTimeout(() => { if (st.phase === "lobby") start(); }, AUTO_WAIT);
+          }
+          draw(); broadcast();
+        }
       }
       if (ev.name) p.name = String(ev.name).slice(0, 16);
       if (ev.kind === "ans" && st.phase === "q" && ev.q === st.idx && !p.ans[ev.q]) {
@@ -175,17 +211,28 @@
     function snapshot() {
       const q = questions[st.idx];
       const s = { t: "s", code, mode, phase: st.phase, idx: st.idx, total: questions.length, oneId: st.oneId, oneName: st.oneId && players[st.oneId] ? players[st.oneId].name : "", n: Object.keys(players).length };
-      if (st.phase === "lobby") s.names = Object.entries(players).map(([id, p]) => [id, p.name]);
+      if (st.phase === "lobby") { s.names = Object.entries(players).map(([id, p]) => [id, p.name]); s.autoLeft = st.autoAt ? Math.max(0, st.autoAt - Date.now()) : 0; }
       if (st.phase === "q") Object.assign(s, { q: { question: q.question, verse: q.verse, answers: q.answers }, left: Math.max(0, st.endsAt - Date.now()) });
       if (st.phase === "reveal" || st.phase === "end") Object.assign(s, { correct: q.correct, res: results(), note: st.note, winner: st.winner });
+      if (teams.length && st.phase !== "lobby") { s.teams = teams.map(t => [t.name, t.color, t.score, t.choice]); s.tm = {}; Object.entries(players).forEach(([id, p]) => { s.tm[id] = p.team; }); }
       return s;
     }
     const broadcast = () => { if (!stopped) ch.send(snapshot()); };
 
     function alivePlayers() { return Object.entries(players).filter(([id, p]) => p.alive && id !== st.oneId); }
 
+    function smallestTeam() {
+      const sizes = teams.map((t, i) => Object.values(players).filter(p => p.team === i).length);
+      return sizes.indexOf(Math.min(...sizes));
+    }
     function start() {
       if (!Object.keys(players).length) { ctx.toast("עוד אף אחד לא הצטרף"); return; }
+      if (mode === "team") {
+        const ids = db.shuffle(Object.keys(players));
+        if (ids.length < 2) { ctx.toast("צריך לפחות שני שחקנים"); return; }
+        teams = TRIBES.slice(0, tribeCount(ids.length)).map(([name, color]) => ({ name, color, score: 0, choice: -1 }));
+        ids.forEach((id, i) => { players[id].team = i % teams.length; });
+      }
       if (mode === "one") {
         if (!st.oneId || !players[st.oneId]) st.oneId = db.shuffle(Object.keys(players))[0];
         if (Object.keys(players).length < 2) { ctx.toast("צריך לפחות שני שחקנים"); return; }
@@ -193,6 +240,7 @@
       ask(0);
     }
     function ask(i) {
+      clearTimeout(autoTimer); stopCountdown();
       st.phase = "q"; st.idx = i; st.endsAt = Date.now() + TIME; st.note = "";
       clearTimeout(qTimer);
       qTimer = setTimeout(reveal, TIME + 1200); // עוד רגע קטן לתשובות שבדרך
@@ -227,6 +275,20 @@
         // הקופה של האחד: 100 נקודות על כל מי שיצא מהקהל
         one.score = Object.entries(players).filter(([id, p]) => id !== st.oneId && !p.alive).length * 100;
       }
+      if (mode === "team") {
+        // הרוב קובע: התשובה שהכי הרבה חברי שבט בחרו. בתיקו, זו שנבחרה ראשונה
+        teams.forEach((t, ti) => {
+          const votes = [0, 0, 0, 0], first = [1e9, 1e9, 1e9, 1e9];
+          Object.values(players).forEach(p => { const a = p.ans[st.idx]; if (p.team === ti && a && a.choice >= 0) { votes[a.choice]++; first[a.choice] = Math.min(first[a.choice], a.ms); } });
+          const best = Math.max(...votes);
+          t.votes = votes;
+          t.choice = best ? [0, 1, 2, 3].filter(i => votes[i] === best).sort((a, b) => first[a] - first[b])[0] : -1;
+          if (t.choice === q.correct) t.score += 100;
+        });
+        const okNames = teams.filter(t => t.choice === q.correct).map(t => t.name);
+        st.note = okNames.length === teams.length ? "כל השבטים צדקו!" : okNames.length ? `צדקו: ${okNames.map(n => "שבט " + n).join(", ")}` : "אף שבט לא צדק הפעם";
+        if (over) { const top = Math.max(...teams.map(t => t.score)); st.winner = teams.filter(t => t.score === top).map(t => t.name).join(" ו"); }
+      }
       st.phase = over ? "end" : "reveal";
       if (over && mode === "quiz") { const top = Object.values(players).sort((a, b) => b.score - a.score)[0]; st.winner = top ? top.name : ""; }
       draw(); broadcast();
@@ -258,15 +320,17 @@
               <h3>מחוברים: ${Object.keys(players).length}</h3>
               ${mode === "one" ? `<p class="small muted">הקישו על שם כדי לבחור את "האחד". אם לא תבחרו, נגריל.</p>` : ""}
               <div class="olama-names">${Object.entries(players).map(([id, p]) => `<button class="olama-name ${id === st.oneId ? "one" : ""}" data-id="${id}">${id === st.oneId ? "🦁 " : ""}${esc(p.name)}</button>`).join("") || `<span class="muted">מחכים לשחקנים...</span>`}</div>
-              <button class="btn gold big-btn" id="go">מתחילים! (${questions.length} שאלות)</button>
+              <div class="olama-auto">${st.autoAt ? `⏳ המשחק מתחיל בעוד <b id="autocd"></b>` : autoN ? `המשחק יתחיל לבד דקה אחרי שיגיעו ${autoN} שחקנים` : ""}</div>
+              <button class="btn gold big-btn" id="go">${st.autoAt ? "להתחיל עכשיו" : "מתחילים!"} (${questions.length} שאלות)</button>
             </div>
           </div>`;
         drawQR(document.getElementById("qr"), joinUrl);
+        if (st.autoAt) countdown(st.autoAt);
         app().querySelectorAll(".olama-name").forEach(b => b.onclick = () => { if (mode === "one") { st.oneId = b.dataset.id; draw(); broadcast(); } });
         document.getElementById("go").onclick = start;
       } else if (st.phase === "q") {
         app().innerHTML = `${head}
-          ${mode === "one" ? oneStrip() : ""}
+          ${mode === "one" ? oneStrip() : ""}${mode === "team" ? teamStrip() : ""}
           <div class="olama-qhead"><span>שאלה ${st.idx + 1} מתוך ${questions.length}</span><span class="olama-clock" id="clock">${Math.ceil(TIME / 1000)}</span><span id="acount"></span></div>
           <div class="timer"><span id="tbar"></span></div>
           <div class="card olama-q">
@@ -293,7 +357,8 @@
             ${q.source ? `<div class="small muted center" style="margin-top:8px">מקור: ${esc(q.source)}</div>` : ""}
           </div>
           ${st.note ? `<div class="olama-note">${esc(st.note)}</div>` : ""}
-          <div class="card">${mode === "quiz" ? `<h3>🏆 המובילים</h3>${ranked.slice(0, 5).map(([, p], i) => `<div class="olama-rank"><b>${i + 1}</b><span>${esc(p.name)}</span><b>${p.score}</b></div>`).join("")}`
+          <div class="card">${mode === "team" ? `<h3>🏳️ השבטים</h3>${teams.map(t => `<div class="olama-rank olama-tribe" style="--c:${t.color}"><b>שבט ${esc(t.name)}</b><span>בחר: ${t.choice >= 0 ? `<b style="color:${COLORS[t.choice]}">${LETTERS[t.choice]}</b>` : "לא ענה"} ${t.choice === q.correct ? "✓" : "✗"} <small class="muted">(${(t.votes || []).map((v, i) => LETTERS[i] + ":" + v).join(" ")})</small></span><b>${t.score}</b></div>`).join("")}`
+            : mode === "quiz" ? `<h3>🏆 המובילים</h3>${ranked.slice(0, 5).map(([, p], i) => `<div class="olama-rank"><b>${i + 1}</b><span>${esc(p.name)}</span><b>${p.score}</b></div>`).join("")}`
             : mode === "survive" ? `<h3>🔥 נשארו במשחק: ${ranked.filter(([, p]) => p.alive).length}</h3><div class="olama-names">${ranked.map(([, p]) => `<span class="olama-name ${p.alive ? "" : "out"}">${esc(p.name)}</span>`).join("")}</div>`
             : `<h3>👥 הקהל שנשאר: ${alivePlayers().length}</h3><div class="olama-names">${ranked.filter(([id]) => id !== st.oneId).map(([, p]) => `<span class="olama-name ${p.alive ? "" : "out"}">${esc(p.name)}</span>`).join("")}</div>`}</div>
           <div class="row center-row">${end ? `<button class="btn gold" id="again">משחק חדש</button>` : `<button class="btn gold big-btn" id="next">לשאלה הבאה ⬅</button>`}</div>`;
@@ -301,6 +366,9 @@
         else document.getElementById("next").onclick = () => ask(st.idx + 1);
       }
       document.getElementById("quit").onclick = () => { location.hash = "#/olama"; };
+    }
+    function teamStrip() {
+      return `<div class="olama-tribes">${teams.map(t => `<span style="--c:${t.color}">שבט ${esc(t.name)} <b>${t.score}</b></span>`).join("")}</div>`;
     }
     function oneStrip() {
       const one = players[st.oneId] || { name: "", score: 0 };
@@ -312,6 +380,10 @@
         title = st.winner === "one" ? `🦁 ${esc(players[st.oneId].name)} ניצח את כל החדר!` : `👥 הקהל ניצח!`;
         sub = st.winner === "one" ? `עם קופה של ${players[st.oneId].score} נקודות` : `שרדו: ${alivePlayers().map(([, p]) => esc(p.name)).join(", ")}`;
       } else if (mode === "survive") title = `🔥 ${esc(st.winner)} שרד עד הסוף!`;
+      else if (mode === "team") {
+        title = `🏆 שבט ${esc(st.winner)} ניצח!`;
+        sub = teamStrip();
+      }
       else {
         const top = ranked.slice(0, 3);
         title = "🏆 הפודיום";
@@ -321,7 +393,7 @@
     }
 
     document.body.classList.add("olama-host"); // במסך המנחה מסתירים את התפריט התחתון
-    session = { close() { document.body.classList.remove("olama-host"); stopped = true; clearTimeout(pollTimer); clearInterval(beatTimer); clearTimeout(qTimer); stopClock(); ch.close(); } };
+    session = { close() { document.body.classList.remove("olama-host"); stopped = true; clearTimeout(autoTimer); stopCountdown(); clearTimeout(pollTimer); clearInterval(beatTimer); clearTimeout(qTimer); stopClock(); ch.close(); } };
     // שולחים את המצב שוב כל שתי שניות, למי שהצטרף מאוחר או פספס הודעה
     beatTimer = setInterval(broadcast, 2000);
     poll();
@@ -339,6 +411,16 @@
     const tick = () => { const s = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)); if (clock) { clock.textContent = s; clock.classList.toggle("hot", s <= 5); } };
     tick();
     clockTimer = setInterval(tick, 250);
+  }
+
+  // ספירה לאחור לפני התחלה אוטומטית (#autocd), אצל המנחה ואצל האורחים
+  let cdTimer = 0;
+  function stopCountdown() { clearInterval(cdTimer); }
+  function countdown(at) {
+    stopCountdown();
+    const tick = () => { const el = document.getElementById("autocd"); if (!el) return stopCountdown(); const s = Math.max(0, Math.ceil((at - Date.now()) / 1000)); el.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+    tick();
+    cdTimer = setInterval(tick, 500);
   }
 
   // קוד QR לכתובת ההצטרפות (qrcode-generator 1.4.4, רישיון MIT, נטען רק אצל המנחה)
@@ -401,22 +483,25 @@
     function onState(s) {
       lastSeen = Date.now();
       if (!joined) return;
-      const k = s.phase + ":" + s.idx + (s.phase === "lobby" ? ":" + s.n + ":" + s.oneId : "");
+      const k = s.phase + ":" + s.idx + (s.phase === "lobby" ? ":" + s.n + ":" + s.oneId + ":" + !!s.autoLeft : "");
       if (k === key) return;
       key = k;
       const isOne = s.oneId === pid;
       if (s.phase === "lobby") {
         const inList = (s.names || []).some(([id]) => id === pid);
         if (!inList) toHost({ kind: "join" });
-        return waiting(inList ? "נכנסת! מחכים שהמנחה יתחיל" : "מתחברים לחדר...", `<p>${s.n} מחוברים${s.mode === "one" ? (isOne ? `<br><b class="olama-you-one">🦁 נבחרת להיות האחד!</b>` : s.oneName ? `<br>🦁 האחד: <b>${esc(s.oneName)}</b>` : "") : ""}</p>`);
+        waiting(inList ? "נכנסת! מחכים שהמשחק יתחיל" : "מתחברים לחדר...", `${s.autoLeft ? `<p class="olama-auto">⏳ מתחילים בעוד <b id="autocd"></b></p>` : ""}<p>${s.n} מחוברים${s.mode === "one" ? (isOne ? `<br><b class="olama-you-one">🦁 נבחרת להיות האחד!</b>` : s.oneName ? `<br>🦁 האחד: <b>${esc(s.oneName)}</b>` : "") : ""}</p>`);
+        if (s.autoLeft) countdown(Date.now() + s.autoLeft);
+        return;
       }
+      stopCountdown();
       const r = (s.res || {})[pid];
       if (s.phase === "q") {
         myAns = null;
         qStart = Date.now();
         if (s.mode !== "quiz" && !isOne && key && s.idx > 0 && lastRes && !lastRes[3]) return waiting("יצאת מהמשחק 😅", `<p>אפשר להמשיך לצפות במסך</p>`);
         app().innerHTML = `
-          ${isOne ? `<div class="olama-one"><span>🦁 את/ה האחד! אסור לטעות</span></div>` : ""}
+          ${isOne ? `<div class="olama-one"><span>🦁 את/ה האחד! אסור לטעות</span></div>` : ""}${myTeam(s) ? `<div class="olama-mytribe" style="--c:${myTeam(s)[1]}">אתם בשבט ${esc(myTeam(s)[0])} · הרוב בשבט קובע</div>` : ""}
           <div class="olama-qhead"><span>שאלה ${s.idx + 1}/${s.total}</span><span class="olama-clock" id="clock"></span></div>
           <div class="timer"><span id="tbar"></span></div>
           <div class="card olama-q">
@@ -441,7 +526,9 @@
       const ok = r[0] === 1;
       if (s.phase === "reveal") {
         let line = ok ? "✓ צדקת!" : "✗ לא נכון";
-        if (s.mode === "quiz") line += `<br><span class="small">מקום ${r[2]} · ${r[1]} נקודות</span>`;
+        const T = myTeam(s);
+        if (T) line = `שבט ${esc(T[0])} בחר ${T[3] >= 0 ? LETTERS[T[3]] : "כלום"}: ${T[3] === s.correct ? "✓ צדקתם!" : "✗ טעיתם"}<br><span class="small">אתה בחרת: ${ok ? "נכון" : "לא נכון"} · לשבט ${T[2]} נקודות</span>`;
+        else if (s.mode === "quiz") line += `<br><span class="small">מקום ${r[2]} · ${r[1]} נקודות</span>`;
         else if (isOne) line += ok ? `<br><span class="small">💰 קופה: ${r[1]}</span>` : "";
         else if (!r[3]) line = ok ? "יצאת מהמשחק" : "✗ טעית, יצאת מהמשחק";
         else line += `<br><span class="small">עדיין במשחק! 💪</span>`;
@@ -453,6 +540,7 @@
       // סוף המשחק
       let title;
       if (s.mode === "one") title = (isOne ? s.winner === "one" : s.winner === "crowd" && r[3]) ? "🏆 ניצחת!" : s.winner === "one" ? `🦁 ${esc(s.oneName)} ניצח` : "👥 הקהל ניצח!";
+      else if (s.mode === "team") title = myTeam(s) && s.winner.split(" ו").includes(myTeam(s)[0]) ? `🏆 שבט ${esc(myTeam(s)[0])} ניצח!` : `שבט ${esc(s.winner)} ניצח`;
       else if (s.mode === "survive") title = r[3] ? "🏆 שרדת עד הסוף!" : `🔥 ${esc(s.winner)} שרד עד הסוף`;
       else title = r[2] === 1 ? "🏆 מקום ראשון!" : `מקום ${r[2]}`;
       if (title.startsWith("🏆")) ctx.confetti();
@@ -461,6 +549,7 @@
         <div class="row center-row"><a class="btn" href="#/">למסע בתורה</a></div></div>`;
     }
     let lastRes = null;
+    const myTeam = st => st.teams && st.tm && st.tm[pid] != null ? st.teams[st.tm[pid]] : null;
 
     session = { close() { joined = false; stopClock(); ch.close(); } };
     askName();
@@ -472,7 +561,7 @@
     if (arg && /^\d{4}$/.test(arg)) return guest(arg);
     viewHall();
   }
-  function stop() { if (session) { session.close(); session = null; } stopClock(); }
+  function stop() { if (session) { session.close(); session = null; } stopClock(); stopCountdown(); }
 
   window.TeireOlama = { view, stop };
 })();
