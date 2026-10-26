@@ -627,3 +627,15 @@ button.olama-name { cursor: pointer; }
 .olama-res.bad { background: var(--bad-soft); border-color: #f5b5b5; }
 body.olama-host { padding-bottom: 20px; }
 body.olama-host .bottomnav { display: none; }
+.olama-mode { position: relative; display: block; }
+.olama-mode input { width: auto; inset: 0; margin: 0; }
+.olama-opts { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin-bottom: 4px; }
+@media (min-width: 640px) { .olama-opts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.olama-opts label { display: grid; gap: 4px; }
+.olama-auto { text-align: center; font-weight: 700; color: #5b21b6; margin-top: 10px; }
+.olama-auto b { font-size: 1.4rem; }
+.olama-tribes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+.olama-tribes span { background: var(--c); color: #fff; font-weight: 700; padding: 6px 14px; border-radius: 99px; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+.olama-tribe { border-inline-start: 6px solid var(--c); padding-inline-start: 10px; align-items: center; }
+.olama-tribe > b:first-child { color: var(--c); }
+.olama-mytribe { background: var(--c); color: #fff; font-weight: 800; text-align: center; padding: 8px 12px; border-radius: 16px; margin-bottom: 10px; }
