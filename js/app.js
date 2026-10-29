@@ -1407,14 +1407,14 @@
     sceneRaf = requestAnimationFrame(sceneTick);
   }
 
-  // ---- חדר הוויכוח: חדר חשוך, זרקור על מי שמדבר, רווח או הקשה להמשך ----
+  // ---- היכל הפלפולים: חדר חשוך, המצלמה "חותכת" לדובר כמו בקומיקס יפני, רווח או הקשה להמשך ----
   function viewDebate(id) {
     if (!player.name) return viewOnboarding();
     setTab("map");
     const d = X.DEBATES.find(x => x.id === id);
     if (!d) {
       app.innerHTML = `
-        <div class="place-hero" style="--c:#111827"><div class="place-icon">🎭</div><h1>חדר הוויכוח</h1><p>שני חכמים, סוגיא אחת. מי צודק?</p></div>
+        <div class="place-hero" style="--c:#111827"><div class="place-icon">🎭</div><h1>היכל הפלפולים</h1><p>שני חכמים, סוגיא אחת. מי צודק?</p></div>
         ${X.DEBATES.map(x => `<a class="card debate-pick" href="#/debate/${x.id}">
           <span class="dp-faces">${x.pair.map(w => Sages.sageSVG(X.SPEAKERS[w], 40)).join("")}</span>
           <span><b>${x.title}</b><br><span class="small muted">${x.pair.map(w => X.SPEAKERS[w].name).join(" נגד ")}<br>📖 ${esc(x.source)}</span></span>
@@ -1426,21 +1426,27 @@
     const [A, B] = d.pair;
     app.innerHTML = `
       <div class="dark-room" id="room">
+        <div class="speedlines"></div>
         <div class="room-title">${d.title}<span>📖 מקור: ${esc(d.source)}</span></div>
         <div class="speaker left" data-w="${A}">${Sages.sageSVG(X.SPEAKERS[A], 110)}<b>${X.SPEAKERS[A].name}</b></div>
         <div class="speaker right" data-w="${B}">${Sages.sageSVG(X.SPEAKERS[B], 110)}<b>${X.SPEAKERS[B].name}</b></div>
         <div class="debate-bubble" id="bub"></div>
         <div class="room-hint">רווח או הקשה להמשך ▸</div>
       </div>
-      <div class="row center-row"><a class="btn ghost" href="#/debate">לוויכוחים אחרים</a></div>`;
+      <div class="row center-row"><a class="btn ghost" href="#/debate">לפלפולים אחרים</a></div>`;
     const room = document.getElementById("room"), bub = document.getElementById("bub");
-    let k = -1, typing = 0, full = "";
+    let k = -1, typing = 0, full = "", lastWho;
     function show() {
       k++;
       if (k >= d.lines.length) return finish();
       const [who, text] = d.lines[k];
       room.querySelectorAll(".speaker").forEach(s => s.classList.toggle("on", s.dataset.w === who));
       room.classList.toggle("narrator", !who);
+      // כשהדובר מתחלף: חיתוך לדמות שלו, קווי מהירות מאחוריה והבזק קצר
+      room.classList.toggle("focus-a", who === A);
+      room.classList.toggle("focus-b", who === B);
+      if (who && who !== lastWho) { room.classList.remove("cut"); void room.offsetWidth; room.classList.add("cut"); }
+      lastWho = who;
       bub.className = "debate-bubble " + (who === A ? "from-left" : who === B ? "from-right" : "from-mid");
       full = (who ? X.SPEAKERS[who].name + ": " : "") + text;
       let n = 0;
@@ -1457,8 +1463,9 @@
       const first = !player.debates.includes(d.id);
       if (first) { player.debates.push(d.id); player.coins += 15; savePlayer(); }
       room.querySelectorAll(".speaker").forEach(s => s.classList.add("on"));
+      room.classList.remove("focus-a", "focus-b", "narrator", "cut");
       bub.className = "debate-bubble from-mid";
-      bub.innerHTML = `<b>סוף הוויכוח</b><br>מקור: ${esc(d.source)}${first ? "<br>🪙 +15" : ""}`;
+      bub.innerHTML = `<b>סוף הפלפול</b><br>מקור: ${esc(d.source)}${first ? "<br>🪙 +15" : ""}`;
       room.querySelector(".room-hint").textContent = "";
     }
     const onKey = e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); step(); } };
@@ -2032,7 +2039,7 @@
       text: m.question, answer: Object.entries(m.opinions).map(([id, i]) => `${Sages.byId(id) ? Sages.byId(id).school : id}: ${m.answers[i]}`).join(" | "), others: [], source: m.source }));
     (window.TEIRE_CHALLENGES || []).forEach(c => add("א", "משפטי האתגרים", "content/challenges.js", "החלקה ומכונית", { text: c.text, answer: c.right, others: [`מקור מטעה: ${c.wrong}`], source: c.right }));
     const D = window.TEIRE_DEBATES || { DEBATES: [], SPEAKERS: {} };
-    D.DEBATES.forEach(d => add("ו", "ויכוחים", "content/debates.js", d.pair.map(w => D.SPEAKERS[w].name).join(" נגד "), {
+    D.DEBATES.forEach(d => add("ו", "פלפולים", "content/debates.js", d.pair.map(w => D.SPEAKERS[w].name).join(" נגד "), {
       text: d.title, answer: "", others: [], source: d.source,
       lines: d.lines.map(([w, t]) => `${w ? D.SPEAKERS[w].name : "המספר"}: ${t}`) }));
     return items;
