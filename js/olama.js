@@ -19,7 +19,7 @@
   };
   const TOPICS = {
     mix: { name: "כל עולם התורה", test: () => true },
-    shas: { name: "משנה וגמרא", test: p => p === "mishna" || p === "gemara" || p === "beit-midrash" || p === "sages" },
+    shas: { name: "משנה וגמרא", test: p => p === "mishna" || p === "gemara" || p === "beit-midrash" || p === "sages" || p === "aramaic-hall" },
     tanach: { name: "תורה, תנ\"ך ופרשת השבוע", test: p => ["gan-eden", "teiva", "ohel", "mitzrayim", "sinai", "midbar", "mikdash", "david"].includes(p) || p.startsWith("parasha") || p === "verse-hall" },
     halacha: { name: "הלכה ומנהג", test: p => p.startsWith("kollel") || p === "beit-knesset" },
     gdolim: { name: "חכמים וגדולי ישראל", test: p => p === "sages" || ["vilna", "volozhin", "radin", "mezhibozh", "breslov", "prague", "baghdad", "morocco", "fustat"].includes(p) },

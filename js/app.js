@@ -468,6 +468,7 @@
     const T = Towns.byId(id);
     if (!T || !player.name) return viewCity();
     if (id === "parasha") await Parasha.ready; // שם הפרשה של השבוע מוצג בעיירה
+    if (id === "sea") T.from = portHere(); // לא מציעים להפליג לנמל שבו כבר נמצאים
     setTab("map");
     document.body.classList.add("in-city");
     const soul = player.activeSoul && Sages.byId(player.activeSoul);
@@ -526,6 +527,45 @@
         });
       },
     });
+  }
+
+  // ---------- היכל הים: הפלגה ליבשה אחרת ----------
+  // הנמל הקרוב לדמות במפה הוא הנמל שבו נמצאים
+  function portHere() {
+    const p = player.pos || City.START;
+    let best = "israel", bd = Infinity;
+    Object.entries(City.PORTS).forEach(([k, P]) => {
+      const L = City.byId(P.loc), d = Math.hypot(L.x - p.x, L.y - p.y);
+      if (d < bd) { bd = d; best = k; }
+    });
+    return best;
+  }
+  let sailT = 0;
+  function viewSail(dest) {
+    const P = City.PORTS[dest];
+    if (!P || !player.name) return viewCity();
+    setTab("map");
+    const from = City.PORTS[portHere()];
+    app.innerHTML = `
+      <div class="voyage" id="voyage">
+        <div class="voy-sky"><span class="voy-sun"></span><span class="voy-bird">🕊️</span></div>
+        <div class="voy-sea"><div class="voy-wave w1"></div><div class="voy-wave w2"></div><div class="voy-wave w3"></div></div>
+        <div class="voy-ship">${P.icon}</div>
+        <div class="voy-title">מפליגים מ${from.name} אל ${P.name}...</div>
+        <div class="voy-bar"><i></i></div>
+      </div>
+      <div class="card center"><p>"יורדי הים באניות, עשי מלאכה במים רבים" (תהלים קז, כג)</p>
+        <p class="small muted">ארבעה צריכים להודות, והראשונים שבהם: יורדי הים (ברכות נד, ב).</p></div>`;
+    clearTimeout(sailT);
+    sailT = setTimeout(() => {
+      if (!location.hash.startsWith("#/sail/")) return;
+      const L = City.byId(P.loc);
+      player.pos = { x: L.x, y: L.y + 62 };
+      player.townPos = player.townPos || {}; player.townPos.sea = null;
+      savePlayer();
+      location.hash = "#/";
+      toast(`⚓ הגעתם ל${P.name}! יורדי הים מודים לה' כשמגיעים בשלום`);
+    }, 4200);
   }
 
   // ---------- שחקנים אחרים באותה עיירה ----------
@@ -1285,11 +1325,11 @@
   }
 
   // ---- מרוץ המקורות: מכשול עם משפט מתקרב, נוסעים לנתיב של המקור הנכון ----
-  // מכוניות המוסך: בונוס מהירות, ומגן שסופג פגיעה אחת
+  // מכוניות המוסך: בונוס מהירות, ומגן שסופג פגיעה אחת. look = איך המכונית מצוירת (js/race.js)
   const CARS = [
-    { id: "basic", icon: "🏎️", name: "מירוץ רגיל", price: 0, boost: 1, shield: 0, note: "בלי בונוסים." },
-    { id: "sport", icon: "🚗", name: "ספורט", price: 40, boost: 1.2, shield: 0, note: "20% מהירות יותר מהרגיל." },
-    { id: "jeep", icon: "🚙", name: "ג׳יפ משוריין", price: 90, boost: 1.2, shield: 1, note: "20% מהירות יותר, ומגן אחד שסופג פגיעה אחת." }
+    { id: "basic", icon: "🏎️", name: "מירוץ אדומה", price: 0, boost: 1, shield: 0, note: "מכונית מירוץ אדומה, בלי בונוסים.", look: { color: "#d61f26", stripe: "#15171b", plate: "תורה" } },
+    { id: "sport", icon: "🚗", name: "ספורט טורבו", price: 40, boost: 1.2, shield: 0, note: "20% מהירות יותר מהרגיל.", look: { color: "#f5c518", stripe: "#111827", wing: "#111827", plate: "טורבו" } },
+    { id: "jeep", icon: "🚙", name: "ג׳יפ משוריין", price: 90, boost: 1.2, shield: 1, note: "20% מהירות יותר, ומגן אחד שסופג פגיעה אחת.", look: { color: "#5b6b3a", shape: "jeep", plate: "מגן" } }
   ];
   const raceCar = () => CARS.find(c => c.id === player.car) || CARS[0];
   function garageHTML() {
@@ -1299,7 +1339,7 @@
         <div class="row center-row">${CARS.map(c => {
           const have = c.price === 0 || player.owned.includes("car:" + c.id);
           const on = cur.id === c.id;
-          return `<button class="btn ghost small-btn garage-car ${on ? "on" : ""}" data-car="${c.id}">${c.icon} ${c.name}<br><span class="small">${on ? "בשימוש ✓" : have ? "לבחור" : "🪙 " + c.price}</span></button>`;
+          return `<button class="btn ghost small-btn garage-car ${on ? "on" : ""}" data-car="${c.id}"><canvas class="car-prev" data-prev="${c.id}"></canvas>${c.name}<br><span class="small">${on ? "בשימוש ✓" : have ? "לבחור" : "🪙 " + c.price}</span></button>`;
         }).join("")}</div>
         <p class="small muted">${cur.note}</p>
         <p class="small" id="garmsg"></p>
@@ -1307,7 +1347,8 @@
   }
   function viewRace() {
     if (!player.name) return viewOnboarding();
-    gameIntro("race", "מרוץ המקורות", "🏎️", "מכשול עם משפט נוסע אליכם! בכל נתיב כתוב מקור אחר. עברו לנתיב של המקור הנכון (החלקה, הקשה על הנתיב או חיצים) ועקפו את המכשול. נתיב לא נכון, או להישאר באמצע, ואתם בחוץ!", playRace, garageHTML());
+    gameIntro("race", "מרוץ המקורות", "🏎️", "שער עם שני שלטים מתקרב, ובכל שלט מקור אחר למשפט שלמעלה. עברו לנתיב של המקור הנכון (החלקה, הקשה על צד הכביש או חיצים) לפני שמגיעים לשער. נתיב לא נכון, או להישאר באמצע מול המחסום, ואתם בחוץ! כל 4 תשובות ברצף: טורבו ונקודת בונוס. עקפו את 4 המתחרים כדי להגיע למקום הראשון.", playRace, garageHTML());
+    app.querySelectorAll("[data-prev]").forEach(cv => TeireRace.preview(cv, CARS.find(c => c.id === cv.dataset.prev).look));
     app.querySelectorAll(".garage-car").forEach(b => b.onclick = () => {
       const c = CARS.find(x => x.id === b.dataset.car);
       const have = c.price === 0 || player.owned.includes("car:" + c.id);
@@ -1318,93 +1359,65 @@
       player.car = c.id; savePlayer(); viewRace();
     });
   }
+  // המשחק עצמו מצויר ב-js/race.js; כאן רק בונים את הדף ומעדכנים את הטקסטים
   function playRace() {
     stopGame();
-    const deck = db.shuffle(X.RACE);
     const car0 = raceCar();
-    let i = 0, score = 0, lane = "mid", raf = 0, offKeys = null, item, sides, t0 = 0, dur = 4600, done = false, shield = car0.shield, shieldT = 0;
     app.innerHTML = `
       <div class="race" id="race">
-        <div class="race-q" id="rq"></div>
-        <div class="road" id="road">
-          <div class="asphalt"></div><div class="scene" id="scene"></div>
+        <div class="race-q" id="rq">מתכוננים לזינוק...</div>
+        <div class="track" id="track">
+          <canvas id="rc" aria-label="כביש המרוץ"></canvas>
+          <div class="tap-zone left" data-side="left"></div><div class="tap-zone right" data-side="right"></div>
+          <div class="hud-l"><div><span>מקום</span><b id="hpos">5/5</b></div><div><span>הקפה</span><b id="hdist">0%</b></div></div>
+          <div class="hud-r"><div class="hud-spd"><b id="hspd">0</b><span>קמ״ש</span></div><div class="hud-time" id="htime">⏱ 00:00.00</div></div>
+          <button class="hud-snd" id="hsnd" aria-label="קולות המרוץ"></button>
+          <div class="race-banner" id="hban"></div>
           <div class="lane-label left" data-side="left" id="ll"></div>
           <div class="lane-label right" data-side="right" id="lr"></div>
-          <div class="obstacle" id="ob">🚧</div>
-          <div class="car mid" id="car">${car0.icon}</div>
+          <div class="race-tag">מרוץ המקורות</div>
         </div>
-        <div class="arena-top"><span class="pill dark" id="rs">🏁 0</span><span class="pill dark" id="spd">60 קמ״ש</span><span class="small muted">החליקו או הקישו על הנתיב</span></div>
+        <div class="arena-top"><span class="pill dark" id="rs">🏁 0</span><span class="pill dark" id="rsh" ${car0.shield ? "" : "hidden"}>🛡️ ${car0.shield}</span><span class="small muted">החליקו, הקישו על צד הכביש או חיצים</span></div>
       </div>${backToTorah}`;
-    const ob = document.getElementById("ob"), car = document.getElementById("car"), road = document.getElementById("road");
-    // נוף שחולף לצדי הדרך: מתחיל באופק ונעלם מתחת למצלמה
-    const scene = document.getElementById("scene"), spd = document.getElementById("spd");
-    const SCENERY = ["🌳", "🏠", "🌲", "🏪", "🌾", "🪨", "🏡", "🌴"];
-    let items = [], sceneRaf = 0, lastT = 0, speedMs = 4600;
-    function spawnScenery() {
-      const el = document.createElement("div");
-      el.className = "scenery"; el.textContent = SCENERY[Math.floor(Math.random() * SCENERY.length)];
-      scene.appendChild(el);
-      items.push({ el, side: Math.random() < .5 ? -1 : 1, z: 0 });
-    }
-    function sceneTick(now) {
-      const dt = lastT ? now - lastT : 16; lastT = now;
-      if (Math.random() < dt / 350) spawnScenery();
-      items = items.filter(it => {
-        it.z += dt / speedMs;
-        if (it.z > 1.1) { it.el.remove(); return false; }
-        it.el.style.left = (50 + it.side * (6 + it.z * 44)) + "%";
-        it.el.style.top = (38 + it.z * 60) + "%";
-        it.el.style.transform = `translate(-50%, -50%) scale(${.15 + it.z * 2.2})`;
-        it.el.style.opacity = Math.min(it.z * 4, 1);
-        return true;
-      });
-      sceneRaf = requestAnimationFrame(sceneTick);
-    }
-    function next() {
-      item = deck[i++ % deck.length]; sides = sidesFor(item);
-      document.getElementById("rq").textContent = "\"" + item.text + "\"";
-      document.getElementById("ll").textContent = sides.left;
-      document.getElementById("lr").textContent = sides.right;
-      road.classList.remove("crash");
-      lane = "mid"; car.className = "car mid";
-      dur = Math.max(2300, 4600 - score * 180) / car0.boost;
-      speedMs = dur;
-      spd.textContent = Math.round(60 * 4600 / dur) + " קמ״ש";
-      t0 = performance.now();
-      raf = requestAnimationFrame(tick);
-    }
-    function tick(now) {
-      const p = Math.min((now - t0) / dur, 1);
-      ob.style.top = (p * 78) + "%";
-      ob.style.transform = `translateX(-50%) scale(${.5 + p * .7})`;
-      if (p < 1) { raf = requestAnimationFrame(tick); return; }
-      if (lane === sides.correct) { score++; document.getElementById("rs").textContent = "🏁 " + score; next(); }
-      else crash();
-    }
-    function crash() {
-      if (shield > 0) { // המגן סופג את הפגיעה והמשחק ממשיך
-        shield--; done = true; road.classList.add("crash"); car.textContent = "🛡️";
-        toast("🛡️ המגן ספג את הפגיעה!");
-        shieldT = setTimeout(() => { done = false; car.textContent = car0.icon; road.classList.remove("crash"); lane = "mid"; car.className = "car mid"; next(); }, 1000);
-        return;
-      }
-      done = true; road.classList.add("crash"); car.textContent = "💥";
-      cancelAnimationFrame(sceneRaf); spd.textContent = "0 קמ״ש";
-      toast("המקור הנכון: " + item.right);
-      setTimeout(() => {
-        stopGame();
-        app.innerHTML = gameOver("race", score, 4) + backToTorah;
-        document.getElementById("again").onclick = playRace;
-      }, 1400);
-    }
-    offKeys = sideInput(road, s => {
-      if (done) return;
-      lane = lane === "mid" ? s : (lane === s ? s : "mid"); // מהצד השני חוזרים קודם לאמצע
-      car.className = "car " + lane;
+    const $ = id => document.getElementById(id), track = $("track"), ban = $("hban");
+    let banT = 0, lastHud = "";
+    if (window.Music && Music.duck) Music.duck(true);
+    const r = TeireRace.start({
+      root: track, look: car0.look, boost: car0.boost, shield: car0.shield, deck: db.shuffle(X.RACE), sidesFor,
+      ui: {
+        question(item, sides) {
+          $("rq").textContent = item ? "\"" + item.text + "\"" : "🔥 טורבו!";
+          $("ll").textContent = sides ? sides.left : ""; $("lr").textContent = sides ? sides.right : "";
+          track.classList.toggle("no-labels", !sides);
+        },
+        score(s) { $("rs").textContent = "🏁 " + s; },
+        banner(text, kind) {
+          ban.textContent = text; ban.className = "race-banner show " + kind;
+          if (kind === "crash") track.classList.add("crash");
+          clearTimeout(banT); banT = setTimeout(() => { ban.className = "race-banner"; }, kind === "count" || kind === "go" ? 800 : 1500);
+        },
+        toast,
+        hud(h) {
+          const t = h.time, mm = String(Math.floor(t / 60)).padStart(2, "0"), ss = (t % 60).toFixed(2).padStart(5, "0");
+          const key = [h.kmh, h.place, h.lapPct, mm, ss, h.shield].join("|");
+          if (key === lastHud) return;
+          lastHud = key;
+          $("hspd").textContent = h.kmh; $("hpos").innerHTML = `<i>${h.place}</i>/${h.of}`; $("hdist").textContent = h.lapPct + "%";
+          $("htime").textContent = `⏱ ${mm}:${ss}`;
+          $("rsh").textContent = "🛡️ " + h.shield;
+        },
+        end(score) {
+          stopGame();
+          app.innerHTML = gameOver("race", score, 4) + backToTorah;
+          document.getElementById("again").onclick = playRace;
+        },
+      },
     });
-    game = { stop() { cancelAnimationFrame(raf); cancelAnimationFrame(sceneRaf); clearTimeout(shieldT); if (offKeys) offKeys(); } };
-    next();
-    sceneRaf = requestAnimationFrame(sceneTick);
+    const snd = $("hsnd"), renderSnd = () => { snd.textContent = r.soundOn ? "🔊" : "🔇"; };
+    renderSnd();
+    snd.addEventListener("pointerup", e => { e.stopPropagation(); r.toggleSound(); renderSnd(); });
+    const offKeys = sideInput(track, s => r.steer(s));
+    game = { stop() { r.stop(); offKeys(); clearTimeout(banT); if (window.Music && Music.duck) Music.duck(false); } };
   }
 
   // ---- היכל הפלפולים: חדר חשוך, המצלמה "חותכת" לדובר כמו בקומיקס יפני, רווח או הקשה להמשך ----
@@ -1673,6 +1686,7 @@
     { name: "🌍 גדולי ישראל בגולה", test: p => p.gola },
     { name: "📜 היכל פרשת השבוע", test: p => isParashaPlace(p.id) },
     { name: "🔤 השלמת הפסוק", test: p => p.id === "verse-hall" },
+    { name: "🗝️ היכל הארמית", test: p => p.id === "aramaic-hall" },
   ];
   const isParashaPlace = id => !!id && id.startsWith("parasha-");
   // אפשרויות הפרשה בתוך חומש אחד
@@ -2028,7 +2042,8 @@
     (window.TEIRE_SEED || []).forEach(q => quiz("ת", "שאלות התחנות", "content/torah.js", `${pname(q.place)} · ${LEVEL_NAMES[1]}`, q));
     Object.entries(window.TEIRE_LEVELS || {}).filter(([place]) => !place.startsWith("parasha-")).forEach(([place, lv]) => Object.entries(lv).forEach(([l, list]) => list.forEach(q => {
       const kollel = place.startsWith("kollel-");
-      const verse = place === "verse-hall";
+      const verse = place === "verse-hall", aram = place === "aramaic-hall";
+      if (aram) return quiz("ר", "היכל הארמית", "content/aramaic.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
       quiz(kollel ? "כ" : verse ? "ה" : "ש", kollel ? "כוללי הרבנים" : verse ? "השלמת הפסוק" : "שאלות התחנות", verse ? "content/verses.js" : kollel ? "content/kollels.js" : "content/levels.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
     })));
     const PAR = window.TEIRE_PARASHA;
@@ -2144,6 +2159,7 @@
     if (page === "b" && arg) return viewBuilding(arg);
     if (page === "town" && arg) return viewTown(arg);
     if (page === "kotel") return viewKotel();
+    if (page === "sail") return viewSail(arg);
     if (page === "duel" && arg) return viewDuel(arg);
     if (page === "olama") { setTab("map"); return window.TeireOlama.view(arg, { esc, toast, confetti, avatarSVG, get player() { return player; } }); }
     if (page === "souls") return viewSouls();

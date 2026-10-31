@@ -134,5 +134,10 @@
     free: true, bank: true, home: "#/town/parasha",
     guide: { name: "אותיות", emoji: "🔤", hello: "ברוכים הבאים! אני אותיות. תראו את הפסוק עם המילה החסרה, ותשלימו אותה מהזיכרון." } });
 
+  // היכל הארמית: מילים, מונחים ופתגמים בארמית של התלמוד (השאלות ב-content/aramaic.js)
+  PLACES.push({ id: "aramaic-hall", name: "היכל הארמית", icon: "🗝️", color: "#78350f", desc: "מילים, מונחים ופתגמים בארמית של הגמרא",
+    free: true, bank: true, home: "#/town/torah",
+    guide: { name: "בר מילי", emoji: "🦉", hello: "שלמא עלך! אני בר מילי. כאן לומדים את הארמית של הגמרא: מילים, מונחים ופתגמים. מה פירוש המילה?" } });
+
   window.TeireWorld = { PLACES, ITEMS, SKINS, HAIR, avatarSVG };
 })();
