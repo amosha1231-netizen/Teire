@@ -1631,7 +1631,8 @@
         <p class="small muted" id="nextsh"></p>
       </div>
       <div class="row center-row"><button class="btn ghost" id="redo">שינוי שם ומראה</button><a class="btn ghost" href="#/review">📋 כל השאלות והמקורות</a></div>
-      <p class="small muted center">🎵 צלילי הכלים במוזיקה: FluidR3 GM מאת Frank Wen, ברישיון <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></p>`;
+      <p class="small muted center">🎵 צלילי הכלים במוזיקה: FluidR3 GM מאת Frank Wen, ברישיון <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></p>
+      <p class="small muted center"><a href="privacy.html">מדיניות פרטיות</a></p>`;
 
     app.querySelectorAll(".item").forEach(b => b.onclick = () => {
       const slot = b.dataset.slot, it = ITEMS[slot].find(x => x.id === b.dataset.id);
