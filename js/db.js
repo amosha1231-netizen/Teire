@@ -99,6 +99,16 @@
     async dismissReport(id) {
       try { localStorage.setItem("teire.reports", JSON.stringify((JSON.parse(localStorage.getItem("teire.reports") || "[]")).filter(x => x.id !== id))); } catch (e) { /* ignore */ }
     },
+    // סוג הטלפון של השחקנים (במצב מקומי: רק השחקנים בדפדפן הזה)
+    async saveDevice(id, name, device, tester) {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem("teire.devices") || "[]"); } catch (e) { /* ignore */ }
+      list = list.filter(x => x.id !== id).concat({ id, name, device, tester, updated_at: new Date().toISOString() });
+      try { localStorage.setItem("teire.devices", JSON.stringify(list)); } catch (e) { /* ignore */ }
+    },
+    async devices() {
+      try { return (JSON.parse(localStorage.getItem("teire.devices") || "[]")).map(({ id, ...r }) => r).reverse(); } catch (e) { return []; }
+    },
     async signUp() { throw new Error("חשבונות זמינים רק כשהאתר מחובר לשרת"); },
     async signIn() { throw new Error("חשבונות זמינים רק כשהאתר מחובר לשרת"); },
     async currentUser() { return null; },
@@ -252,6 +262,16 @@
     async dismissReport(id) {
       const { error } = await sb.from("reports").delete().eq("id", id);
       if (error) throw error;
+    },
+    // supabase/update-9.sql. השחקן מעדכן רק את השורה שלו (לפי המזהה הסודי), ורק מנהל קורא.
+    async saveDevice(id, name, device, tester) {
+      const { error } = await sb.rpc("set_device", { p_id: id, p_name: name, p_device: device, p_tester: !!tester });
+      if (error) throw error;
+    },
+    async devices() {
+      const { data, error } = await sb.from("player_devices").select("name, device, tester, updated_at").order("updated_at", { ascending: false }).limit(500);
+      if (error) throw error;
+      return data || [];
     },
     async saveProgress(player) {
       const { data: { session } } = await sb.auth.getSession();
