@@ -40,7 +40,7 @@ a { color: var(--primary); }
 .brand { color: #fff; text-decoration: none; font-size: 1.2rem; white-space: nowrap; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .brand-mark { background: #fff; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem; }
 .hud { display: flex; gap: 4px; }
-@media (max-width: 420px) { .pill { padding: 2px 8px; font-size: .85rem; } .brand-mark { width: 30px; height: 30px; } .brand { font-size: 1.05rem; } }
+@media (max-width: 420px) { .topbar { gap: 6px; padding-inline: 10px; } .hud { gap: 3px; } .pill { padding: 2px 8px; font-size: .85rem; } .brand-mark { width: 30px; height: 30px; } .brand { font-size: 1.05rem; } }
 .pill { background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.35); border-radius: 99px; padding: 3px 12px; font-weight: 700; white-space: nowrap; }
 .pill.dark { background: var(--primary-soft); border-color: transparent; color: var(--primary); }
 
@@ -430,22 +430,47 @@ body.shabbat .music-btn { display: none; }
 .garage-car.on { background: #dcfce7; border-color: #16a34a; }
 .race .arena-top { position: static; margin-bottom: 8px; gap: 6px; flex-wrap: wrap; }
 .race-q { background: #fff7d6; color: #3b2a00; border-radius: 16px; padding: 12px; text-align: center; font-weight: 800; font-size: 1.15rem; margin-bottom: 8px; box-shadow: 0 4px 0 rgba(0,0,0,.12); min-height: 2.6em; }
-.road {
-  position: relative; width: 100%; height: min(60vh, 500px); border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; direction: ltr;
-  background: linear-gradient(180deg, #7dd3fc 0 38%, #65a30d 38% 100%);
+.race { scroll-margin-top: 76px; }
+.track {
+  position: relative; width: 100%; height: min(64vh, 540px); min-height: 300px; border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; direction: ltr;
+  background: #4f9ee0; box-shadow: 0 6px 0 rgba(0,0,0,.18);
 }
-.asphalt { position: absolute; inset: 0; z-index: 0; background: #4b5563; clip-path: polygon(44% 38%, 56% 38%, 100% 100%, 0 100%); }
-.scene { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-.scenery { position: absolute; font-size: 2.4rem; line-height: 1; opacity: 0; }
-.road::before { content: ""; position: absolute; z-index: 1; left: 50%; top: -60px; bottom: 0; width: 8px; transform: translateX(-50%);
-  background: repeating-linear-gradient(180deg, #fde047 0 30px, transparent 30px 60px); animation: lanes .5s linear infinite; }
-@keyframes lanes { to { transform: translate(-50%, 60px); } }
-.lane-label { position: absolute; z-index: 3; bottom: 10px; width: 38%; text-align: center; color: #fff; font-weight: 800; background: rgba(0,0,0,.45); border-radius: 12px; padding: 8px 6px; font-size: .95rem; direction: rtl; cursor: pointer; }
-.lane-label.left { left: 10%; } .lane-label.right { right: 10%; }
-.obstacle { position: absolute; z-index: 2; left: 50%; top: 0; font-size: 3rem; transform: translateX(-50%) scale(.5); }
-.car { position: absolute; z-index: 2; bottom: 70px; font-size: 3.2rem; transition: left .25s; transform: translateX(-50%) rotate(-90deg); }
-.car.mid { left: 50%; } .car.left { left: 29%; } .car.right { left: 71%; }
-.road.crash { animation: shake .4s; }
+.track canvas { position: absolute; inset: 0; display: block; }
+.track.crash { animation: shake .4s; }
+.tap-zone { position: absolute; top: 0; bottom: 0; width: 50%; z-index: 1; cursor: pointer; }
+.tap-zone.left { left: 0; } .tap-zone.right { right: 0; }
+/* לוח מחוונים כמו במשחקי מכוניות: מקום והקפה משמאל, מהירות ושעון מימין */
+.hud-l { position: absolute; z-index: 3; top: 10px; left: 10px; background: rgba(10,14,20,.62); border: 2px solid rgba(255,255,255,.75); border-radius: 8px; padding: 4px 9px; color: #fff; font-weight: 800; font-size: .8rem; line-height: 1.35; pointer-events: none; direction: rtl; }
+.hud-l div { display: flex; justify-content: space-between; gap: 10px; }
+.hud-l span { opacity: .85; font-weight: 600; }
+.hud-l b i { color: #ff5a5a; font-style: normal; }
+.hud-r { position: absolute; z-index: 3; top: 6px; right: 10px; text-align: right; color: #fff; pointer-events: none; }
+.hud-spd { display: flex; align-items: baseline; gap: 4px; justify-content: flex-end; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.hud-spd b { font-size: 2.6rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; font-style: italic; }
+.hud-spd span { font-size: .75rem; font-weight: 700; }
+.hud-time { display: inline-block; margin-top: 3px; background: #e11d48; color: #fff; border-radius: 6px; padding: 1px 8px; font-weight: 800; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.hud-snd { position: absolute; z-index: 4; top: 64px; left: 10px; width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(10,14,20,.55); font-size: 1rem; cursor: pointer; padding: 0; }
+.race-tag { position: absolute; z-index: 2; right: 0; bottom: 74px; background: #fff; color: #e11d48; font-weight: 800; font-style: italic; padding: 2px 12px 2px 18px; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%); font-size: .85rem; pointer-events: none; opacity: .92; }
+.race-banner { position: absolute; z-index: 5; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(.6); opacity: 0; color: #fff; font-weight: 800; font-size: 2rem; font-style: italic;
+  text-shadow: 0 3px 0 rgba(0,0,0,.35), 0 0 18px rgba(0,0,0,.4); pointer-events: none; white-space: nowrap; transition: transform .2s, opacity .2s; direction: rtl; }
+.race-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.race-banner.count, .race-banner.go { font-size: 4.2rem; }
+.race-banner.go { color: #4ade80; }
+.race-banner.turbo { color: #fde047; font-size: 2.6rem; }
+.race-banner.crash { color: #fecaca; }
+.lane-label { position: absolute; z-index: 3; bottom: 10px; width: 42%; text-align: center; color: #fff; font-weight: 800; background: rgba(6,78,40,.82); border: 2px solid rgba(255,255,255,.85); border-radius: 10px; padding: 7px 6px; font-size: .92rem; direction: rtl; cursor: pointer; line-height: 1.25; }
+.lane-label.left { left: 4%; } .lane-label.right { right: 4%; }
+.track.no-labels .lane-label { opacity: 0; }
+.lane-label.long { font-size: .78rem; padding: 5px 4px; }
+/* בטלפון: השאלה, הכביש והתשובות נכנסים במסך אחד בלי לגלול */
+@media (max-width: 640px) {
+  .race-q { font-size: 1rem; padding: 8px 10px; min-height: 0; margin-bottom: 6px; }
+  .track { height: calc(100svh - 300px); max-height: 560px; }
+  .lane-label { width: 46%; font-size: .85rem; }
+  .lane-label.left { left: 2%; } .lane-label.right { right: 2%; }
+  .race-tag { display: none; }
+}
+.car-prev { display: block; width: 96px; height: 56px; margin: 0 auto 4px; }
 @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
 
 /* ---------- היכל הפלפולים ---------- */
@@ -629,7 +654,10 @@ button.olama-name { cursor: pointer; }
 .olama-answers.phone .olama-ans { min-height: 72px; cursor: pointer; }
 .olama-ans:active:not(:disabled) { transform: translateY(3px); }
 .olama-ans.dim { opacity: .35; }
-.olama-ans.picked { outline: 4px solid #1f2937; outline-offset: 2px; }
+.olama-ans.picked { outline: 5px solid #1f2937; outline-offset: 3px; transform: scale(1.03); opacity: 1; }
+.olama-ans.picked::after { content: "✓ בחרת"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: #fff; color: #1f2937; border-radius: 99px; padding: 2px 10px; font-size: .9rem; -webkit-text-fill-color: #1f2937; }
+.olama-ans:disabled { color: #fff; -webkit-text-fill-color: #fff; }
+.olama-sent { margin-top: 12px; text-align: center; font-weight: 800; font-size: 1.05rem; }
 .olama-ans.right { outline: 5px solid var(--good); outline-offset: 2px; }
 .olama-ans.right::after { content: "✓"; position: absolute; left: 12px; top: 6px; font-size: 1.4rem; }
 .olama-cnt { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; min-width: 70px; font-size: 1rem; }
@@ -650,8 +678,8 @@ button.olama-name { cursor: pointer; }
 .olama-res h1 { font-size: 2rem; }
 .olama-res.good { background: var(--good-soft); border-color: #a7e3bb; }
 .olama-res.bad { background: var(--bad-soft); border-color: #f5b5b5; }
-body.olama-host { padding-bottom: 20px; }
-body.olama-host .bottomnav { display: none; }
+@media (min-width: 820px) { body.olama-host { padding-bottom: 20px; } }
+@media (min-width: 820px) { body.olama-host .bottomnav { display: none; } } /* בטלפון התפריט נשאר, כדי שאפשר יהיה לצאת */
 .olama-mode { position: relative; display: block; }
 .olama-mode input { width: auto; inset: 0; margin: 0; }
 .olama-opts { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin-bottom: 4px; }
@@ -664,6 +692,27 @@ body.olama-host .bottomnav { display: none; }
 .olama-tribe { border-inline-start: 6px solid var(--c); padding-inline-start: 10px; align-items: center; }
 .olama-tribe > b:first-child { color: var(--c); }
 .olama-mytribe { background: var(--c); color: #fff; font-weight: 800; text-align: center; padding: 8px 12px; border-radius: 16px; margin-bottom: 10px; }
+
+/* ---------- היכל הים: ההפלגה ---------- */
+.voyage { position: relative; height: min(56vh, 440px); min-height: 300px; border-radius: 22px; overflow: hidden; margin-bottom: 12px; background: linear-gradient(180deg, #fbbf77 0%, #fde3a7 30%, #7dd3fc 52%); box-shadow: 0 6px 0 rgba(0,0,0,.15); }
+.voy-sun { position: absolute; left: 18%; top: 14%; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle, #fff7c2, #fcd34d 60%, rgba(252,211,77,0) 72%); }
+.voy-bird { position: absolute; top: 18%; right: -10%; font-size: 1.6rem; animation: voyBird 4.2s linear forwards; }
+.voy-sea { position: absolute; inset: 52% 0 0 0; background: linear-gradient(180deg, #0ea5e9, #075985); }
+.voy-wave { position: absolute; left: -50%; width: 200%; height: 26px; background: radial-gradient(circle at 20px -6px, transparent 20px, rgba(255,255,255,.55) 21px, transparent 24px) 0 0 / 40px 26px repeat-x; animation: voyWave 2.2s linear infinite; }
+.voy-wave.w1 { top: 4%; } .voy-wave.w2 { top: 38%; animation-duration: 1.6s; opacity: .7; } .voy-wave.w3 { top: 72%; animation-duration: 1.1s; opacity: .5; }
+.voy-ship { position: absolute; top: 34%; left: -20%; font-size: 4.4rem; animation: voySail 4.2s ease-in-out forwards, voyBob 1.1s ease-in-out infinite; transform-origin: 50% 90%; }
+.voy-title { position: absolute; top: 12px; width: 100%; text-align: center; font-weight: 800; color: #7c2d12; font-size: 1.15rem; direction: rtl; }
+.voy-bar { position: absolute; left: 10%; right: 10%; bottom: 14px; height: 8px; border-radius: 99px; background: rgba(255,255,255,.35); overflow: hidden; }
+.voy-bar i { display: block; height: 100%; width: 0; background: #fde047; animation: voyBar 4.2s linear forwards; }
+@keyframes voySail { to { left: 100%; } }
+@keyframes voyBob { 50% { transform: translateY(-8px) rotate(-4deg); } }
+@keyframes voyWave { to { transform: translateX(40px); } }
+@keyframes voyBird { to { right: 110%; } }
+@keyframes voyBar { to { width: 100%; } }
+/* בארה של מרים: גלים שמתפשטים מהבאר */
+.well-ring { transform-origin: 500px 480px; animation: wellRing 2.8s ease-out infinite; opacity: 0; }
+@keyframes wellRing { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(1.25); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .well-ring, .voy-wave, .voy-ship { animation: none; opacity: 1; } .voy-ship { left: 40%; } }
 
 /* ---------- מסע הפתיחה ---------- */
 .link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: .9rem; cursor: pointer; padding: 8px; margin-top: 6px; display: inline-block; }

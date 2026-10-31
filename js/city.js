@@ -22,7 +22,7 @@
     { id: "yafo", name: "יפו", icon: "⛵", x: 330, y: 790, color: "#5fb6e8", desc: "עיר נמל עתיקה על חוף הים", torah: "teiva" },
     { id: "bnei-brak", name: "בני ברק", icon: "🌴", x: 405, y: 880, color: "#f97316", desc: "הישיבה של רבי עקיבא", torah: "mishna" },
     { id: "yavne", name: "יבנה", icon: "🍇", x: 300, y: 990, color: "#8b5cf6", desc: "כרם ביבנה: רבי אליעזר ורבי יהושע" },
-    { id: "torah", name: "קריית התורה", icon: "🏙️", x: 705, y: 925, color: "#1e3a8a", desc: "כוללי הרבנים, אתגרים, היכל הפלפולים והספרייה" },
+    { id: "torah", name: "קריית התורה", icon: "🏙️", x: 705, y: 925, color: "#1e3a8a", desc: "כוללי הרבנים, אתגרים, היכל הפלפולים, היכל הארמית והספרייה" },
     { id: "parasha", name: "היכל פרשת השבוע", icon: "📜", x: 285, y: 1160, color: "#7c2d12", desc: "פרשת השבוע עם רש\"י, הרמב\"ן, בעל הטורים ועוד פרשנים" },
     { id: "jerusalem", name: "ירושלים", icon: "🏛️", x: 580, y: 1000, color: "#eab308", desc: "בית המדרש של הלל ושמאי, ואבן השתייה שממנה הושתת העולם", torah: "gan-eden", duel: true },
     { id: "shuk", name: "שוק מחנה יהודה", icon: "🛍️", x: 455, y: 1085, color: "#ec4899", desc: "חנות הבגדים והאביזרים", href: "#/me" },
@@ -44,6 +44,12 @@
     { id: "morocco", name: "מרוקו", icon: "🏜️", x: 1275, y: 1340, color: "#be123c", desc: "אור החיים הקדוש", torah: "morocco" },
     { id: "fustat", name: "פוסטאט, מצרים", icon: "🏺", x: 1165, y: 1480, color: "#a16207", desc: "הרמב\"ם", torah: "fustat" },
     { id: "olama", name: "היכל עלמא", icon: "🌐", x: 640, y: 1330, color: "#7c3aed", desc: "משחקים חיים עם כל החדר", href: "#/olama" },
+    // היכל הים: נמל שממנו מפליגים ליבשה אחרת. בכל יבשה יש נמל שחוזרים ממנו (PORTS למטה)
+    { id: "sea", name: "היכל הים", icon: "⚓", x: 140, y: 1000, color: "#0369a1", desc: "נמל ההפלגות: חוצים את הים ליבשה אחרת" },
+    { id: "port-europe", name: "נמל אירופה", icon: "⚓", x: 1105, y: 705, color: "#0369a1", desc: "מפליגים מכאן חזרה לארץ ישראל או לארצות המזרח", href: "#/town/sea" },
+    { id: "port-mizrach", name: "נמל ארצות המזרח", icon: "⚓", x: 1090, y: 1410, color: "#0369a1", desc: "מפליגים מכאן חזרה לארץ ישראל או לאירופה", href: "#/town/sea" },
+    // בארה של מרים: לפי רבי חייא היא נגלית בים כנרת (שבת לה, א)
+    { id: "miriam", name: "בארה של מרים", icon: "⛲", x: 752, y: 335, color: "#0284c7", desc: "הבאר שליוותה את ישראל במדבר בזכות מרים" },
     { id: "mechoza", name: "מחוזא", icon: "🏙️", x: 900, y: 1020, color: "#be123c", desc: "העיר של רבא, זירת דו-קרב", duel: true },
   ];
 
@@ -57,10 +63,16 @@
     { text: "בבל", x: 900, y: 560, cls: "land big" },
     { text: "אירופה", x: 1215, y: 75, cls: "land big" },
     { text: "ארצות המזרח", x: 1210, y: 1095, cls: "land" },
-    { text: "ים כנרת", x: 712, y: 395, cls: "lake" },
+    { text: "ים כנרת", x: 735, y: 432, cls: "lake" },
     { text: "ים המלח", x: 705, y: 1230, cls: "lake" },
   ];
 
   const START = { x: 520, y: 1060 };
-  window.TeireCity = { W, H, LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, START, byId: id => LOCATIONS.find(b => b.id === id) };
+  // נמלי היכל הים: לאן אפשר להפליג, ואיפה הדמות עומדת כשמגיעים (מתחת לבניין הנמל)
+  const PORTS = {
+    israel: { name: "ארץ ישראל", icon: "⛵", loc: "sea" },
+    europe: { name: "אירופה", icon: "🚢", loc: "port-europe" },
+    mizrach: { name: "ארצות המזרח", icon: "⛴️", loc: "port-mizrach" },
+  };
+  window.TeireCity = { W, H, LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, START, PORTS, byId: id => LOCATIONS.find(b => b.id === id) };
 })();
