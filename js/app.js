@@ -1543,6 +1543,8 @@
         <div class="arena-top"><span class="pill dark" id="rs">🏁 0</span><span class="pill dark" id="rsh" ${car0.shield ? "" : "hidden"}>🛡️ ${car0.shield}</span><span class="small muted">החליקו, הקישו על צד הכביש או חיצים</span></div>
       </div>${backToTorah}`;
     const $ = id => document.getElementById(id), track = $("track"), ban = $("hban");
+    // מגללים כך שהשאלה בראש המסך (אחרי לחיצה על "מתחילים" הדף נשאר גלול למטה)
+    $("race").scrollIntoView({ block: "start" });
     let banT = 0, lastHud = "";
     if (window.Music && Music.duck) Music.duck(true);
     const r = TeireRace.start({
@@ -1551,6 +1553,9 @@
         question(item, sides) {
           $("rq").textContent = item ? "\"" + item.text + "\"" : "🔥 טורבו!";
           $("ll").textContent = sides ? sides.left : ""; $("lr").textContent = sides ? sides.right : "";
+          // מקור ארוך: אות קטנה יותר, כדי שכל המקור ייראה
+          $("ll").classList.toggle("long", !!sides && sides.left.length > 18);
+          $("lr").classList.toggle("long", !!sides && sides.right.length > 18);
           track.classList.toggle("no-labels", !sides);
         },
         score(s) { $("rs").textContent = "🏁 " + s; },

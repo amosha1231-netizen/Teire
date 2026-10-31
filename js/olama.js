@@ -150,7 +150,8 @@
     const players = {}; // pid -> { name, score, alive, ans: { qi: {choice, ms} }, out }
     const st = { phase: "lobby", idx: 0, oneId: null, endsAt: 0, winner: null, note: "", autoAt: 0 };
     let teams = []; // [{ name, color, score, choice }]; לכל שחקן p.team = מספר השבט
-    let lastId = 0, pollTimer = 0, beatTimer = 0, qTimer = 0, autoTimer = 0, stopped = false;
+    let lastId = 0, pollTimer = 0, beatTimer = 0, qTimer = 0, autoTimer = 0, nextTimer = 0, stopped = false;
+    const NEXT_WAIT = 9000;
     const ch = channel(code, m => { if (m.t === "g") onEvent(m.ev); });
 
     function onEvent(ev) {
@@ -240,7 +241,7 @@
       ask(0);
     }
     function ask(i) {
-      clearTimeout(autoTimer); stopCountdown();
+      clearTimeout(autoTimer); clearInterval(nextTimer); stopCountdown();
       st.phase = "q"; st.idx = i; st.endsAt = Date.now() + TIME; st.note = "";
       clearTimeout(qTimer);
       qTimer = setTimeout(reveal, TIME + 1200); // עוד רגע קטן לתשובות שבדרך
@@ -267,9 +268,12 @@
         const one = players[st.oneId];
         const crowd = alivePlayers();
         const wrong = crowd.filter(([, p]) => !ok(p));
-        wrong.forEach(([, p]) => { p.alive = false; p.out = st.idx + 1; });
+        // אם האחד וכל הקהל טעו יחד, אף אחד לא יוצא וממשיכים
+        const allWrong = !ok(one) && wrong.length === crowd.length;
+        if (!allWrong) wrong.forEach(([, p]) => { p.alive = false; p.out = st.idx + 1; });
         const left = alivePlayers().length;
-        if (!ok(one)) { over = true; st.winner = "crowd"; st.note = `${one.name} טעה! הקהל ניצח`; }
+        if (allWrong) { st.note = "האחד וכל הקהל טעו, אז כולם נשארים!"; if (over) st.winner = "crowd"; }
+        else if (!ok(one)) { over = true; st.winner = "crowd"; st.note = `${one.name} טעה! הקהל ניצח`; }
         else if (!left) { over = true; st.winner = "one"; st.note = `${one.name} הוציא את כל הקהל!`; }
         else { st.note = wrong.length ? `${one.name} צדק, ו-${wrong.length} מהקהל יצאו. נשארו ${left}` : `${one.name} צדק, וכל הקהל צדק גם`; if (over) st.winner = "one"; }
         // הקופה של האחד: 100 נקודות על כל מי שיצא מהקהל
@@ -338,6 +342,7 @@
             <div class="qtext">${esc(q.question)}</div>
             <div class="olama-answers">${q.answers.map((a, i) => `<div class="olama-ans" style="--c:${COLORS[i]}"><span class="letter">${LETTERS[i]}</span>${esc(a)}</div>`).join("")}</div>
           </div>
+          <p class="small muted center">📺 זה המסך של המנחה, כאן רק מציגים. עונים מהטלפונים, עם קוד החדר ${code}.</p>
           <div class="row center-row"><button class="btn ghost" id="skip">לחשוף עכשיו</button></div>`;
         runClock(st.endsAt);
         updateCount();
@@ -361,11 +366,28 @@
             : mode === "quiz" ? `<h3>🏆 המובילים</h3>${ranked.slice(0, 5).map(([, p], i) => `<div class="olama-rank"><b>${i + 1}</b><span>${esc(p.name)}</span><b>${p.score}</b></div>`).join("")}`
             : mode === "survive" ? `<h3>🔥 נשארו במשחק: ${ranked.filter(([, p]) => p.alive).length}</h3><div class="olama-names">${ranked.map(([, p]) => `<span class="olama-name ${p.alive ? "" : "out"}">${esc(p.name)}</span>`).join("")}</div>`
             : `<h3>👥 הקהל שנשאר: ${alivePlayers().length}</h3><div class="olama-names">${ranked.filter(([id]) => id !== st.oneId).map(([, p]) => `<span class="olama-name ${p.alive ? "" : "out"}">${esc(p.name)}</span>`).join("")}</div>`}</div>
-          <div class="row center-row">${end ? `<button class="btn gold" id="again">משחק חדש</button>` : `<button class="btn gold big-btn" id="next">לשאלה הבאה ⬅</button>`}</div>`;
+          <div class="row center-row">${end ? `<button class="btn gold" id="again">משחק חדש</button><a class="btn ghost" href="#/">🗺️ למפה</a>` : `<button class="btn gold big-btn" id="next">לשאלה הבאה ⬅ <span id="nextcd"></span></button>`}</div>`;
         if (end) document.getElementById("again").onclick = () => { location.hash = "#/olama"; };
-        else document.getElementById("next").onclick = () => ask(st.idx + 1);
+        else {
+          document.getElementById("next").onclick = () => ask(st.idx + 1);
+          // עוברים לבד לשאלה הבאה אחרי כמה שניות, כדי שהמשחק לא ייעצר אם המנחה לא לוחץ
+          autoNext();
+        }
       }
       document.getElementById("quit").onclick = () => { location.hash = "#/olama"; };
+    }
+    function autoNext() {
+      clearInterval(nextTimer);
+      const at = Date.now() + NEXT_WAIT;
+      const tick = () => {
+        const el = document.getElementById("nextcd");
+        if (st.phase !== "reveal" || !el) return clearInterval(nextTimer);
+        const s = Math.max(0, Math.ceil((at - Date.now()) / 1000));
+        el.textContent = `(${s})`;
+        if (s <= 0) { clearInterval(nextTimer); ask(st.idx + 1); }
+      };
+      tick();
+      nextTimer = setInterval(tick, 250);
     }
     function teamStrip() {
       return `<div class="olama-tribes">${teams.map(t => `<span style="--c:${t.color}">שבט ${esc(t.name)} <b>${t.score}</b></span>`).join("")}</div>`;
@@ -378,7 +400,8 @@
       let title, sub = "";
       if (mode === "one") {
         title = st.winner === "one" ? `🦁 ${esc(players[st.oneId].name)} ניצח את כל החדר!` : `👥 הקהל ניצח!`;
-        sub = st.winner === "one" ? `עם קופה של ${players[st.oneId].score} נקודות` : `שרדו: ${alivePlayers().map(([, p]) => esc(p.name)).join(", ")}`;
+        const surv = alivePlayers().map(([, p]) => esc(p.name)).join(", ");
+        sub = st.winner === "one" ? `עם קופה של ${players[st.oneId].score} נקודות` : surv ? `שרדו: ${surv}` : "";
       } else if (mode === "survive") title = `🔥 ${esc(st.winner)} שרד עד הסוף!`;
       else if (mode === "team") {
         title = `🏆 שבט ${esc(st.winner)} ניצח!`;
@@ -393,7 +416,7 @@
     }
 
     document.body.classList.add("olama-host"); // במסך המנחה מסתירים את התפריט התחתון
-    session = { close() { document.body.classList.remove("olama-host"); stopped = true; clearTimeout(autoTimer); stopCountdown(); clearTimeout(pollTimer); clearInterval(beatTimer); clearTimeout(qTimer); stopClock(); ch.close(); } };
+    session = { close() { document.body.classList.remove("olama-host"); stopped = true; clearTimeout(autoTimer); clearInterval(nextTimer); stopCountdown(); clearTimeout(pollTimer); clearInterval(beatTimer); clearTimeout(qTimer); stopClock(); ch.close(); } };
     // שולחים את המצב שוב כל שתי שניות, למי שהצטרף מאוחר או פספס הודעה
     beatTimer = setInterval(broadcast, 2000);
     poll();
@@ -490,7 +513,8 @@
       if (s.phase === "lobby") {
         const inList = (s.names || []).some(([id]) => id === pid);
         if (!inList) toHost({ kind: "join" });
-        waiting(inList ? "נכנסת! מחכים שהמשחק יתחיל" : "מתחברים לחדר...", `${s.autoLeft ? `<p class="olama-auto">⏳ מתחילים בעוד <b id="autocd"></b></p>` : ""}<p>${s.n} מחוברים${s.mode === "one" ? (isOne ? `<br><b class="olama-you-one">🦁 נבחרת להיות האחד!</b>` : s.oneName ? `<br>🦁 האחד: <b>${esc(s.oneName)}</b>` : "") : ""}</p>`);
+        const names = (s.names || []).map(([id, nm]) => `<span class="olama-name ${id === s.oneId ? "one" : ""}">${id === s.oneId ? "🦁 " : ""}${esc(nm)}${id === pid ? " (את/ה)" : ""}</span>`).join("");
+        waiting(inList ? "נכנסת! מחכים שהמשחק יתחיל" : "מתחברים לחדר...", `${s.autoLeft ? `<p class="olama-auto">⏳ מתחילים בעוד <b id="autocd"></b></p>` : ""}${names ? `<div class="olama-names">${names}</div>` : ""}<p>${s.n} מחוברים${s.mode === "one" ? (isOne ? `<br><b class="olama-you-one">🦁 נבחרת להיות האחד!</b>` : s.oneName ? `<br>🦁 האחד: <b>${esc(s.oneName)}</b>` : "") : ""}</p>`);
         if (s.autoLeft) countdown(Date.now() + s.autoLeft);
         return;
       }
@@ -507,6 +531,7 @@
           <div class="card olama-q">
             <div class="qtext">${esc(s.q.question)}</div>
             <div class="olama-answers phone">${s.q.answers.map((a, i) => `<button class="olama-ans" data-i="${i}" style="--c:${COLORS[i]}"><span class="letter">${LETTERS[i]}</span>${esc(a)}</button>`).join("")}</div>
+            <div class="olama-sent" id="sent" hidden></div>
           </div>`;
         const endsAt = Date.now() + s.left;
         runClock(endsAt);
@@ -516,6 +541,8 @@
           if (navigator.vibrate) navigator.vibrate(30);
           app().querySelectorAll(".olama-ans").forEach(x => { x.disabled = true; x.classList.toggle("dim", x !== b); });
           b.classList.add("picked");
+          const sent = document.getElementById("sent");
+          sent.hidden = false; sent.innerHTML = `✓ בחרת <b style="color:${COLORS[myAns]}">${LETTERS[myAns]}</b>. מחכים לשאר השחקנים...`;
           toHost({ kind: "ans", q: s.idx, choice: myAns, ms: Date.now() - qStart });
         });
         return;
