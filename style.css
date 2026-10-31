@@ -448,7 +448,7 @@ body.shabbat .music-btn { display: none; }
 .road.crash { animation: shake .4s; }
 @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
 
-/* ---------- חדר הוויכוח ---------- */
+/* ---------- היכל הפלפולים ---------- */
 .debate-pick { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
 .dp-faces { display: flex; }
 .dark-room {
@@ -464,6 +464,31 @@ body.shabbat .music-btn { display: none; }
 .speaker.on::before { content: ""; position: absolute; top: -70px; left: 50%; width: 220px; height: 330px; transform: translateX(-50%);
   background: radial-gradient(ellipse at 50% 0%, rgba(255,240,190,.35), rgba(255,240,190,0) 70%); pointer-events: none; }
 .dark-room.narrator .speaker { filter: brightness(.35) grayscale(.4); transform: none; }
+/* חיתוך בין הדוברים כמו בקומיקס יפני: הדובר מתקרב למרכז וגדל, השני נדחק לצד ומחשיך */
+.speaker { transform-origin: 50% 0; }
+.speaker.left { --tx: -16%; } .speaker.right { --tx: 16%; }
+.dark-room.focus-a .speaker.on, .dark-room.focus-b .speaker.on { transform: translateX(var(--tx)) scale(1.4); z-index: 1; }
+.dark-room.focus-a .speaker:not(.on), .dark-room.focus-b .speaker:not(.on) { transform: translateX(calc(var(--tx) * -.8)) scale(.72); filter: brightness(.15) grayscale(.9); }
+.dark-room.cut .speaker.on { animation: punch-in .45s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes punch-in {
+  0% { transform: translateX(var(--tx)) scale(1.9) rotate(-3deg); filter: brightness(1.8); }
+  100% { transform: translateX(var(--tx)) scale(1.4); filter: none; }
+}
+.speedlines { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .3s;
+  background: repeating-conic-gradient(from 0deg at var(--fx, 50%) 30%, rgba(255,245,210,.13) 0 1.5deg, transparent 1.5deg 6deg);
+  -webkit-mask-image: radial-gradient(circle at var(--fx, 50%) 30%, transparent 18%, #000 60%); mask-image: radial-gradient(circle at var(--fx, 50%) 30%, transparent 18%, #000 60%); }
+.dark-room.focus-a .speedlines { --fx: 72%; opacity: 1; } .dark-room.focus-b .speedlines { --fx: 28%; opacity: 1; }
+.dark-room.cut .speedlines { animation: lines-flicker .5s steps(4); }
+@keyframes lines-flicker { 0% { opacity: 0; } 25% { opacity: 1; } 50% { opacity: .5; } 100% { opacity: 1; } }
+.dark-room::after { content: ""; position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.dark-room.cut::after { animation: cut-flash .3s ease-out; }
+@keyframes cut-flash { 0% { opacity: .55; } 100% { opacity: 0; } }
+.dark-room .room-title, .dark-room .debate-bubble, .dark-room .room-hint { z-index: 2; }
+.debate-bubble.from-left::before, .debate-bubble.from-right::before { content: ""; position: absolute; top: -18px; border: 10px solid transparent; border-bottom: 10px solid rgba(255,250,235,.95); }
+.debate-bubble.from-left::before { right: 24%; } .debate-bubble.from-right::before { left: 24%; }
+@media (prefers-reduced-motion: reduce) {
+  .dark-room.cut .speaker.on, .dark-room.cut .speedlines, .dark-room.cut::after { animation: none; }
+}
 .debate-bubble {
   position: absolute; left: 4%; right: 4%; bottom: 46px; min-height: 90px; background: rgba(255,250,235,.95); color: #1c1917; border-radius: 16px; padding: 14px 16px;
   font-size: 1.08rem; line-height: 1.55; box-shadow: 0 0 30px rgba(255,220,150,.25);

@@ -332,7 +332,7 @@
     ],
   };
 
-  // קריית התורה: הכוללים של הרבנים, האתגרים, חדר הוויכוח והספרייה
+  // קריית התורה: הכוללים של הרבנים, האתגרים, היכל הפלפולים והספרייה
   const torah = {
     id: "torah", name: "קריית התורה", W: 1000, H: 1000,
     start: { x: 500, y: 900 },
@@ -344,7 +344,7 @@
       { id: "k-orlezion", name: "כולל האור לציון", icon: "📕", x: 860, y: 180, color: "#065f46", href: "#/place/kollel-orlezion" },
       { id: "k-yigal", name: "כולל הרב יגאל כהן", icon: "📒", x: 860, y: 420, color: "#9a3412", href: "#/place/kollel-yigal" },
       { id: "library", name: "ספריית הלימוד", icon: "📚", x: 180, y: 430, color: "#7c2d12", href: "#/learn" },
-      { id: "debate", name: "חדר הוויכוח", icon: "🎭", x: 500, y: 430, color: "#111827", href: "#/debate" },
+      { id: "debate", name: "היכל הפלפולים", icon: "🎭", x: 500, y: 430, color: "#111827", href: "#/debate" },
       { id: "swipe", name: "אתגר המקורות", icon: "⚡", x: 220, y: 680, color: "#db2777", href: "#/swipe" },
       { id: "race", name: "מרוץ המקורות", icon: "🏎️", x: 780, y: 680, color: "#dc2626", href: "#/race" },
       { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
