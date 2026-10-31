@@ -38,7 +38,7 @@
   const totalStars = () => Object.values(player.stars).reduce((a, b) => a + b, 0);
   const owns = (slot, item) => item.price === 0 || player.owned.includes(slot + ":" + item.id);
   // תחנה פתוחה אם זו הראשונה, או שבתחנה הקודמת יש לפחות כוכב אחד
-  const isOpen = i => i === 0 || (PLACES[i] && PLACES[i].free) || (player.stars[PLACES[i - 1].id] || 0) >= 1;
+  const isOpen = i => i === 0 || (PLACES[i] && PLACES[i].free) || (player.stars[PLACES[i - 1].id] || 0) >= 1 || (PLACES[i] && (player.stars[PLACES[i].id] || 0) >= 1);
   // שלבים: שלב 1 שומר כוכבים תחת שם המקום, שלבים גבוהים תחת "מקום@שלב"
   const LEVEL_MAX = 8;
   const LEVEL_NAMES = ["", "שלב 1: קל", "שלב 2: בינוני", "שלב 3: קשה", "שלב 4: מאתגר", "שלב 5: מתקדם", "שלב 6: למתקדמים", "שלב 7: קשה מאוד", "שלב 8: ממש קשה"];
@@ -87,6 +87,7 @@
     const look = { ...player.look };
     function draw() {
       app.innerHTML = `
+        ${player.name ? "" : stepDots(0)}
         <div class="card center">
           <h1>ברוכים הבאים למסע!</h1>
           <p class="muted">צרו את הדמות שלכם ויוצאים לדרך במפת התורה</p>
@@ -110,13 +111,172 @@
       document.getElementById("go").onclick = () => {
         const name = document.getElementById("pname").value.trim();
         if (!name) { document.getElementById("pname").focus(); return; }
-        player.name = name; player.look = look; savePlayer(); location.hash = "#/"; viewCity();
+        const isNew = !player.name;
+        player.name = name; player.look = look;
+        if (isNew && !player.journey) player.journey = { step: 0 }; // שחקן חדש יוצא למסע הפתיחה
+        savePlayer();
+        if (isNew || !player.device) location.hash = "#/device/start"; else { location.hash = "#/"; viewCity(); }
       };
     }
     let typed = player.name;
     function keepName() { const el = document.getElementById("pname"); if (el) typed = el.value; }
     draw();
   }
+
+  // ---------- מסע הפתיחה לשחקן חדש ----------
+  // אחרי יצירת הדמות: שאלה איזה טלפון יש לשחקן, ואז שלוש תחנות מהקל אל הקשה, ובסוף תיבת אוצר.
+  // התחנות הן ההיכלות הקיימים (אוהל אברהם, מרוץ המקורות, מסע בגמרא), לא מערכת נפרדת.
+  const DEVICES = [
+    { id: "android", icon: "🤖", name: "אנדרואיד" },
+    { id: "iphone", icon: "🍎", name: "אייפון" },
+    { id: "computer", icon: "💻", name: "רק מחשב" },
+  ];
+  const deviceName = id => (DEVICES.find(d => d.id === id) || { name: "לא נבחר" }).name;
+  const JOURNEY = [
+    { kind: "place", place: "ohel", level: 1, tag: "קל", cls: "easy", icon: "⛺", title: "היכל השאלות הנחמדות", where: "אוהל אברהם, עם גמלי",
+      desc: "שאלות נחמדות על אברהם, יצחק ויעקב. למשל: מי היה הנכד של אברהם אבינו?", pass: "כוכב אחד (חצי מהתשובות נכונות)" },
+    { kind: "race", need: 3, tag: "בינוני", cls: "mid", icon: "🏎️", title: "מרוץ המקורות", where: "קריית התורה",
+      desc: "נוהגים בכביש! לכל משפט יש שני מקורות, ועוברים לנתיב של המקור הנכון לפני השער.", pass: "לעבור 3 שערים" },
+    { kind: "place", place: "gemara", level: 2, tag: "קשה", cls: "hard", icon: "📖", title: "האתגר של פומבדיתא", where: "מסע בגמרא, עם נמלי",
+      desc: "שאלות קשות יותר על סיפורי הגמרא ועל החכמים. מי שעובר כאן, הוא כבר תלמיד חכם קטן!", pass: "כוכב אחד (חצי מהתשובות נכונות)" },
+  ];
+  const JOURNEY_PRIZE = 100;
+  const journeyOn = () => !!(player.journey && !player.journey.done);
+  // הנקודות שמראות באיזה שלב של ההרשמה נמצאים
+  const stepDots = n => `<div class="dots onb-dots">${["הדמות", "הטלפון", "המסע"].map((t, i) => `<span class="${i < n ? "done" : i === n ? "now" : ""}" title="${t}"></span>`).join("")}</div>`;
+  function ensureSecret() {
+    if (player.secret) return;
+    const a = new Uint8Array(16); crypto.getRandomValues(a);
+    player.secret = Array.from(a, x => x.toString(16).padStart(2, "0")).join("");
+  }
+  // שולחים לשרת רק שם, סוג טלפון והאם מוכנים לעזור בבדיקה. אם הטבלה עוד לא קיימת (update-9.sql), שומרים רק בדפדפן.
+  function sendDevice() {
+    if (!player.device) return;
+    ensureSecret(); savePlayer();
+    db.saveDevice(player.secret, player.name, player.device, !!player.tester).catch(() => { /* הטבלה עוד לא קיימת */ });
+  }
+
+  // באיזה טלפון אתם משתמשים? (start = חלק מההרשמה של שחקן חדש)
+  function viewDevice(arg) {
+    if (!player.name) return viewOnboarding();
+    const start = arg === "start";
+    setTab(start ? "map" : "me");
+    let sel = player.device || "", tester = !!player.tester;
+    function draw() {
+      app.innerHTML = `
+        ${start ? stepDots(1) : ""}
+        <div class="card center">
+          <div class="avatar-stage">${avatarSVG(player.look, 96)}</div>
+          <h1>שלום ${esc(player.name)}! 👋</h1>
+          <p>שאלה קטנה לפני שיוצאים לדרך: <b>באיזה טלפון אתם משתמשים?</b></p>
+          <div class="device-pick">${DEVICES.map(d => `<button class="device-btn ${sel === d.id ? "on" : ""}" data-dev="${d.id}"><span>${d.icon}</span>${d.name}</button>`).join("")}</div>
+          ${sel === "android" ? `<label class="tester-box"><input type="checkbox" id="tester" ${tester ? "checked" : ""}> 🛠️ אשמח לעזור לבדוק את האפליקציה לאנדרואיד לפני שהיא יוצאת לחנות</label>` : ""}
+          <p class="small muted">אנחנו שומרים רק את השם שבחרתם ואת סוג הטלפון, כדי לדעת איזו אפליקציה להכין.</p>
+          <button class="btn big-btn" id="go" ${sel ? "" : "disabled"}>${start ? "ממשיכים ➜" : "שמירה"}</button>
+          ${start ? `<div><button class="link-btn" id="skip">אחר כך</button></div>` : ""}
+        </div>`;
+      app.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => { sel = b.dataset.dev; const t = document.getElementById("tester"); if (t) tester = t.checked; draw(); });
+      const t = document.getElementById("tester");
+      if (t) t.onchange = () => { tester = t.checked; };
+      document.getElementById("go").onclick = () => {
+        if (!sel) return;
+        player.device = sel; player.tester = sel === "android" && tester;
+        savePlayer(); sendDevice();
+        if (start) location.hash = journeyOn() ? "#/journey" : "#/";
+        else { toast("נשמר! תודה 🙏"); location.hash = "#/me"; }
+      };
+      const sk = document.getElementById("skip");
+      if (sk) sk.onclick = () => { location.hash = journeyOn() ? "#/journey" : "#/"; };
+    }
+    draw();
+  }
+
+  function viewJourney(arg) {
+    if (!player.name) return viewOnboarding();
+    setTab("map");
+    if (!player.journey) { player.journey = { step: 0 }; savePlayer(); } // שחקן ותיק שנכנס למסע מהמפה
+    const J = player.journey;
+    if (arg === "skip" && journeyOn()) { advanceJourney(); return void (location.hash = "#/journey"); } // דילוג על תחנה אחרי ניסיון
+    if (arg === "leave") { J.done = true; J.left = true; savePlayer(); return void (location.hash = "#/"); }
+    const fresh = J.done && !J.left && !J.seenPrize;
+    if (fresh) { J.seenPrize = true; savePlayer(); setTimeout(confetti, 200); }
+    const state = i => J.done || i < J.step ? "done" : i === J.step ? "now" : "next";
+    app.innerHTML = `
+      ${J.step === 0 && !J.done ? stepDots(2) : ""}
+      <div class="place-hero journey-hero" style="--c:#2b4c8c">
+        <div class="place-icon">🧭</div>
+        <h1>מסע הפתיחה</h1>
+        <p>שלוש תחנות, מהקל אל הקשה. בסוף מחכה לכם תיבת אוצר!</p>
+      </div>
+      <div class="jpath">
+        ${JOURNEY.map((s, i) => `
+          <div class="jstop ${state(i)}">
+            <div class="jdot">${state(i) === "done" ? "✓" : s.icon}</div>
+            <div class="card jbody">
+              <div class="jhead"><span class="jtag ${s.cls}">${s.tag}</span><span class="small muted">${s.where}</span></div>
+              <h3>${i + 1}. ${s.title}</h3>
+              <p class="small">${s.desc}</p>
+              <div class="small muted">🎯 כדי לעבור: ${s.pass}</div>
+              ${state(i) === "now" ? `<button class="btn gold big-btn" data-go="${i}">${i === 0 ? "יוצאים לדרך!" : "לתחנה הבאה!"}</button>`
+                : state(i) === "done" ? `<button class="btn ghost small-btn" data-go="${i}">לשחק שוב</button>` : `<div class="small">🔒 נפתח אחרי התחנה הקודמת</div>`}
+            </div>
+          </div>`).join("")}
+        <div class="jstop prize ${J.done && !J.left ? "done" : "next"}">
+          <div class="jdot">🎁</div>
+          <div class="card jbody center">
+            ${J.done && !J.left ? `<h3>פתחתם את תיבת האוצר!</h3><p>קיבלתם <b>🪙 ${JOURNEY_PRIZE}</b>. עכשיו כל המפה שלכם.</p><a class="btn" href="#/me">לחנות הדמויות</a>`
+              : `<h3>תיבת האוצר</h3><p class="small">🪙 ${JOURNEY_PRIZE} מטבעות לחנות הדמויות</p>`}
+          </div>
+        </div>
+      </div>
+      <div class="row center-row">
+        ${journeyOn() ? `<a class="link-btn" href="#/journey/leave">לדלג על המסע וללכת למפה</a>` : `<a class="btn" href="#/">למפה הגדולה 🗺️</a>`}
+      </div>`;
+    app.querySelectorAll("[data-go]").forEach(b => b.onclick = () => startJourneyStop(Number(b.dataset.go)));
+  }
+
+  async function startJourneyStop(i) {
+    const s = JOURNEY[i];
+    if (s.kind === "race") {
+      location.hash = "#/race";
+      setTimeout(() => toast(`🎯 מסע הפתיחה: עברו ${s.need} שערים כדי להמשיך`), 300);
+      return;
+    }
+    const place = placeById(s.place);
+    app.innerHTML = `<p class="muted center">טוען...</p>`;
+    let dbPool = [];
+    try { dbPool = await db.approved(s.place); } catch (e) { /* משחקים עם השאלות המובנות */ }
+    const pool = dbPool.filter(q => (q.level || 1) === s.level).concat(bankFor(s.place, s.level));
+    runMission(place, pool, s.level, "#/journey");
+  }
+
+  function advanceJourney() {
+    const J = player.journey;
+    J.step++;
+    if (J.step >= JOURNEY.length) { J.done = true; player.coins += JOURNEY_PRIZE; }
+    savePlayer();
+  }
+  // מוצג בסוף משימה או מרוץ. אם זו התחנה הנוכחית במסע: עוברים לתחנה הבאה, או מציעים לנסות שוב.
+  function journeyAfter(match, passed) {
+    if (!journeyOn()) return "";
+    const i = player.journey.step, s = JOURNEY[i];
+    if (!match(s)) return "";
+    if (!passed) return `
+      <div class="card center journey-next">
+        <p>🧭 <b>מסע הפתיחה:</b> כדי לעבור את התחנה צריך ${s.pass}. כמעט! נסו שוב.</p>
+        <div class="row center-row"><a class="btn ghost small-btn" href="#/journey">חזרה למסע</a><a class="link-btn" href="#/journey/skip">לדלג לתחנה הבאה</a></div>
+      </div>`;
+    advanceJourney();
+    const nx = JOURNEY[i + 1];
+    return `
+      <div class="card center journey-next ok">
+        <p>🧭 <b>עברתם את תחנה ${i + 1} במסע!</b> ${nx ? `התחנה הבאה: ${nx.icon} ${nx.title} <span class="jtag ${nx.cls}">${nx.tag}</span>` : "סיימתם את כל המסע 🎉"}</p>
+        <a class="btn gold big-btn" href="#/journey">${nx ? "ממשיכים במסע ➜" : "🎁 לפתוח את תיבת האוצר"}</a>
+      </div>`;
+  }
+  const journeyChip = () => journeyOn()
+    ? `<a class="soul-chip journey-chip" href="#/journey">🧭 מסע הפתיחה · תחנה ${player.journey.step + 1}/${JOURNEY.length}</a>`
+    : !player.device ? `<a class="soul-chip journey-chip device-chip" href="#/device">📱 באיזה טלפון אתם משחקים?</a>` : "";
 
   // ---------- חשבון שחקן ----------
   // שחקן חדש מתחיל מהתחלה. ההתקדמות של מי שנכנס נטענת מהשרת בלבד, ולא מהדפדפן.
@@ -305,6 +465,7 @@
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
         <a class="soul-chip lead-chip" href="#/leaders">🏆 טבלת האלופים</a>
         <a class="soul-chip olama-chip" href="#/olama">🌐 היכל עלמא · משחק חי</a>
+        ${journeyChip()}
         <a class="soul-chip" href="#/souls">${soul ? `🕯️ נשמת ${esc(soul.name)}` : "🕯️ עוד אין נשמה"} · ${player.souls.length}/${Sages.SAGES.length}</a>
       </div>`;
 
@@ -821,7 +982,7 @@
     return { href, name: (T || B || { name: "" }).name };
   }
 
-  function runMission(place, pool, level) {
+  function runMission(place, pool, level, backHref) {
     level = level || 1;
     const items = db.shuffle(pool).slice(0, cfg.QUESTIONS_PER_MISSION).map(q => ({ ...q, place: place.id, reward: LEVEL_REWARD[level] }));
     runQuiz(placeGuide(place), items, (score, n, coins) => {
@@ -846,6 +1007,7 @@
           <p>הרווחתם <b>🪙 ${coins}</b>${stars === 3 ? ` (כולל בונוס ${20 * level} על משימה מושלמת)` : ""}</p>
           ${nextLevel ? `<div class="notice ok">נפתח ${LEVEL_NAMES[nextLevel]}!</div>` : ""}
           ${unlocked ? `<div class="notice ok">נפתחה משימה חדשה במפה: ${unlocked.icon} ${unlocked.name} ב${locOfTorah(unlocked.id).name}!</div>` : ""}
+          ${journeyAfter(s => s.kind === "place" && s.place === place.id && s.level === level, stars >= 1)}
           <div class="row center-row">
             <button class="btn gold" id="again">שוב</button>
             <a class="btn" href="#/place/${place.id}">לשלבים</a>
@@ -853,8 +1015,8 @@
             <a class="btn ghost" href="#/">למפה</a>
           </div>
         </div>`;
-      document.getElementById("again").onclick = () => runMission(place, pool, level);
-    }, placeBack(place).href);
+      document.getElementById("again").onclick = () => runMission(place, pool, level, backHref);
+    }, backHref || placeBack(place).href);
   }
   const resultStars = stars => `<div class="result-stars">${[0, 1, 2].map(k => `<span class="${k < stars ? "on" : ""}" style="animation-delay:${k * .25}s">★</span>`).join("")}</div>`;
 
@@ -1242,6 +1404,7 @@
       <h2>${record ? "🏆 שיא חדש!" : "המשחק נגמר"}</h2>
       <div class="big">${score}</div>
       <p>הרווחתם <b>🪙 ${coins}</b></p>
+      ${key === "race" ? journeyAfter(s => s.kind === "race", score >= JOURNEY[1].need) : ""}
       <div id="top10"><p class="muted small">טוענים את הטופ 10...</p></div>
       <div class="row center-row"><button class="btn gold" id="again">שוב</button><a class="btn ghost" href="${gameExitHash()}">חזרה</a></div>
     </div>`;
@@ -1619,6 +1782,10 @@
         ${db.accounts && accountState.user ? `<p class="muted small">שם משתמש: ${esc(accountState.user.username)} </p>` : ""}
         ${db.accounts && accountState.user ? `<button class="btn ghost" id="logout">יציאה מהחשבון</button>` : ""}
         <div class="row center-row"><span class="pill dark">⭐ ${totalStars()} כוכבים</span><span class="pill dark">🪙 ${player.coins} מטבעות</span></div>
+        <div class="row center-row">
+          <a class="btn ghost small-btn" href="#/device">📱 הטלפון שלי: ${esc(deviceName(player.device))}${player.tester ? " · 🛠️ בודק" : ""}</a>
+          <a class="btn ghost small-btn" href="#/journey">🧭 ${journeyOn() ? "להמשיך את מסע הפתיחה" : "מסע הפתיחה"}</a>
+        </div>
         <div id="shopmsg"></div>
       </div>
       ${SLOTS.map(([slot, title]) => `
@@ -1858,6 +2025,29 @@
       } catch (e) { toast("לא הצלחנו לסגור את הדיווחים, נסו שוב"); }
     });
   }
+  // מי משחק מאנדרואיד ומי מאייפון, כדי לבחור חברים שיעזרו לבדוק את אפליקציית האנדרואיד
+  async function loadDevices() {
+    const box = document.getElementById("dlist");
+    if (!box) return;
+    let rows;
+    try { rows = await db.devices(); } catch (e) {
+      box.innerHTML = `<div class="card small">כדי לראות כאן את השחקנים, מריצים פעם אחת את <b>supabase/update-9.sql</b> ב-Supabase (SQL Editor). עד אז סוג הטלפון נשמר רק אצל כל שחקן בדפדפן.</div>`;
+      return;
+    }
+    if (!rows.length) { box.innerHTML = `<div class="card muted center">עוד אין שחקנים שבחרו טלפון.</div>`; return; }
+    const count = id => rows.filter(r => r.device === id).length;
+    let only = "all";
+    const draw = () => {
+      const list = rows.filter(r => only === "all" || (only === "testers" ? r.tester : r.device === only));
+      box.innerHTML = `<div class="card">
+        <div class="row">${[["all", "כולם", rows.length], ...DEVICES.map(d => [d.id, d.icon + " " + d.name, count(d.id)]), ["testers", "🛠️ מוכנים לבדוק", rows.filter(r => r.tester).length]]
+          .map(([id, name, n]) => `<button class="btn ${only === id ? "" : "ghost"} small-btn" data-only="${id}">${name} (${n})</button>`).join("")}</div>
+        <ol class="leaders">${list.map(r => `<li><span>${esc(r.name)}</span><b>${(DEVICES.find(d => d.id === r.device) || {}).icon || ""} ${esc(deviceName(r.device))}${r.tester ? " · 🛠️" : ""}</b></li>`).join("") || `<li class="muted">אין</li>`}</ol>
+      </div>`;
+      box.querySelectorAll("[data-only]").forEach(b => b.onclick = () => { only = b.dataset.only; draw(); });
+    };
+    draw();
+  }
   async function viewAdmin() {
     setTab("admin");
     app.innerHTML = `<p class="muted center">בודק הרשאות...</p>`;
@@ -1871,6 +2061,8 @@
         <button class="btn ghost" id="logout">יציאה</button>
       </div>
       <div id="plist"><p class="muted">טוען...</p></div>
+      <h2 style="margin:18px 0 8px">📱 שחקנים לפי טלפון</h2>
+      <div id="dlist"><p class="muted">טוען...</p></div>
       <h2 style="margin:18px 0 8px">🚩 דיווחים על תשובות</h2>
       <div id="rlist"><p class="muted">טוען...</p></div>
       <div class="row center-row"><button class="btn ghost" id="showapproved">📋 השאלות שכבר אושרו</button><a class="btn ghost" href="#/review">📖 כל השאלות והמקורות באתר</a></div>
@@ -1879,6 +2071,7 @@
     document.getElementById("showapproved").onclick = showApproved;
 
     loadReports();
+    loadDevices();
     let list;
     try { list = await db.pending(); } catch (e) { document.getElementById("plist").innerHTML = errorBox(e); return; }
     const box = document.getElementById("plist");
@@ -2160,6 +2353,8 @@
     if (page === "town" && arg) return viewTown(arg);
     if (page === "kotel") return viewKotel();
     if (page === "sail") return viewSail(arg);
+    if (page === "journey") return viewJourney(arg);
+    if (page === "device") return viewDevice(arg);
     if (page === "duel" && arg) return viewDuel(arg);
     if (page === "olama") { setTab("map"); return window.TeireOlama.view(arg, { esc, toast, confetti, avatarSVG, get player() { return player; } }); }
     if (page === "souls") return viewSouls();
