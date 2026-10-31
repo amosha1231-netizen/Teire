@@ -332,7 +332,7 @@
     ],
   };
 
-  // קריית התורה: הכוללים של הרבנים, האתגרים, היכל הפלפולים והספרייה
+  // קריית התורה: הכוללים של הרבנים, האתגרים, היכל הפלפולים, היכל הארמית והספרייה
   const torah = {
     id: "torah", name: "קריית התורה", W: 1000, H: 1000,
     start: { x: 500, y: 900 },
@@ -347,6 +347,7 @@
       { id: "debate", name: "היכל הפלפולים", icon: "🎭", x: 500, y: 430, color: "#111827", href: "#/debate" },
       { id: "swipe", name: "אתגר המקורות", icon: "⚡", x: 220, y: 680, color: "#db2777", href: "#/swipe" },
       { id: "race", name: "מרוץ המקורות", icon: "🏎️", x: 780, y: 680, color: "#dc2626", href: "#/race" },
+      { id: "aramaic", name: "היכל הארמית", icon: "🗝️", x: 500, y: 760, color: "#78350f", href: "#/place/aramaic-hall" },
       { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
     ],
     svg(W, H) {

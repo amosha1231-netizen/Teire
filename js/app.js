@@ -1686,6 +1686,7 @@
     { name: "🌍 גדולי ישראל בגולה", test: p => p.gola },
     { name: "📜 היכל פרשת השבוע", test: p => isParashaPlace(p.id) },
     { name: "🔤 השלמת הפסוק", test: p => p.id === "verse-hall" },
+    { name: "🗝️ היכל הארמית", test: p => p.id === "aramaic-hall" },
   ];
   const isParashaPlace = id => !!id && id.startsWith("parasha-");
   // אפשרויות הפרשה בתוך חומש אחד
@@ -2041,7 +2042,8 @@
     (window.TEIRE_SEED || []).forEach(q => quiz("ת", "שאלות התחנות", "content/torah.js", `${pname(q.place)} · ${LEVEL_NAMES[1]}`, q));
     Object.entries(window.TEIRE_LEVELS || {}).filter(([place]) => !place.startsWith("parasha-")).forEach(([place, lv]) => Object.entries(lv).forEach(([l, list]) => list.forEach(q => {
       const kollel = place.startsWith("kollel-");
-      const verse = place === "verse-hall";
+      const verse = place === "verse-hall", aram = place === "aramaic-hall";
+      if (aram) return quiz("ר", "היכל הארמית", "content/aramaic.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
       quiz(kollel ? "כ" : verse ? "ה" : "ש", kollel ? "כוללי הרבנים" : verse ? "השלמת הפסוק" : "שאלות התחנות", verse ? "content/verses.js" : kollel ? "content/kollels.js" : "content/levels.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
     })));
     const PAR = window.TEIRE_PARASHA;
