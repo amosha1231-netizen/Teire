@@ -1,0 +1,20 @@
+{
+  "name": "teire",
+  "private": true,
+  "version": "1.0.0",
+  "description": "מסע בתורה: האתר ארוז כאפליקציה לאייפון בעזרת Capacitor",
+  "scripts": {
+    "build": "node scripts/build-app.mjs",
+    "ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "icons": "npx @capacitor/assets generate --ios --iconBackgroundColor '#2b4c8c' --splashBackgroundColor '#fdf6e3'"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "@supabase/supabase-js": "2.89.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.0"
+  }
+}
