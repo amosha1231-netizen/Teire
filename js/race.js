@@ -292,6 +292,11 @@
       if (phase === "crash" || ended) return;
       laneName = laneName === "mid" ? s : (laneName === s ? s : "mid"); // מהצד השני חוזרים קודם לאמצע
     }
+    // הג'ויסטיק בוחר נתיב ישירות: שמאל, אמצע או ימין
+    function setLane(s) {
+      if (phase === "crash" || ended || !LANE_X.hasOwnProperty(s)) return;
+      laneName = s;
+    }
     function passGate() {
       const ok = laneName === sides.correct;
       if (ok) {
@@ -533,13 +538,14 @@
       const kmh = Math.round(kmhOf(speed));
       const place = 1 + RIVALS.filter(x2 => x2.z > PLAYER_Z).length;
       const dist = gateZ != null ? Math.max(0, Math.min(1, 1 - (gateZ - pos - PLAYER_Z) / GATE_DIST)) : (phase === "turbo" ? 1 : 0);
-      ui.hud({ kmh, place, of: RIVALS.length + 1, lapPct: Math.round(((score % 10) + dist * (phase === "drive" ? 1 : 0)) * 10), time: raceT, shield });
+      ui.hud({ kmh, place, of: RIVALS.length + 1, lapPct: Math.round(((score % 10) + dist * (phase === "drive" ? 1 : 0)) * 10), time: raceT, shield, lane: laneName });
       snd.update(kmh, r.speed01, phase === "crash" ? 0 : r.skid, nitroT > 0);
       raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);
     return {
-      steer,
+      steer, setLane,
+      get lane() { return laneName; },
       toggleSound: () => snd.toggle(),
       get soundOn() { return snd.on; },
       stop() { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); snd.stop(); },
