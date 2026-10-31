@@ -1,0 +1,9 @@
+{
+  "appId": "com.amosha1231.teire",
+  "appName": "מסע בתורה",
+  "webDir": "www",
+  "backgroundColor": "#fdf6e3",
+  "ios": {
+    "contentInset": "never"
+  }
+}
