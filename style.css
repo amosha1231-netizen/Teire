@@ -465,10 +465,47 @@ body.shabbat .music-btn { display: none; }
 /* בטלפון: השאלה, הכביש והתשובות נכנסים במסך אחד בלי לגלול */
 @media (max-width: 640px) {
   .race-q { font-size: 1rem; padding: 8px 10px; min-height: 0; margin-bottom: 6px; }
-  .track { height: calc(100svh - 300px); max-height: 560px; }
+  .track { height: calc(100svh - 360px); min-height: 260px; max-height: 560px; }
   .lane-label { width: 46%; font-size: .85rem; }
   .lane-label.left { left: 2%; } .lane-label.right { right: 2%; }
   .race-tag { display: none; }
+}
+/* עולמות המרוץ */
+.race-worlds { margin: 12px 0; }
+.race-worlds h3 { margin: 0 0 8px; }
+.rw-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; border: 2px solid #e5e7eb; background: #fff; cursor: pointer; font: inherit; color: #1f2937; }
+.rw b { font-size: .95rem; }
+.rw-icon { font-size: 1.7rem; line-height: 1.1; }
+.rw-tag { font-size: .72rem; font-weight: 800; padding: 1px 8px; border-radius: 99px; background: #fef3c7; color: #92400e; }
+.rw.on { border-color: #dc2626; background: #fef2f2; box-shadow: 0 3px 0 #dc2626; }
+.rw.locked { opacity: .55; background: #f3f4f6; }
+@media (max-width: 420px) { .rw .small { font-size: .7rem; } .rw b { font-size: .85rem; } }
+/* ג'ויסטיק מתחת לכביש */
+.joy-pad { position: relative; display: grid; grid-template-columns: 1fr auto minmax(120px, 190px) auto 1fr; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 10px; border-radius: 18px; direction: ltr;
+  background: linear-gradient(180deg, #2b2f3a, #14161c); box-shadow: inset 0 2px 0 rgba(255,255,255,.12), 0 5px 0 rgba(0,0,0,.25); touch-action: none; user-select: none; -webkit-user-select: none; }
+.joy-info { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.joy-world { justify-self: end; color: #fde68a; font-weight: 800; font-size: .78rem; text-align: center; direction: rtl; }
+.joy-btn { width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.2rem; color: #fff; padding: 0;
+  background: radial-gradient(circle at 35% 30%, #ff6b6b, #c81e1e 70%); box-shadow: 0 5px 0 #7f1010, 0 7px 10px rgba(0,0,0,.4); transition: transform .08s, box-shadow .08s; }
+.joy-btn.hit, .joy-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #7f1010, 0 2px 4px rgba(0,0,0,.4); }
+.joy-base { position: relative; height: 64px; border-radius: 99px; cursor: grab; touch-action: none;
+  background: radial-gradient(ellipse at 50% 40%, #3a3f4c, #0b0c10 75%); box-shadow: inset 0 3px 8px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.15); }
+.joy-groove { position: absolute; left: 14%; right: 14%; top: 50%; height: 8px; margin-top: -4px; border-radius: 99px; background: #050608; box-shadow: inset 0 1px 2px rgba(0,0,0,.9); }
+.joy-groove::before, .joy-groove::after { content: ""; position: absolute; top: -10px; width: 4px; height: 28px; border-radius: 2px; background: rgba(253,230,138,.35); }
+.joy-groove::before { left: -4px; } .joy-groove::after { right: -4px; }
+.joy-knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 35% 30%, #fff 0 8%, #fde047 18%, #f59e0b 60%, #b45309 100%); box-shadow: 0 6px 0 rgba(0,0,0,.35), 0 0 0 4px rgba(0,0,0,.35);
+  transition: transform .18s cubic-bezier(.3,1.6,.5,1); }
+.joy-knob.held { transition: none; box-shadow: 0 3px 0 rgba(0,0,0,.35), 0 0 0 4px rgba(253,224,71,.5), 0 0 16px rgba(253,224,71,.6); }
+.joy-pad[data-lane="left"] .joy-btn[data-joy="left"], .joy-pad[data-lane="right"] .joy-btn[data-joy="right"] { background: radial-gradient(circle at 35% 30%, #86efac, #16a34a 70%); box-shadow: 0 5px 0 #14532d, 0 7px 10px rgba(0,0,0,.4); }
+@media (max-width: 640px) {
+  .joy-pad { grid-template-columns: auto auto 1fr auto auto; gap: 7px; padding: 6px 8px; margin-top: 6px; }
+  .joy-btn { width: 44px; height: 44px; }
+  .joy-base { height: 54px; }
+  .joy-knob { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
+  .joy-world { font-size: .68rem; max-width: 52px; }
+  .joy-info .pill { font-size: .75rem; padding: 2px 7px; }
 }
 .car-prev { display: block; width: 96px; height: 56px; margin: 0 auto 4px; }
 @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
