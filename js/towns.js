@@ -412,6 +412,119 @@
     decorations: [["🕯️", 300, 470], ["🕯️", 700, 470], ["📚", 90, 420], ["📚", 910, 420], ["🪔", 500, 90], ["🌿", 90, 760], ["🌿", 910, 760]],
   };
 
-  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron, torah, parasha };
+  // היכל הים: נמל עם רציף וספינות. מכאן מפליגים ליבשה אחרת (#/sail/<יעד>).
+  // from = הנמל שבו נמצאים עכשיו (app.js קובע לפי מקום הדמות במפה), והוא לא מופיע ברשימת היעדים.
+  const SAIL_SEATS = [[250, 230], [500, 170], [750, 230]];
+  const sea = {
+    id: "sea", name: "היכל הים", W: 1000, H: 1000,
+    start: { x: 500, y: 880 },
+    blocked: [],
+    from: "israel",
+    get spots() {
+      const P = window.TeireCity.PORTS;
+      const dests = Object.keys(P).filter(k => k !== this.from);
+      return [
+        ...dests.map((k, i) => ({ id: "sail-" + k, name: `הפלגה ל${P[k].name}`, icon: P[k].icon, x: SAIL_SEATS[i * 2][0], y: SAIL_SEATS[i * 2][1], color: "#0369a1", href: "#/sail/" + k })),
+        { id: "yona", name: "הספינה של יונה", icon: "🐋", x: 500, y: 330, color: "#1e3a8a",
+          info: {
+            title: "🐋 הספינה של יונה",
+            text: "\"ויקם יונה לברח תרשישה מלפני ה', וירד יפו, וימצא אניה באה תרשיש\" (יונה א, ג). בים קם סער גדול, המלחים הטילו את יונה למים, ודג גדול בלע אותו. בתוך הדג התפלל יונה, והדג הקיא אותו אל היבשה.",
+            links: [],
+          } },
+        { id: "shira", name: "קריעת ים סוף", icon: "🌊", x: 200, y: 560, color: "#0e7490",
+          info: {
+            title: "🌊 קריעת ים סוף",
+            text: "\"ובני ישראל הלכו ביבשה בתוך הים, והמים להם חמה מימינם ומשמאלם\" (שמות יד, כט). אחרי שעברו את הים שרו משה ובני ישראל את שירת הים: \"אז ישיר משה ובני ישראל את השירה הזאת לה'\" (שמות טו, א).",
+            links: [],
+          } },
+        { id: "zevulun", name: "נמל זבולון", icon: "⚓", x: 800, y: 560, color: "#a16207",
+          info: {
+            title: "⚓ זבולון, שבט יורדי הים",
+            text: "יעקב בירך: \"זבולן לחוף ימים ישכן, והוא לחוף אניות\" (בראשית מט, יג). ומשה בירך: \"שמח זבולן בצאתך, ויששכר באהליך\" (דברים לג, יח). רש\"י שם מפרש: זבולון יצא לסחורה בים ופרנס את יששכר, ויששכר ישב באוהלי התורה ולמד.",
+            links: [],
+          } },
+        { id: "exit", name: "למפה", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
+      ];
+    },
+    svg(W, H) {
+      const waves = [];
+      for (let y = 60; y < 700; y += 70) waves.push(`<path d="M0 ${y} ${Array.from({ length: 13 }, (_, i) => `q 40 -18 80 0`).join(" ")}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="4" stroke-linecap="round" transform="translate(${(y / 70 % 2) * 40} 0)"/>`);
+      const planks = [];
+      for (let y = 420; y < 1000; y += 26) planks.push(`<rect x="440" y="${y}" width="120" height="22" rx="3" fill="#b07a45" stroke="#7c4f24" stroke-width="2"/>`);
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <defs><linearGradient id="seag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c4a6e"/><stop offset=".55" stop-color="#0284c7"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
+        <rect width="${W}" height="${H}" fill="url(#seag)"/>
+        ${waves.join("")}
+        <!-- החוף והרציף -->
+        <path d="M0 760 Q 250 700 500 740 T 1000 760 V 1000 H 0 Z" fill="#f5dc8c"/>
+        <path d="M0 800 Q 250 740 500 780 T 1000 800 V 1000 H 0 Z" fill="#e8c77a"/>
+        ${planks.join("")}
+        <rect x="430" y="400" width="10" height="600" fill="#7c4f24"/><rect x="560" y="400" width="10" height="600" fill="#7c4f24"/>
+        <!-- רציפים קטנים לכל ספינה -->
+        <path d="M250 300 V 700 M750 300 V 700" stroke="#b07a45" stroke-width="40"/>
+        <path d="M250 300 V 700 M750 300 V 700" stroke="#7c4f24" stroke-width="40" stroke-dasharray="3 23"/>
+        <!-- מגדלור -->
+        <rect x="900" y="620" width="40" height="120" fill="#f8fafc" stroke="#94a3b8" stroke-width="3"/>
+        <rect x="900" y="650" width="40" height="18" fill="#dc2626"/><rect x="900" y="700" width="40" height="18" fill="#dc2626"/>
+        <circle cx="920" cy="606" r="22" fill="#fde047" opacity=".85"/>
+      </svg>`;
+    },
+    labels: [{ text: "הים הגדול", x: 500, y: 60, cls: "sea" }],
+    decorations: [["⛵", 120, 120], ["🐟", 380, 470], ["🐠", 640, 640], ["🐬", 870, 380], ["🦀", 300, 860], ["🐚", 700, 880], ["🌴", 60, 780], ["🌴", 960, 820], ["🐙", 120, 420]],
+  };
+
+  // בארה של מרים: הבאר שהלכה עם ישראל במדבר, ולפי רבי חייא נגלית בים כנרת
+  const miriam = {
+    id: "miriam", name: "בארה של מרים", W: 1000, H: 1000,
+    start: { x: 500, y: 900 },
+    blocked: [{ x1: 400, y1: 400, x2: 600, y2: 560 }],
+    spots: [
+      { id: "well", name: "בארה של מרים", icon: "⛲", x: 500, y: 470, ax: 500, ay: 620, color: "#0284c7", area: true,
+        info: {
+          title: "⛲ בארה של מרים",
+          text: "\"אמר רבי חייא: הרוצה לראות בארה של מרים, יעלה לראש הכרמל ויצפה, ויראה כמין כברה בים, וזו היא בארה של מרים\" (שבת לה, א). רש\"י שם: \"בים\", בים טבריה, הוא ים כנרת.",
+          links: [],
+        } },
+      { id: "zchut", name: "באר בזכות מרים", icon: "👧", x: 200, y: 300, color: "#7c3aed",
+        info: {
+          title: "👧 באר בזכות מרים",
+          text: "\"שלשה פרנסים טובים עמדו לישראל: משה ואהרן ומרים, ושלש מתנות טובות ניתנו על ידם: באר וענן ומן. באר בזכות מרים\". וכשמתה מרים נסתלקה הבאר, שנאמר \"ותמת שם מרים\", וכתוב אחריו \"ולא היה מים לעדה\" (תענית ט, א).",
+          links: [["🏜️ משימת המדבר: המן, המרגלים והמשכן", "#/place/midbar"]],
+        } },
+      { id: "pi", name: "פי הבאר", icon: "🌅", x: 800, y: 300, color: "#b45309",
+        info: {
+          title: "🌅 פי הבאר",
+          text: "\"עשרה דברים נבראו בערב שבת בין השמשות, ואלו הן: פי הארץ, ופי הבאר, ופי האתון...\" (אבות ה, ו). הבאר שליוותה את ישראל במדבר הוכנה כבר בששת ימי בראשית.",
+          links: [],
+        } },
+      { id: "shira", name: "שירת הבאר", icon: "🎶", x: 200, y: 700, color: "#0f766e",
+        info: {
+          title: "🎶 שירת הבאר",
+          text: "\"אז ישיר ישראל את השירה הזאת: עלי באר ענו לה. באר חפרוה שרים, כרוה נדיבי העם\" (במדבר כא, יז-יח).",
+          links: [["🏜️ משימת המדבר", "#/place/midbar"]],
+        } },
+      { id: "tiberias", name: "לטבריה", icon: "⚔️", x: 800, y: 700, color: "#0891b2", href: "#/town/tiberias" },
+      { id: "exit", name: "למפת ארץ ישראל", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      const rings = [0, 1, 2, 3].map(i => `<circle class="well-ring" cx="500" cy="480" r="${90 + i * 60}" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="5" style="animation-delay:${i * 0.7}s"/>`).join("");
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <rect width="${W}" height="${H}" fill="#cfe3a0"/>
+        <!-- ים כנרת סביב הבאר -->
+        <ellipse cx="500" cy="470" rx="420" ry="330" fill="#38a3d9"/>
+        <ellipse cx="500" cy="470" rx="420" ry="330" fill="none" stroke="#f5dc8c" stroke-width="30"/>
+        ${rings}
+        <!-- הבאר: אבנים עגולות ומים נובעים -->
+        <circle cx="500" cy="480" r="78" fill="#a8a29e" stroke="#78716c" stroke-width="8"/>
+        <circle cx="500" cy="480" r="56" fill="#0ea5e9"/>
+        <circle cx="500" cy="480" r="30" fill="#7dd3fc"/>
+        <path d="M500 860 V 640" stroke="#f8efd8" stroke-width="40" stroke-linecap="round"/>
+      </svg>`;
+    },
+    labels: [{ text: "ים כנרת", x: 500, y: 170, cls: "sea" }],
+    decorations: [["🌴", 80, 120], ["🌴", 920, 140], ["🐟", 330, 380], ["🐟", 660, 560], ["🌿", 90, 520], ["🌿", 920, 520], ["⛰️", 500, 60], ["🕊️", 700, 120], ["🌾", 360, 900], ["🌾", 640, 900]],
+  };
+
+  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron, torah, parasha, sea, miriam };
   window.Towns = { TOWNS, byId: id => TOWNS[id] };
 })();

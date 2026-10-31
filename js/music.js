@@ -158,7 +158,7 @@
       if (!master) {
         // מגביל עוצמה בסוף השרשרת, כדי שאקורדים מלאים לא יישמעו צורמים
         const limit = ctx.createDynamicsCompressor(); limit.threshold.value = -12; limit.ratio.value = 6; limit.connect(ctx.destination);
-        master = ctx.createGain(); master.gain.value = 0.6; master.connect(limit); verb = makeVerb(limit);
+        master = ctx.createGain(); master.gain.value = ducked ? 0.12 : 0.6; master.connect(limit); verb = makeVerb(limit);
       }
       ctx.resume();
     } catch (e) { return; }
@@ -174,10 +174,13 @@
     const b = document.getElementById("musicBtn");
     if (b) { b.textContent = on() ? "🎵" : "🔇"; b.setAttribute("aria-label", on() ? "השתקת המוזיקה" : "הפעלת המוזיקה"); }
   }
+  // במרוץ מנמיכים את המוזיקה כדי שישמעו את המנוע
+  let ducked = false;
+  function duck(d) { ducked = d; if (master && ctx) master.gain.setTargetAtTime(d ? 0.12 : 0.6, ctx.currentTime, 0.2); }
   function setMood(m) { if (m === mood) return; mood = m; if (playing) begin(); }
 
   document.addEventListener("pointerdown", e => { if (!e.target.closest("#musicBtn")) start(); });
   document.addEventListener("keydown", () => start());
   document.addEventListener("DOMContentLoaded", render);
-  window.Music = { start, stop, toggle, mood: setMood, render };
+  window.Music = { start, stop, toggle, mood: setMood, render, duck };
 })();
