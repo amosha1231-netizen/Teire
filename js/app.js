@@ -600,7 +600,12 @@
   let cityLoop = null, townPeers = null;
   function stopCity() {
     if (townPeers) { townPeers.leave(); townPeers = null; }
-    if (cityLoop) { cancelAnimationFrame(cityLoop.raf); window.removeEventListener("keydown", cityLoop.onKey); window.removeEventListener("keyup", cityLoop.onKey); cityLoop = null; }
+    if (cityLoop) {
+      cancelAnimationFrame(cityLoop.raf); window.removeEventListener("keydown", cityLoop.onKey); window.removeEventListener("keyup", cityLoop.onKey);
+      if (cityLoop.ro) cityLoop.ro.disconnect();
+      if (cityLoop.onResize) window.removeEventListener("resize", cityLoop.onResize);
+      cityLoop = null;
+    }
     document.body.classList.remove("in-city");
   }
 
@@ -633,28 +638,33 @@
     app.innerHTML = `
       <div class="city" id="city">
         <div class="world" id="world" style="width:${W}px;height:${H}px">
+          <!-- המפה בנויה משכבות: מה שזז (גלים, קצף, ניצוצות) נמצא בשכבה משלו,
+               כדי שהדפדפן לא יצטרך לצייר מחדש את כל המפה בכל רגע (זה מה שהאט את הטלפון) -->
+          <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+            <defs>
+              <radialGradient id="seag" cx=".45" cy=".5" r=".75">
+                <stop offset="0" stop-color="#47b3ea"/><stop offset=".6" stop-color="#2f8fd6"/><stop offset="1" stop-color="#1d63b0"/>
+              </radialGradient>
+            </defs>
+            <rect width="${W}" height="${H}" fill="url(#seag)"/>
+          </svg>
+          ${mapScenery.waves()}
+          <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${mapScenery.shallow(pts)}</svg>
+          <svg class="map-svg map-foam" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${mapScenery.foam(pts)}</svg>
           <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
             <defs>
               <linearGradient id="landg" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="#6cc25a"/><stop offset=".45" stop-color="#9fd266"/>
                 <stop offset=".62" stop-color="#e3cf7a"/><stop offset="1" stop-color="#e7a85a"/>
               </linearGradient>
-              <radialGradient id="seag" cx=".45" cy=".5" r=".75">
-                <stop offset="0" stop-color="#47b3ea"/><stop offset=".6" stop-color="#2f8fd6"/><stop offset="1" stop-color="#1d63b0"/>
-              </radialGradient>
               <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".1"/>
               </linearGradient>
               <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="9"/></filter>
-              <pattern id="waves" width="80" height="40" patternUnits="userSpaceOnUse">
-                <path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="3" stroke-linecap="round"/>
-              </pattern>
               <pattern id="grass" width="46" height="38" patternUnits="userSpaceOnUse">
                 <path d="M8 30 l3 -7 l3 7 M30 12 l2.5 -6 l2.5 6" fill="none" stroke="rgba(40,90,20,.1)" stroke-width="2" stroke-linecap="round"/>
               </pattern>
             </defs>
-            <rect width="${W}" height="${H}" fill="url(#seag)"/>
-            <rect width="${W}" height="${H}" fill="url(#waves)" class="waves"/>
             ${mapScenery.back(pts)}
             ${[LAND, SINAI, BAVEL, EUROPE, MIZRACH].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
             <polygon points="${pts(LAND)}" fill="url(#landg)" stroke="#8fbf5a" stroke-width="4" stroke-linejoin="round"/>
@@ -668,9 +678,9 @@
             <ellipse cx="712" cy="395" rx="28" ry="42" fill="#3fa0e0" stroke="#f5dc8c" stroke-width="6"/>
             <ellipse cx="706" cy="1215" rx="24" ry="100" fill="#4fb3d9" stroke="#f5dc8c" stroke-width="6"/>
             <path d="M840 600 C 860 760, 850 900, 870 1060" fill="none" stroke="#3fa0e0" stroke-width="7" stroke-linecap="round" opacity=".8"/>
-            <path d="M560 1060 L 520 1060" stroke="#c9a46a" stroke-width="0"/>
             ${mapScenery.front()}
           </svg>
+          ${mapScenery.sparks()}
           ${mapScenery.cloudShadows()}
           ${LABELS.map(l => `<span class="map-label ${l.cls}" style="left:${l.x}px;top:${l.y}px">${l.text}</span>`).join("")}
           ${mapDecorations()}
@@ -706,12 +716,15 @@
   }
 
   const meHtml = (soul, pos) => `
-    <div class="me ${soul ? "has-soul" : ""}" id="me" style="left:${pos.x}px;top:${pos.y}px">
+    <div class="me ${soul ? "has-soul" : ""}" id="me" style="${mePlace(pos)}">
       ${soul ? `<span class="me-soul">🕯️ ${esc(soul.name)}</span>` : `<span class="me-name">${esc(player.name)}</span>`}
       <span class="me-body">${avatarSVG(player.look, 52)}</span>
       <span class="me-shadow"></span>
     </div>
     <div class="target" id="target"></div>`;
+
+  // הדמות זזה ב-transform (ולא ב-left/top), כדי שהדפדפן לא יחשב מחדש את כל העמוד בכל צעד
+  const mePlace = p => `transform:translate(${p.x}px,${p.y}px) translate(-50%,-100%)`;
 
   // מנוע ההליכה, משותף למפת הארץ ולעולמות שבתוך הערים.
   // onBuilding(el, walkTo) נקרא בלחיצה על מקום; blocked = מלבנים שהדמות עוקפת ולא נכנסת אליהם.
@@ -726,6 +739,8 @@
     const banner = document.getElementById("pre-shabbat");
     city.style.top = (banner.hidden ? document.querySelector(".topbar") : banner).getBoundingClientRect().bottom + "px";
     let path = [], onArrive = null, last = performance.now();
+    // גודל החלון נשמר מראש: קריאה שלו בכל פריים הכריחה את הדפדפן לחשב את העמוד מחדש
+    let vw = city.clientWidth, vh = city.clientHeight;
     const keys = {};
     const cam = { x: 0, y: 0 };
     const store = () => savePos({ x: Math.round(pos.x), y: Math.round(pos.y) });
@@ -770,15 +785,16 @@
     const d2 = (p, q) => (p.x - q.x) ** 2 + (p.y - q.y) ** 2;
 
     function camera(snap) {
-      const vw = city.clientWidth, vh = city.clientHeight, w = W * S, h = H * S;
+      const w = W * S, h = H * S;
       const wantX = w <= vw ? (w - vw) / 2 : Math.min(Math.max(pos.x * S - vw / 2, 0), w - vw);
       const wantY = h <= vh ? (h - vh) / 2 : Math.min(Math.max(pos.y * S - vh / 2, 0), h - vh);
-      if (!snap && Math.abs(wantX - cam.x) < .2 && Math.abs(wantY - cam.y) < .2) return; // המצלמה במקום, אין מה לצייר
+      if (!snap && Math.abs(wantX - cam.x) < .2 && Math.abs(wantY - cam.y) < .2) return false; // המצלמה במקום, אין מה לצייר
       cam.x = snap ? wantX : cam.x + (wantX - cam.x) * .15;
       cam.y = snap ? wantY : cam.y + (wantY - cam.y) * .15;
       world.style.transform = `translate(${-cam.x}px, ${-cam.y}px) scale(${S})`;
       // העננים גבוהים יותר מהקרקע, ולכן זזים מהר יותר ממנה: זה נותן תחושת עומק
       if (sky) sky.style.transform = `translate(${-cam.x * 1.35}px, ${-cam.y * 1.35}px) scale(${S})`;
+      return true;
     }
 
     function walkTo(x, y, cb) {
@@ -788,8 +804,30 @@
       tgt.style.left = t.x + "px"; tgt.style.top = t.y + "px"; tgt.classList.add("show");
       document.getElementById("hint").classList.add("hide");
       if (onMove) onMove(pos, path[path.length - 1]);
+      wake();
     }
-    let lastSent = 0;
+    let lastSent = 0, z = -1, flip = null, walking = false;
+    // עומק הדמות (מי מסתיר את מי): במקום z-index שמשתנה בכל פיקסל, שמשנה את סדר הציור ומכריח לצייר את כל המפה מחדש,
+    // בוחרים ערך שמשתנה רק כשהדמות עוברת מעל או מתחת לבניין. הסדר יוצא בדיוק כמו z-index = y.
+    const cssZ = new Map();
+    function depth(y) {
+      let best = -Infinity, after = false;
+      for (const el of world.children) {
+        if (el === me) { after = true; continue; }
+        const v = el.style.zIndex !== "" ? +el.style.zIndex : cssZ.get(el);
+        if (!(v >= 0)) continue;
+        if (!after && v <= y && v > best) best = v;          // לפני הדמות בעמוד: בשוויון הדמות למעלה
+        if (after && v < y && v + 1 > best) best = v + 1;    // אחרי הדמות בעמוד: צריך להיות גבוה יותר ממש
+      }
+      return best === -Infinity ? y : best;
+    }
+    // הלולאה רצה רק כשמשהו זז. כשהדמות עומדת והמצלמה במקום היא נעצרת, ומתעוררת בלחיצה או במקש
+    const loop = { raf: 0, onKey: null, running: false, ro: null };
+    function wake() {
+      if (cityLoop !== loop || loop.running) return;
+      loop.running = true; last = performance.now();
+      loop.raf = requestAnimationFrame(frame);
+    }
 
     function frame(now) {
       const dt = Math.min((now - last) / 1000, .05); last = now;
@@ -805,26 +843,28 @@
         const nx = Math.min(Math.max(pos.x + dx / dist * step, 20), W - 20);
         const ny = Math.min(Math.max(pos.y + dy / dist * step, 40), H - 10);
         if (!blocked.some(r => inside({ x: nx, y: ny }, r))) { pos.x = nx; pos.y = ny; }
-        me.style.left = pos.x + "px"; me.style.top = pos.y + "px";
-        me.style.zIndex = Math.round(pos.y);
-        if (Math.abs(dx) > 1) body.style.transform = dx < 0 ? "scaleX(-1)" : "";
-        me.classList.add("walking");
+        me.style.transform = `translate(${pos.x}px,${pos.y}px) translate(-50%,-100%)`;
+        const nz = depth(Math.round(pos.y));
+        if (nz !== z) { z = nz; me.style.zIndex = nz; }
+        if (Math.abs(dx) > 1 && flip !== dx < 0) { flip = dx < 0; body.style.transform = flip ? "scaleX(-1)" : ""; }
+        if (!walking) { walking = true; me.classList.add("walking"); }
         if (manual && onMove && now - lastSent > 400) { lastSent = now; onMove(pos, null); }
-      } else {
-        me.classList.remove("walking");
+      } else if (walking) {
+        walking = false; me.classList.remove("walking");
       }
       if (path.length && Math.hypot(path[0].x - pos.x, path[0].y - pos.y) < 1) {
         path.shift();
         if (!path.length) {
-          tgt.classList.remove("show"); me.classList.remove("walking");
+          tgt.classList.remove("show"); walking = false; me.classList.remove("walking");
           store();
           if (onMove) onMove(pos, null);
           // ממשיכים את הלולאה גם אחרי ההגעה (בעולם של עיר נשארים באותו מסך)
-          if (onArrive) { const cb = onArrive; onArrive = null; camera(false); cityLoop.raf = requestAnimationFrame(frame); cb(); return; }
+          if (onArrive) { const cb = onArrive; onArrive = null; camera(false); loop.raf = requestAnimationFrame(frame); cb(); return; }
         }
       }
-      camera(false);
-      cityLoop.raf = requestAnimationFrame(frame);
+      const moved = camera(false);
+      if (moved || dist > 0 || path.length || manual) loop.raf = requestAnimationFrame(frame);
+      else loop.running = false;
     }
 
     city.addEventListener("click", ev => {
@@ -840,12 +880,19 @@
       if (!ev.key.startsWith("Arrow") || ev.target.closest("input, textarea, select")) return;
       keys[ev.key] = ev.type === "keydown"; ev.preventDefault();
       if (ev.type === "keyup") { store(); if (onMove) onMove(pos, null); }
+      wake();
     };
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKey);
-    cityLoop = { raf: 0, onKey };
-    me.style.zIndex = Math.round(pos.y);
+    loop.onKey = onKey;
+    cityLoop = loop;
+    // כשגודל המסך משתנה (סיבוב הטלפון, פס השבת) מעדכנים את המידות ומזיזים את המצלמה
+    const onResize = () => { vw = city.clientWidth; vh = city.clientHeight; wake(); };
+    if (window.ResizeObserver) { loop.ro = new ResizeObserver(onResize); loop.ro.observe(city); }
+    else { loop.onResize = onResize; window.addEventListener("resize", onResize); }
+    world.querySelectorAll(":scope > *").forEach(el => { if (el !== me) cssZ.set(el, parseInt(getComputedStyle(el).zIndex, 10)); });
+    me.style.zIndex = z = depth(Math.round(pos.y));
     camera(true);
-    cityLoop.raf = requestAnimationFrame(frame);
+    wake();
   }
 
   // ---------- עולם בתוך עיר (ירושלים) ----------
@@ -1122,14 +1169,28 @@
     const cloud = (cls, x, y, k, i) => `<div class="${cls}" style="left:${x}px;top:${y}px;--k:${k};animation-delay:${-i * 7}s"><i></i><i></i><i></i></div>`;
 
     return {
-      back(pts) {
+      // שכבות המים: מתחת לכולן הים, מעליו הגלים (זזים), המים הרדודים והקצף (מהבהב)
+      waves() {
+        return `<div class="map-waves" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+          <defs><pattern id="waves" width="80" height="40" patternUnits="userSpaceOnUse">
+            <path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="3" stroke-linecap="round"/>
+          </pattern></defs>
+          <rect width="${W}" height="${H}" fill="url(#waves)"/></svg></div>`;
+      },
+      shallow(pts) {
         return `
           <g class="shallow">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#7fd6f2" stroke-opacity=".45" stroke-width="120" stroke-linejoin="round"/>`).join("")}</g>
-          <g opacity=".7">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#a9e6f7" stroke-opacity=".6" stroke-width="64" stroke-linejoin="round"/>`).join("")}</g>
-          <g class="foam">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#fff" stroke-width="46" stroke-linejoin="round"/>`).join("")}</g>
+          <g opacity=".7">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#a9e6f7" stroke-opacity=".6" stroke-width="64" stroke-linejoin="round"/>`).join("")}</g>`;
+      },
+      foam(pts) { return SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#fff" stroke-width="46" stroke-linejoin="round"/>`).join(""); },
+      back(pts) {
+        return `
           <g filter="url(#soft)" transform="translate(16 30)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="rgba(10,40,90,.45)" stroke="rgba(10,40,90,.45)" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>
-          <g transform="translate(0 16)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="#b98546" stroke="#b98546" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>
-          ${SPARKS.map(([x, y], i) => `<path class="spark" style="animation-delay:${i * .37}s" d="M${x} ${y - 7} L${x + 2} ${y - 2} L${x + 7} ${y} L${x + 2} ${y + 2} L${x} ${y + 7} L${x - 2} ${y + 2} L${x - 7} ${y} L${x - 2} ${y - 2} Z" fill="#fff"/>`).join("")}`;
+          <g transform="translate(0 16)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="#b98546" stroke="#b98546" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>`;
+      },
+      // כל ניצוץ הוא ציור קטן משלו, וכך ההבהוב שלו לא מכריח לצייר מחדש את המפה
+      sparks() {
+        return `<div class="map-sparks">${SPARKS.map(([x, y], i) => `<svg class="spark" style="left:${x - 7}px;top:${y - 7}px;animation-delay:${i * .37}s" width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#fff"/></svg>`).join("")}</div>`;
       },
       front() { return HILLS.map(hill).join("") + TREES.map(tree).join(""); },
       cloudShadows() { return `<div class="cloud-shadows">${CLOUDS.map(([x, y, k], i) => cloud("cloud-sh", x + 40, y + 160, k, i)).join("")}</div>`; },
@@ -1954,7 +2015,7 @@
     let joySync = null;
     // מגללים כך שהשאלה בראש המסך (אחרי לחיצה על "מתחילים" הדף נשאר גלול למטה)
     $("race").scrollIntoView({ block: "start" });
-    let banT = 0, lastHud = "";
+    let banT = 0, lastHud = "", hudLast = {};
     if (window.Music && Music.duck) Music.duck(true);
     const r = TeireRace.start({
       root: track, look: car0.look, boost: car0.boost, shield: car0.shield, decks: stages.map(st => db.shuffle(st.items)), theme: world.theme, speed: world.speed, driver: { name: player.name }, sidesFor,
@@ -1988,9 +2049,11 @@
           const key = [h.kmh, h.place, h.lapPct, mm, ss, h.shield].join("|");
           if (key === lastHud) return;
           lastHud = key;
-          $("hspd").textContent = h.kmh; $("hpos").innerHTML = `<i>${h.place}</i>/${h.of}`; $("hdist").textContent = h.lapPct + "%";
-          $("htime").textContent = `⏱ ${mm}:${ss}`;
-          $("rsh").textContent = "🛡️ " + h.shield;
+          // השעון משתנה בכל פריים, אבל שאר הנתונים לא: כותבים לעמוד רק מה שהשתנה
+          const set = (id, v, html) => { if (hudLast[id] === v) return; hudLast[id] = v; if (html) $(id).innerHTML = v; else $(id).textContent = v; };
+          set("hspd", String(h.kmh)); set("hpos", `<i>${h.place}</i>/${h.of}`, true); set("hdist", h.lapPct + "%");
+          set("htime", `⏱ ${mm}:${ss}`);
+          set("rsh", "🛡️ " + h.shield);
         },
         end(score, gates) {
           stopGame();
