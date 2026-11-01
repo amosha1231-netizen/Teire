@@ -22,7 +22,25 @@
     clearTimeout(progressTimer);
     progressTimer = setTimeout(() => db.saveProgress(player).catch(() => toast("לא הצלחנו לשמור את ההתקדמות. בדקו את החיבור")), 800);
   }
+  // ---------- כמה שחקנים באותו מכשיר ----------
+  // כל שחקן נשמר גם ברשימת השחקנים של המכשיר, כדי שאפשר יהיה להתנתק ולחזור אליו, או להחליף לשחקן אחר.
+  const PROFILES_KEY = "teire.profiles.v1";
+  function loadProfiles() {
+    try { return JSON.parse(localStorage.getItem(PROFILES_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function storeProfiles(all) {
+    try { localStorage.setItem(PROFILES_KEY, JSON.stringify(all)); } catch (e) { /* ignore */ }
+  }
+  const newPid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function rememberProfile() {
+    if (db.accounts || !player.name) return; // בחשבונות שרת ההתקדמות נשמרת בשרת
+    if (!player.pid) player.pid = newPid();
+    const all = loadProfiles();
+    all[player.pid] = player;
+    storeProfiles(all);
+  }
   function savePlayer() {
+    rememberProfile();
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     saveProgressSoon();
     renderHud();
@@ -82,49 +100,81 @@
   }
 
   // ---------- היכרות: יצירת דמות ----------
+  // שחקן חדש: הכול במסך אחד. מראה, שם, סוג טלפון ובחירת משחק ראשון (קל, בינוני או קשה).
+  // המרוץ הבינוני מסומן מראש כמומלץ. אחרי "יוצאים לדרך" נכנסים ישר למשחק שבחרו.
   function viewOnboarding() {
     setTab("map");
     const look = { ...player.look };
+    const isNew = !player.name;
+    let typed = player.name, dev = player.device || "", pick = 1, tried = false;
     function draw() {
       app.innerHTML = `
-        ${player.name ? "" : stepDots(0)}
-        <div class="card center">
-          <h1>ברוכים הבאים למסע!</h1>
-          <p class="muted">צרו את הדמות שלכם ויוצאים לדרך במפת התורה</p>
-          <div class="avatar-stage">${avatarSVG(look, 120)}</div>
+        <div class="card center onb">
+          <h1>${isNew ? "ברוכים הבאים למסע!" : "שינוי שם ומראה"}</h1>
+          ${isNew ? `<p class="muted">יוצרים דמות, ויוצאים לשחק</p>` : ""}
+          <div class="avatar-stage">${avatarSVG(look, 110)}</div>
           <div class="seg">
             <button class="${look.gender === "boy" ? "on" : ""}" data-g="boy">בן</button>
             <button class="${look.gender === "girl" ? "on" : ""}" data-g="girl">בת</button>
           </div>
           <div class="swatches">${SKINS.map(c => `<button class="sw ${look.skin === c ? "on" : ""}" data-skin="${c}" style="background:${c}" aria-label="צבע עור"></button>`).join("")}</div>
           <div class="swatches">${HAIR.map(c => `<button class="sw ${look.hair === c ? "on" : ""}" data-hair="${c}" style="background:${c}" aria-label="צבע שיער"></button>`).join("")}</div>
-          <input id="pname" placeholder="איך קוראים לך?" maxlength="20" value="${esc(typed)}">
-          <button class="btn big-btn" id="go">יוצאים לדרך!</button>
+          <h3 class="onb-q">1. איך קוראים לך?</h3>
+          <input id="pname" class="${tried && !typed.trim() ? "need" : ""}" placeholder="השם שלך" maxlength="20" value="${esc(typed)}">
+          ${isNew ? `
+          <h3 class="onb-q">2. איזה טלפון יש לך?</h3>
+          <div class="device-pick ${tried && !dev ? "need" : ""}">${DEVICES.map(d => `<button class="device-btn ${dev === d.id ? "on" : ""}" data-dev="${d.id}"><span>${d.icon}</span>${d.name}</button>`).join("")}</div>
+          <h3 class="onb-q">3. במה מתחילים?</h3>
+          <div class="level-pick">${JOURNEY.map((s, i) => `
+            <button class="level-btn ${s.cls} ${pick === i ? "on" : ""}" data-pick="${i}">
+              ${i === 1 ? `<span class="rec">⭐ מומלץ</span>` : ""}
+              <span class="lv-icon">${s.icon}</span>
+              <span class="jtag ${s.cls}">${s.tag}</span>
+              <b>${s.title}</b>
+            </button>`).join("")}</div>
+          <p class="small muted">${esc(JOURNEY[pick].desc)}</p>
+          <p class="small muted">שומרים רק את השם ואת סוג הטלפון, כדי לדעת איזו אפליקציה להכין.</p>` : ""}
+          <button class="btn gold big-btn" id="go">${isNew ? "יוצאים לדרך!" : "שמירה"}</button>
+          ${isNew && hasProfiles() ? `<div><a class="link-btn" href="#/players" id="to-players">חזרה לבחירת שחקן</a></div>` : ""}
         </div>`;
+      const tp = document.getElementById("to-players");
+      if (tp) tp.onclick = () => { creatingNew = false; };
+      const nameEl = document.getElementById("pname");
+      nameEl.oninput = () => { typed = nameEl.value; };
       app.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
         look.gender = b.dataset.g;
         look.hat = look.gender === "girl" ? "none" : "kippah";
-        keepName(); draw();
+        draw();
       });
-      app.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { look.skin = b.dataset.skin; keepName(); draw(); });
-      app.querySelectorAll("[data-hair]").forEach(b => b.onclick = () => { look.hair = b.dataset.hair; keepName(); draw(); });
+      app.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { look.skin = b.dataset.skin; draw(); });
+      app.querySelectorAll("[data-hair]").forEach(b => b.onclick = () => { look.hair = b.dataset.hair; draw(); });
+      app.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => { dev = b.dataset.dev; draw(); });
+      app.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => { pick = Number(b.dataset.pick); draw(); });
       document.getElementById("go").onclick = () => {
-        const name = document.getElementById("pname").value.trim();
-        if (!name) { document.getElementById("pname").focus(); return; }
-        const isNew = !player.name;
+        const name = typed.trim();
+        if (!name || (isNew && !dev)) {
+          tried = true; draw();
+          const miss = !name ? document.getElementById("pname") : app.querySelector(".device-pick");
+          if (miss) { miss.scrollIntoView({ block: "center", behavior: "smooth" }); if (!name) miss.focus(); }
+          toast(!name ? "מה השם שלך?" : "איזה טלפון יש לך?");
+          return;
+        }
         player.name = name; player.look = look;
-        if (isNew && !player.journey) player.journey = { step: 0 }; // שחקן חדש יוצא למסע הפתיחה
-        savePlayer();
-        if (isNew || !player.device) location.hash = "#/device/start"; else { location.hash = "#/"; viewCity(); }
+        if (!isNew) { savePlayer(); location.hash = "#/"; return void viewCity(); }
+        player.device = dev; player.tester = false;
+        player.pid = newPid(); player.lastPlayed = Date.now(); creatingNew = false;
+        player.tour = 0; // אחרי המשחק הראשון, כשחוזרים למפה, מתחילה ההדרכה
+        player.journey = { step: pick, start: pick }; // המסע מתחיל מהמשחק שבחרו וממשיך משם לקשה יותר
+        weeklyLater(); // שאלת השבוע תוצע רק מהכניסה הבאה
+        savePlayer(); sendDevice();
+        startJourneyStop(pick);
       };
     }
-    let typed = player.name;
-    function keepName() { const el = document.getElementById("pname"); if (el) typed = el.value; }
     draw();
   }
 
   // ---------- מסע הפתיחה לשחקן חדש ----------
-  // אחרי יצירת הדמות: שאלה איזה טלפון יש לשחקן, ואז שלוש תחנות מהקל אל הקשה, ובסוף תיבת אוצר.
+  // ביצירת הדמות בוחרים במה מתחילים (קל, בינוני או קשה), והמסע ממשיך משם אל הקשה, ובסוף תיבת אוצר.
   // התחנות הן ההיכלות הקיימים (אוהל אברהם, מרוץ המקורות, מסע בגמרא), לא מערכת נפרדת.
   const DEVICES = [
     { id: "android", icon: "🤖", name: "אנדרואיד" },
@@ -142,8 +192,6 @@
   ];
   const JOURNEY_PRIZE = 100;
   const journeyOn = () => !!(player.journey && !player.journey.done);
-  // הנקודות שמראות באיזה שלב של ההרשמה נמצאים
-  const stepDots = n => `<div class="dots onb-dots">${["הדמות", "הטלפון", "המסע"].map((t, i) => `<span class="${i < n ? "done" : i === n ? "now" : ""}" title="${t}"></span>`).join("")}</div>`;
   function ensureSecret() {
     if (player.secret) return;
     const a = new Uint8Array(16); crypto.getRandomValues(a);
@@ -164,7 +212,6 @@
     let sel = player.device || "", tester = !!player.tester;
     function draw() {
       app.innerHTML = `
-        ${start ? stepDots(1) : ""}
         <div class="card center">
           <div class="avatar-stage">${avatarSVG(player.look, 96)}</div>
           <h1>שלום ${esc(player.name)}! 👋</h1>
@@ -200,9 +247,9 @@
     if (arg === "leave") { J.done = true; J.left = true; savePlayer(); return void (location.hash = "#/"); }
     const fresh = J.done && !J.left && !J.seenPrize;
     if (fresh) { J.seenPrize = true; savePlayer(); setTimeout(confetti, 200); }
-    const state = i => J.done || i < J.step ? "done" : i === J.step ? "now" : "next";
+    // תחנות לפני המשחק שבחרו בהתחלה לא נחשבות "עברתם", אבל פתוחות למי שרוצה לנסות
+    const state = i => i < (J.start || 0) ? "open" : J.done || i < J.step ? "done" : i === J.step ? "now" : "next";
     app.innerHTML = `
-      ${J.step === 0 && !J.done ? stepDots(2) : ""}
       <div class="place-hero journey-hero" style="--c:#2b4c8c">
         <div class="place-icon">🧭</div>
         <h1>מסע הפתיחה</h1>
@@ -217,8 +264,9 @@
               <h3>${i + 1}. ${s.title}</h3>
               <p class="small">${s.desc}</p>
               <div class="small muted">🎯 כדי לעבור: ${s.pass}</div>
-              ${state(i) === "now" ? `<button class="btn gold big-btn" data-go="${i}">${i === 0 ? "יוצאים לדרך!" : "לתחנה הבאה!"}</button>`
-                : state(i) === "done" ? `<button class="btn ghost small-btn" data-go="${i}">לשחק שוב</button>` : `<div class="small">🔒 נפתח אחרי התחנה הקודמת</div>`}
+              ${state(i) === "now" ? `<button class="btn gold big-btn" data-go="${i}">${i === (J.start || 0) ? "יוצאים לדרך!" : "לתחנה הבאה!"}</button>`
+                : state(i) === "done" ? `<button class="btn ghost small-btn" data-go="${i}">לשחק שוב</button>`
+                : state(i) === "open" ? `<button class="btn ghost small-btn" data-go="${i}">לנסות גם כאן</button>` : `<div class="small">🔒 נפתח אחרי התחנה הקודמת</div>`}
             </div>
           </div>`).join("")}
         <div class="jstop prize ${J.done && !J.left ? "done" : "next"}">
@@ -274,10 +322,6 @@
         <a class="btn gold big-btn" href="#/journey">${nx ? "ממשיכים במסע ➜" : "🎁 לפתוח את תיבת האוצר"}</a>
       </div>`;
   }
-  const journeyChip = () => journeyOn()
-    ? `<a class="soul-chip journey-chip" href="#/journey">🧭 מסע הפתיחה · תחנה ${player.journey.step + 1}/${JOURNEY.length}</a>`
-    : !player.device ? `<a class="soul-chip journey-chip device-chip" href="#/device">📱 באיזה טלפון אתם משחקים?</a>` : "";
-
   // ---------- חשבון שחקן ----------
   // שחקן חדש מתחיל מהתחלה. ההתקדמות של מי שנכנס נטענת מהשרת בלבד, ולא מהדפדפן.
   const freshPlayer = () => ({ name: "", look: { ...DEFAULT_LOOK }, owned: [], coins: 0, stars: {}, souls: [], activeSoul: null, pos: null });
@@ -330,6 +374,75 @@
       }
     };
   }
+  // ---------- בחירת שחקן (התנתקות והחלפת שחקן במכשיר) ----------
+  const hasProfiles = () => Object.keys(loadProfiles()).length > 0;
+  let creatingNew = false; // לחצו "שחקן חדש": מראים את יצירת הדמות ולא את בחירת השחקן
+  function setPlayer(p) {
+    player = Object.assign(freshPlayer(), p);
+    try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
+    renderHud();
+  }
+  // התנתקות: השחקן נשמר במכשיר, ועוברים למסך בחירת השחקן
+  function signOutLocal() {
+    if (player.name) rememberProfile();
+    setPlayer({});
+    try { localStorage.removeItem(PKEY); } catch (e) { /* ignore */ }
+    renderHud();
+    location.hash = "#/players";
+    route();
+  }
+  function viewPlayers() {
+    setTab("me");
+    document.body.classList.add("no-player");
+    const all = Object.values(loadProfiles()).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+    let removing = null;
+    function draw() {
+      app.innerHTML = `
+        <div class="card center players-card">
+          <div class="players-logo">📜</div>
+          <h1>מי משחק עכשיו?</h1>
+          <p class="muted">${all.length ? "בחרו את השחקן שלכם, או צרו שחקן חדש" : "עוד אין שחקנים במכשיר הזה"}</p>
+          <div class="players-list">
+            ${all.map(p => `
+              <div class="player-row ${player.pid === p.pid ? "on" : ""}">
+                <button class="player-pick" data-pid="${esc(p.pid)}">
+                  <span class="player-av">${avatarSVG(p.look || DEFAULT_LOOK, 54)}</span>
+                  <span class="player-info"><b>${esc(p.name)}</b>
+                    <span class="small muted">⭐ ${Object.values(p.stars || {}).reduce((a, b) => a + b, 0)} · 🪙 ${p.coins || 0} · 🕯️ ${(p.souls || []).length}</span></span>
+                  <span class="player-go">${removing === p.pid ? "" : "◀"}</span>
+                </button>
+                ${removing === p.pid
+                  ? `<div class="player-del-ask"><span class="small">למחוק את ${esc(p.name)} מהמכשיר?</span><button class="btn bad small-btn" data-del-yes="${esc(p.pid)}">מחיקה</button><button class="btn ghost small-btn" data-del-no>ביטול</button></div>`
+                  : `<button class="player-del" data-del="${esc(p.pid)}" aria-label="מחיקת ${esc(p.name)}">🗑️</button>`}
+              </div>`).join("")}
+          </div>
+          <button class="btn gold big-btn" id="newp">➕ שחקן חדש</button>
+          ${db.accounts ? "" : `<p class="small muted">השחקנים נשמרים במכשיר הזה. כל שחקן ממשיך מאיפה שעצר.</p>`}
+        </div>`;
+      app.querySelectorAll("[data-pid]").forEach(b => b.onclick = () => {
+        const p = loadProfiles()[b.dataset.pid];
+        if (!p) return;
+        document.body.classList.remove("no-player");
+        setPlayer(p); player.lastPlayed = Date.now(); savePlayer();
+        toast(`שלום ${player.name}! 👋`);
+        location.hash = "#/"; route();
+      });
+      app.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { removing = b.dataset.del; draw(); });
+      app.querySelectorAll("[data-del-no]").forEach(b => b.onclick = () => { removing = null; draw(); });
+      app.querySelectorAll("[data-del-yes]").forEach(b => b.onclick = () => {
+        const all2 = loadProfiles(); delete all2[b.dataset.delYes]; storeProfiles(all2);
+        const i = all.findIndex(p => p.pid === b.dataset.delYes); if (i >= 0) all.splice(i, 1);
+        removing = null; draw();
+      });
+      document.getElementById("newp").onclick = () => {
+        document.body.classList.remove("no-player");
+        setPlayer({}); creatingNew = true;
+        if ((location.hash || "#/") === "#/") viewOnboarding(); else location.hash = "#/";
+      };
+    }
+    draw();
+  }
+
   async function logoutPlayer() {
     try { await db.signOutPlayer(); } catch (e) { /* ignore */ }
     accountState.user = null; accountState.loaded = false;
@@ -340,50 +453,147 @@
     route();
   }
 
-  // ---------- שאלת השבוע בדף הבית ----------
-  // שאלה מההיכלות של הפרשה של השבוע, עם תיבה להצעת שאלה ותשובה. מתחלפת כל שבוע.
+  // ---------- התפריט (☰ בסרגל העליון) ----------
+  // כל הקישורים שלא צריכים להיות על המפה: הנשמה, מסע הפתיחה, טבלת האלופים, היכל עלמא, הטלפון, החלפת שחקן
+  function closeMenu() {
+    document.querySelectorAll(".menu-wrap").forEach(e => e.remove());
+    document.getElementById("menuBtn").setAttribute("aria-expanded", "false");
+  }
+  function openMenu() {
+    if (document.querySelector(".menu-wrap")) return closeMenu();
+    if (!player.name) return;
+    const soul = player.activeSoul && Sages.byId(player.activeSoul);
+    const J = player.journey;
+    const items = [
+      ["#/souls", "🕯️", soul ? `נשמת ${soul.name}` : "היכל הנשמות", `${player.souls.length}/${Sages.SAGES.length} נשמות`],
+      ["#/journey", "🧭", "מסע הפתיחה", journeyOn() ? `תחנה ${Math.min(J.step, JOURNEY.length - 1) + 1}/${JOURNEY.length}` : J && J.done ? "הושלם ✓" : ""],
+      ["#/leaders", "🏆", "טבלת האלופים", ""],
+      ["#/olama", "🌐", "היכל עלמא", "משחק חי עם כל החדר"],
+      ["#/device", "📱", "באיזה טלפון אתם משחקים?", deviceName(player.device)],
+      ["#/review", "📋", "כל השאלות והמקורות", ""],
+      ["tour", "🎓", "הדרכה למתחילים", "לראות שוב איך משחקים"],
+    ];
+    const wrap = document.createElement("div");
+    wrap.className = "menu-wrap";
+    wrap.innerHTML = `
+      <aside class="menu-sheet" role="dialog" aria-label="תפריט">
+        <div class="menu-me">
+          <span class="menu-av">${avatarSVG(player.look, 58)}</span>
+          <div><b>${esc(player.name)}</b>
+            <div class="small">${db.accounts && accountState.user ? "שם משתמש: " + esc(accountState.user.username) : `⭐ ${totalStars()} · 🪙 ${player.coins}`}</div></div>
+          <button class="menu-x" aria-label="סגירה">✕</button>
+        </div>
+        <nav class="menu-list">
+          ${items.map(([href, icon, title, sub]) => `
+            <a class="menu-item" href="${href === "tour" ? "#/" : href}" ${href === "tour" ? `data-tour="1"` : ""}>
+              <span class="menu-ic">${icon}</span><span class="menu-t">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="menu-arrow">‹</span>
+            </a>`).join("")}
+        </nav>
+        <div class="menu-foot">
+          <button class="btn ghost" id="m-out">🚪 התנתקות / החלפת שחקן</button>
+        </div>
+      </aside>`;
+    wrap.onclick = ev => { if (ev.target === wrap || ev.target.closest(".menu-x")) closeMenu(); };
+    wrap.querySelectorAll(".menu-item").forEach(a => a.addEventListener("click", () => {
+      const tour = a.dataset.tour;
+      closeMenu();
+      if (tour) { player.tour = 0; savePlayer(); if ((location.hash || "#/") === "#/") setTimeout(startTour, 50); }
+    }));
+    wrap.querySelector("#m-out").onclick = () => { closeMenu(); if (db.accounts) logoutPlayer(); else signOutLocal(); };
+    document.body.appendChild(wrap);
+    document.getElementById("menuBtn").setAttribute("aria-expanded", "true");
+  }
+  document.getElementById("menuBtn").onclick = openMenu;
+
+  // ---------- הדרכה לשחקן חדש ----------
+  // כמו במשחקים: אחרי המשחק הראשון, דמות מלווה מראה על המסך מה כל דבר עושה, צעד אחרי צעד.
+  // player.tour = מספר הצעד (מתחיל ב-0 אצל שחקן חדש), ו-"done" כשסיימו. לשחקנים ותיקים אין הדרכה.
+  const TOUR_GIFT = 20;
+  const TOUR = [
+    { sel: null, text: n => `שלום ${n}! אני ינשופי 🦉 ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.` },
+    { sel: "#me", text: (n, girl) => `${girl ? "זאת את" : "זה אתה"}! הדמות שלך הולכת במפה של ארץ ישראל, מעיר לעיר.` },
+    { sel: ".bld[data-b='jerusalem']", text: () => "כל בית במפה הוא מקום עם משימות. מקישים על מקום, הדמות הולכת אליו, ונכנסים לשחק." },
+    { sel: "#hud", text: () => "כאן רואים מה אספת: 🕯️ נשמות של חכמים, ⭐ כוכבים על משימות, ו-🪙 מטבעות שקונים בהם בגדים לדמות." },
+    { sel: ".bottomnav", text: () => "בתפריט התחתון: המפה, הנשמות שאספת, הדמות והחנות, ותיבה להציע שאלה משלך." },
+    { sel: "#menuBtn", text: () => "וכאן התפריט: טבלת האלופים, היכל עלמא, מסע הפתיחה, וגם החלפת שחקן או התנתקות." },
+    { sel: null, text: (n, girl) => `זהו, ${girl ? "את מוכנה" : "אתה מוכן"}! הנה מתנה לדרך: ${TOUR_GIFT} מטבעות 🪙. בהצלחה במסע!`, last: true },
+  ];
+  function startTour() {
+    document.querySelectorAll(".tour").forEach(e => e.remove());
+    if (typeof player.tour !== "number" || !document.getElementById("city")) return;
+    const step = TOUR[player.tour];
+    if (!step) { player.tour = "done"; savePlayer(); return; }
+    const target = step.sel && document.querySelector(step.sel);
+    const box = document.createElement("div");
+    box.className = "tour";
+    box.innerHTML = `
+      <div class="tour-hole"></div>
+      <div class="tour-card" role="dialog" aria-label="הדרכה">
+        <div class="tour-guide">🦉</div>
+        <div class="tour-body">
+          <p>${esc(step.text(player.name, player.look && player.look.gender === "girl"))}</p>
+          <div class="tour-row">
+            <span class="tour-dots">${TOUR.map((_, i) => `<i class="${i === player.tour ? "on" : i < player.tour ? "done" : ""}"></i>`).join("")}</span>
+            ${step.last ? "" : `<button class="link-btn" id="tour-skip">דילוג</button>`}
+            <button class="btn gold small-btn" id="tour-next">${step.last ? "יוצאים לדרך! 🎁" : player.tour === 0 ? "בואו נתחיל" : "הבא ➜"}</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    const hole = box.querySelector(".tour-hole"), card = box.querySelector(".tour-card");
+    const r = target && target.getBoundingClientRect();
+    if (r && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth) {
+      const pad = 8;
+      Object.assign(hole.style, { left: r.left - pad + "px", top: r.top - pad + "px", width: r.width + pad * 2 + "px", height: r.height + pad * 2 + "px" });
+      // הכרטיס בצד השני של המסך מהדבר שמסמנים
+      card.classList.add(r.top + r.height / 2 > innerHeight / 2 ? "at-top" : "at-bottom");
+    } else {
+      hole.classList.add("none");
+      card.classList.add("at-middle");
+    }
+    const finish = gift => {
+      box.remove();
+      player.tour = "done";
+      if (gift) { player.coins += TOUR_GIFT; confetti(); toast(`🪙 +${TOUR_GIFT} מטבעות!`); }
+      savePlayer();
+    };
+    box.querySelector("#tour-next").onclick = () => {
+      if (step.last) return finish(true);
+      player.tour++; savePlayer(); startTour();
+    };
+    const sk = box.querySelector("#tour-skip");
+    if (sk) sk.onclick = () => finish(false);
+  }
+
+  // ---------- שאלת השבוע ----------
+  // פעם בשבוע, כשנכנסים למפה, קופצת הצעה לענות על שאלת השבוע מהיכל הפרשה. לא בכניסה הראשונה.
+  const weekNo = () => Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
   function weeklyQuestion() {
     const all = (Parasha.COMMENTATORS || []).flatMap(c => [1, 2, 3, 4, 5, 6, 7, 8].flatMap(l => (((window.TEIRE_LEVELS || {})["parasha-" + c.id] || {})[l] || []).map(q => ({ ...q, commentator: c }))));
     if (!all.length) return null;
-    const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-    return all[week % all.length];
+    return all[weekNo() % all.length];
   }
-  function renderWeekly() {
-    const box = document.getElementById("weekly");
-    if (!box) return;
-    const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-    let hidden = false;
-    try { hidden = localStorage.getItem("teire.weeklyHidden") === String(week); } catch (e) { /* ignore */ }
-    if (hidden) { box.innerHTML = ""; return; } // נסגרה ב-X השבוע, תחזור בשבוע הבא
+  // שחקן חדש: השבוע הזה כבר נחשב "הוצע", כך שההצעה הראשונה תגיע בשבוע הבא
+  function weeklyLater() { player.weeklySeen = weekNo(); }
+  function offerWeekly() {
+    if (player.weeklySeen === weekNo() || document.querySelector(".weekly-pop, .tour")) return;
     const q = weeklyQuestion();
-    box.innerHTML = `
-      <div class="weekly-wrap">
-        <details class="weekly card" open>
-          <summary class="weekly-tag">📜 שאלת השבוע · ${esc(Parasha.current.name || "")}</summary>
-          ${q ? `
-            <div class="qtext">${esc(q.question)}</div>
-            <a class="btn ghost small" href="#/place/parasha-${q.commentator.id}">לענות בהיכל ${esc(q.commentator.name)}</a>` : `<p class="small muted">שאלת השבוע תתעדכן בקרוב.</p>`}
-        </details>
-        <button class="weekly-x" aria-label="סגירת שאלת השבוע">✕</button>
+    if (!q || !document.getElementById("city")) return;
+    player.weeklySeen = weekNo(); savePlayer();
+    const pop = document.createElement("div");
+    pop.className = "weekly-pop";
+    pop.innerHTML = `
+      <div class="card center weekly-card" role="dialog" aria-label="שאלת השבוע">
+        <div class="weekly-tag">📜 שאלת השבוע · ${esc(Parasha.current.name || "")}</div>
+        <div class="qtext">${esc(q.question)}</div>
+        <a class="btn gold big-btn" href="#/place/parasha-${q.commentator.id}">לענות עכשיו</a>
+        <div><button class="link-btn" id="wk-later">בפעם אחרת</button></div>
       </div>`;
-    box.querySelector(".weekly-x").onclick = () => {
-      try { localStorage.setItem("teire.weeklyHidden", String(week)); } catch (e) { /* ignore */ }
-      box.innerHTML = "";
-    };
-  }
-
-  // פינג קטן שמציע להציע שאלה. מופיע רק בכניסה לאתר (פעם בכל ביקור), ואפשר לסגור אותו ב-X.
-  function showSuggestPing() {
-    try { if (sessionStorage.getItem("teire.pinged")) return; sessionStorage.setItem("teire.pinged", "1"); } catch (e) { /* ignore */ }
-    const ping = document.createElement("div");
-    ping.className = "suggest-ping";
-    ping.innerHTML = `
-      <button class="ping-x" aria-label="סגירה">✕</button>
-      <div class="ping-text">✏️ יש לכם שאלה טובה? הציעו שאלה ותשובה, ואם מנהל יאשר אותה, היא תופיע באתר.</div>
-      <a class="btn small" href="#/suggest">להציע שאלה</a>`;
-    ping.querySelector(".ping-x").onclick = () => ping.remove();
-    ping.querySelector("a").onclick = () => ping.remove();
-    document.body.appendChild(ping);
+    const close = () => pop.remove();
+    pop.querySelector("a").onclick = close;
+    pop.querySelector("#wk-later").onclick = close;
+    pop.onclick = ev => { if (ev.target === pop) close(); };
+    document.body.appendChild(pop);
   }
 
   // ---------- העיר ----------
@@ -421,23 +631,35 @@
     const pts = arr => arr.map(p => p.join(",")).join(" ");
 
     app.innerHTML = `
-      <div id="weekly"></div>
       <div class="city" id="city">
         <div class="world" id="world" style="width:${W}px;height:${H}px">
           <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
             <defs>
               <linearGradient id="landg" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#7dc95e"/><stop offset=".45" stop-color="#a4d36b"/>
+                <stop offset="0" stop-color="#6cc25a"/><stop offset=".45" stop-color="#9fd266"/>
                 <stop offset=".62" stop-color="#e3cf7a"/><stop offset="1" stop-color="#e7a85a"/>
               </linearGradient>
+              <radialGradient id="seag" cx=".45" cy=".5" r=".75">
+                <stop offset="0" stop-color="#47b3ea"/><stop offset=".6" stop-color="#2f8fd6"/><stop offset="1" stop-color="#1d63b0"/>
+              </radialGradient>
+              <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".1"/>
+              </linearGradient>
+              <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="9"/></filter>
               <pattern id="waves" width="80" height="40" patternUnits="userSpaceOnUse">
-                <path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3" stroke-linecap="round"/>
+                <path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="3" stroke-linecap="round"/>
+              </pattern>
+              <pattern id="grass" width="46" height="38" patternUnits="userSpaceOnUse">
+                <path d="M8 30 l3 -7 l3 7 M30 12 l2.5 -6 l2.5 6" fill="none" stroke="rgba(40,90,20,.1)" stroke-width="2" stroke-linecap="round"/>
               </pattern>
             </defs>
-            <rect width="${W}" height="${H}" fill="#3fa0e0"/>
+            <rect width="${W}" height="${H}" fill="url(#seag)"/>
             <rect width="${W}" height="${H}" fill="url(#waves)" class="waves"/>
+            ${mapScenery.back(pts)}
             ${[LAND, SINAI, BAVEL, EUROPE, MIZRACH].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
             <polygon points="${pts(LAND)}" fill="url(#landg)" stroke="#8fbf5a" stroke-width="4" stroke-linejoin="round"/>
+            <polygon points="${pts(LAND)}" fill="url(#grass)"/>
+            <polygon points="${pts(LAND)}" fill="url(#sun)"/>
             <polygon points="${pts(SINAI)}" fill="#e9b468" stroke="#d39a4a" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(BAVEL)}" fill="#e8c27a" stroke="#c99a50" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(EUROPE)}" fill="#9ccf7a" stroke="#6fa34f" stroke-width="4" stroke-linejoin="round"/>
@@ -447,13 +669,15 @@
             <ellipse cx="706" cy="1215" rx="24" ry="100" fill="#4fb3d9" stroke="#f5dc8c" stroke-width="6"/>
             <path d="M840 600 C 860 760, 850 900, 870 1060" fill="none" stroke="#3fa0e0" stroke-width="7" stroke-linecap="round" opacity=".8"/>
             <path d="M560 1060 L 520 1060" stroke="#c9a46a" stroke-width="0"/>
+            ${mapScenery.front()}
           </svg>
+          ${mapScenery.cloudShadows()}
           ${LABELS.map(l => `<span class="map-label ${l.cls}" style="left:${l.x}px;top:${l.y}px">${l.text}</span>`).join("")}
           ${mapDecorations()}
           ${LOCATIONS.map(L => {
             const info = locInfo(L);
             const sages = Sages.SAGES.filter(s => s.building === L.id);
-            return `<button class="bld ${info.open ? "" : "locked"} ${L.duel ? "arena" : ""}" data-b="${L.id}" style="left:${L.x}px;top:${L.y}px;--c:${info.color}">
+            return `<button class="bld ${info.open ? "" : "locked"} ${L.duel ? "arena" : ""}" data-b="${L.id}" style="left:${L.x}px;top:${L.y}px;--c:${info.color};z-index:${L.y + 40}">
               <span class="bld-roof"></span>
               <span class="bld-body"><span class="bld-icon">${info.open ? info.icon : "🔒"}</span></span>
               ${sages.length ? `<span class="bld-sages">${sages.map(s => `<span class="${player.souls.includes(s.id) ? "got" : ""}">${Sages.sageSVG(s, 30)}</span>`).join("")}</span>` : ""}
@@ -462,16 +686,13 @@
           }).join("")}
           ${meHtml(soul, pos)}
         </div>
+        ${mapScenery.sky()}
+        <div class="city-shade"></div>
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
-        <a class="soul-chip lead-chip" href="#/leaders">🏆 טבלת האלופים</a>
-        <a class="soul-chip olama-chip" href="#/olama">🌐 היכל עלמא · משחק חי</a>
-        ${journeyChip()}
-        <a class="soul-chip" href="#/souls">${soul ? `🕯️ נשמת ${esc(soul.name)}` : "🕯️ עוד אין נשמה"} · ${player.souls.length}/${Sages.SAGES.length}</a>
       </div>`;
 
-    renderWeekly();
-    Parasha.ready.then(renderWeekly);
-    showSuggestPing();
+    if (typeof player.tour === "number") setTimeout(startTour, 600);
+    else Parasha.ready.then(() => setTimeout(offerWeekly, 700));
     startWalker({
       W, H, pos,
       savePos: p => { player.pos = p; savePlayer(); },
@@ -498,6 +719,7 @@
   function startWalker({ W, H, pos, savePos, onBuilding, onGround, onMove, blocked = [] }) {
     const city = document.getElementById("city"), world = document.getElementById("world");
     const me = document.getElementById("me"), body = me.querySelector(".me-body"), tgt = document.getElementById("target");
+    const sky = document.getElementById("sky");
     const SPEED = 260; // פיקסלים לשנייה
     // בטלפון מקטינים את העולם כדי לראות יותר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
@@ -555,6 +777,8 @@
       cam.x = snap ? wantX : cam.x + (wantX - cam.x) * .15;
       cam.y = snap ? wantY : cam.y + (wantY - cam.y) * .15;
       world.style.transform = `translate(${-cam.x}px, ${-cam.y}px) scale(${S})`;
+      // העננים גבוהים יותר מהקרקע, ולכן זזים מהר יותר ממנה: זה נותן תחושת עומק
+      if (sky) sky.style.transform = `translate(${-cam.x * 1.35}px, ${-cam.y * 1.35}px) scale(${S})`;
     }
 
     function walkTo(x, y, cb) {
@@ -827,13 +1051,98 @@
     };
   }
 
+  // ---------- נוף המפה: עומק ותלת מימד ----------
+  // הארץ נראית כמו אי מוגבה: צוק וצל מתחת לחוף, מים רדודים ליד החוף, הרים מוצללים, יערות עם צל,
+  // ועננים שזזים מהר יותר מהקרקע כשהמצלמה זזה (פרלקסה).
+  const mapScenery = (() => {
+    const { LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, W, H } = City;
+    const SHAPES = [LAND, SINAI, BAVEL, EUROPE, MIZRACH];
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const inPoly = (x, y, poly) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i], [xj, yj] = poly[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    // מקום פנוי: רחוק מהבניינים, מהשמות, מהירדן ומהימים הפנימיים
+    const free = (x, y, r) => LOCATIONS.every(L => Math.hypot(L.x - x, (L.y + 20) - y) > r + 62)
+      && LABELS.every(l => Math.hypot(l.x - x, l.y - y) > r + 40)
+      && !(x > 680 && x < 745 && y > 330 && y < 1330) && Math.hypot(x - 520, y - 1060) > 70;
+    const where = (x, y) => SHAPES.find(p => inPoly(x, y, p));
+
+    // הרים: [x, y, רוחב, גובה, שלג]
+    const HILLS = [[748, 78, 120, 80, 1], [690, 120, 80, 52], [430, 300, 80, 50], [560, 330, 70, 44], [470, 650, 74, 46], [650, 590, 70, 44],
+      [520, 1150, 70, 42], [655, 1060, 64, 40], [610, 1450, 80, 44], [520, 1660, 90, 50], [205, 1560, 80, 50], [400, 1650, 100, 64], [230, 1880, 70, 40],
+      [960, 600, 60, 36], [1220, 230, 90, 56], [1330, 560, 70, 44], [1110, 1290, 70, 40], [1300, 1220, 80, 46]]
+      .filter(([x, y, w]) => free(x, y, w / 3));
+    const hill = ([x, y, w, h, snow]) => {
+      const sandy = y > 1350 || x > 1040 && y > 1000 || (x > 800 && x < 1000);
+      const lit = sandy ? "#e9c27f" : "#8fcf6a", dark = sandy ? "#c4914c" : "#5f9f45", base = sandy ? "#d8a95f" : "#76b955";
+      return `<g class="hill">
+        <ellipse cx="${x + w * .12}" cy="${y + 4}" rx="${w * .62}" ry="${h * .2}" fill="rgba(0,0,0,.2)"/>
+        <path d="M${x - w / 2} ${y} L${x} ${y - h} L${x + w / 2} ${y} Z" fill="${base}"/>
+        <path d="M${x - w / 2} ${y} L${x} ${y - h} L${x - w * .06} ${y} Z" fill="${lit}"/>
+        <path d="M${x} ${y - h} L${x + w / 2} ${y} L${x + w * .1} ${y} Z" fill="${dark}"/>
+        ${snow ? `<path d="M${x - w * .16} ${y - h * .68} L${x} ${y - h} L${x + w * .16} ${y - h * .68} L${x + w * .06} ${y - h * .6} L${x} ${y - h * .7} L${x - w * .07} ${y - h * .6} Z" fill="#fff"/>` : ""}
+      </g>`;
+    };
+
+    // עצים: צפוף בצפון, דקלים ושיחים בדרום
+    const TREES = [];
+    for (let i = 0; i < 900 && TREES.length < 130; i++) {
+      const x = 120 + rnd() * (W - 160), y = 60 + rnd() * (H - 120);
+      const shape = where(x, y);
+      if (!shape || !free(x, y, 14) || TREES.some(t => Math.hypot(t.x - x, t.y - y) < 30)) continue;
+      const south = y > 1320 || shape === SINAI || shape === MIZRACH || shape === BAVEL;
+      if (south && rnd() < .55) continue; // במדבר פחות צמחייה
+      TREES.push({ x, y, s: .8 + rnd() * .5, kind: south ? (rnd() < .5 ? "palm" : "bush") : shape === EUROPE ? "pine" : rnd() < .25 ? "pine" : "tree" });
+    }
+    TREES.sort((a, b) => a.y - b.y);
+    const tree = ({ x, y, s, kind }) => {
+      const sh = `<ellipse cx="${x + 7 * s}" cy="${y + 2}" rx="${15 * s}" ry="${5 * s}" fill="rgba(0,0,0,.2)"/>`;
+      if (kind === "pine") return `${sh}<rect x="${x - 2 * s}" y="${y - 8 * s}" width="${4 * s}" height="${8 * s}" fill="#7a5230"/>
+        <path d="M${x - 12 * s} ${y - 6 * s} L${x} ${y - 34 * s} L${x + 12 * s} ${y - 6 * s} Z" fill="#2f7d3a"/>
+        <path d="M${x} ${y - 34 * s} L${x + 12 * s} ${y - 6 * s} L${x + 2 * s} ${y - 6 * s} Z" fill="#23642d"/>`;
+      if (kind === "palm") return `${sh}<path d="M${x} ${y} q${3 * s} ${-14 * s} ${-1 * s} ${-26 * s}" stroke="#9a6b3a" stroke-width="${3.5 * s}" fill="none" stroke-linecap="round"/>
+        <path d="M${x - 1 * s} ${y - 26 * s} q${-10 * s} ${-4 * s} ${-15 * s} ${4 * s} M${x - 1 * s} ${y - 26 * s} q${10 * s} ${-5 * s} ${15 * s} ${3 * s} M${x - 1 * s} ${y - 26 * s} q${-4 * s} ${-9 * s} ${-11 * s} ${-9 * s} M${x - 1 * s} ${y - 26 * s} q${5 * s} ${-9 * s} ${12 * s} ${-8 * s}" stroke="#3f9a3a" stroke-width="${3.5 * s}" fill="none" stroke-linecap="round"/>`;
+      if (kind === "bush") return `${sh}<circle cx="${x}" cy="${y - 6 * s}" r="${8 * s}" fill="#8fae4a"/><circle cx="${x - 2.5 * s}" cy="${y - 8.5 * s}" r="${3.5 * s}" fill="#b4cc6a"/>`;
+      return `${sh}<rect x="${x - 2 * s}" y="${y - 10 * s}" width="${4 * s}" height="${10 * s}" fill="#7a5230"/>
+        <circle cx="${x}" cy="${y - 20 * s}" r="${12 * s}" fill="#3e9a3e"/>
+        <circle cx="${x + 4 * s}" cy="${y - 17 * s}" r="${8 * s}" fill="#2f8133"/>
+        <circle cx="${x - 4 * s}" cy="${y - 24 * s}" r="${5 * s}" fill="#6cc25a"/>`;
+    };
+
+    // ניצוצות על המים
+    const SPARKS = [[120, 520], [230, 760], [90, 1120], [210, 1380], [960, 200], [980, 1260], [880, 1500], [140, 220], [1000, 420], [60, 1700]];
+    // עננים: [x, y, גודל]. הצל שלהם על הקרקע זז יחד איתם
+    const CLOUDS = [[300, 200, 1.1], [800, 520, .9], [380, 900, 1], [1100, 980, 1.2], [620, 1280, .95], [250, 1600, 1.1], [1000, 1700, .9], [1200, 400, 1]];
+    const cloud = (cls, x, y, k, i) => `<div class="${cls}" style="left:${x}px;top:${y}px;--k:${k};animation-delay:${-i * 7}s"><i></i><i></i><i></i></div>`;
+
+    return {
+      back(pts) {
+        return `
+          <g class="shallow">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#7fd6f2" stroke-opacity=".45" stroke-width="120" stroke-linejoin="round"/>`).join("")}</g>
+          <g opacity=".7">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#a9e6f7" stroke-opacity=".6" stroke-width="64" stroke-linejoin="round"/>`).join("")}</g>
+          <g class="foam">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#fff" stroke-width="46" stroke-linejoin="round"/>`).join("")}</g>
+          <g filter="url(#soft)" transform="translate(16 30)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="rgba(10,40,90,.45)" stroke="rgba(10,40,90,.45)" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>
+          <g transform="translate(0 16)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="#b98546" stroke="#b98546" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>
+          ${SPARKS.map(([x, y], i) => `<path class="spark" style="animation-delay:${i * .37}s" d="M${x} ${y - 7} L${x + 2} ${y - 2} L${x + 7} ${y} L${x + 2} ${y + 2} L${x} ${y + 7} L${x - 2} ${y + 2} L${x - 7} ${y} L${x - 2} ${y - 2} Z" fill="#fff"/>`).join("")}`;
+      },
+      front() { return HILLS.map(hill).join("") + TREES.map(tree).join(""); },
+      cloudShadows() { return `<div class="cloud-shadows">${CLOUDS.map(([x, y, k], i) => cloud("cloud-sh", x + 40, y + 160, k, i)).join("")}</div>`; },
+      sky() { return `<div class="sky" id="sky" style="width:${W}px;height:${H}px">${CLOUDS.map(([x, y, k], i) => cloud("cloud", x, y, k, i)).join("")}<span class="bird" style="top:640px">🕊️</span><span class="bird b2" style="top:1420px">🕊️</span></div>`; },
+    };
+  })();
+
   function mapDecorations() {
     // קישוטים קבועים: הרים, עצים, דקלים וסירות
     const items = [
-      ["⛰️", 700, 110], ["🌲", 520, 170], ["🌳", 610, 560], ["🌿", 430, 470], ["🌳", 680, 640], ["🐑", 520, 650],
-      ["🌳", 680, 900], ["🍇", 380, 960], ["🐄", 470, 820], ["🌾", 650, 760], ["🌳", 660, 1060], ["🐑", 500, 1250],
-      ["🌵", 600, 1330], ["🐪", 560, 1480], ["🌴", 600, 1640], ["⛺", 520, 1560], ["🌵", 590, 1800],
-      ["🐪", 230, 1650], ["🌵", 380, 1820], ["🌴", 940, 700], ["🌴", 840, 980], ["🐫", 950, 900],
+      // העצים וההרים מצוירים עכשיו בנוף (mapScenery), כאן נשארו החיות, הסירות והאוהל
+      ["🐑", 520, 650], ["🍇", 380, 960], ["🐄", 470, 820], ["🌾", 650, 760], ["🐑", 500, 1250],
+      ["🐪", 560, 1480], ["⛺", 520, 1560], ["🐪", 230, 1650], ["🐫", 950, 900],
       ["⛵", 210, 900], ["🐋", 120, 1250], ["🐟", 240, 450], ["⛵", 90, 330], ["🐠", 900, 1250],
     ];
     return items.map(([e, x, y]) => `<span class="deco" style="left:${x}px;top:${y}px">${e}</span>`).join("");
@@ -1906,11 +2215,12 @@
         <div class="avatar-stage">${avatarSVG(player.look, 120)}</div>
         <h2>${esc(player.name)}</h2>
         ${db.accounts && accountState.user ? `<p class="muted small">שם משתמש: ${esc(accountState.user.username)} </p>` : ""}
-        ${db.accounts && accountState.user ? `<button class="btn ghost" id="logout">יציאה מהחשבון</button>` : ""}
+        ${!db.accounts || accountState.user ? `<button class="btn ghost small-btn" id="logout">🚪 התנתקות / החלפת שחקן</button>` : ""}
         <div class="row center-row"><span class="pill dark">⭐ ${totalStars()} כוכבים</span><span class="pill dark">🪙 ${player.coins} מטבעות</span></div>
         <div class="row center-row">
           <a class="btn ghost small-btn" href="#/device">📱 הטלפון שלי: ${esc(deviceName(player.device))}${player.tester ? " · 🛠️ בודק" : ""}</a>
           <a class="btn ghost small-btn" href="#/journey">🧭 ${journeyOn() ? "להמשיך את מסע הפתיחה" : "מסע הפתיחה"}</a>
+          <a class="btn ghost small-btn" href="#/leaders">🏆 טבלת האלופים</a>
         </div>
         <div id="shopmsg"></div>
       </div>
@@ -1956,7 +2266,7 @@
     });
     document.getElementById("redo").onclick = viewOnboarding;
     const lo = document.getElementById("logout");
-    if (lo) lo.onclick = logoutPlayer;
+    if (lo) lo.onclick = () => db.accounts ? logoutPlayer() : signOutLocal();
     const showNext = () => {
       const st = TeireShabbat.status(), el = document.getElementById("nextsh");
       if (el && st.next) el.textContent = `האתר ייסגר ל${st.next.name} ב${dayName(st.next.start)} בשעה ${hm(st.next.start)}`;
@@ -2470,11 +2780,16 @@
     stopDuel();
     stopGame();
     window.TeireOlama.stop();
-    document.querySelectorAll(".suggest-ping").forEach(e => e.remove()); // הפינג נסגר כשעוברים לעמוד אחר
+    document.querySelectorAll(".weekly-pop, .tour").forEach(e => e.remove()); // ההצעה וההדרכה נסגרות כשעוברים לעמוד אחר
+    closeMenu();
+    document.body.classList.remove("no-player");
     Music.mood(moodFor(page, arg));
     if (checkShabbat()) return;
     if (db.accounts && !accountState.user && page !== "admin") return viewAccount();
     window.scrollTo(0, 0);
+    if (page === "players" && !db.accounts) return viewPlayers();
+    // אין שחקן פעיל אבל יש שחקנים שמורים במכשיר: בוחרים מי משחק
+    if (!db.accounts && !player.name && !creatingNew && hasProfiles() && page !== "admin") return viewPlayers();
     if (page === "place" && arg) return viewPlace(arg);
     if (page === "b" && arg) return viewBuilding(arg);
     if (page === "town" && arg) return viewTown(arg);
