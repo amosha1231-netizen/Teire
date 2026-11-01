@@ -59,6 +59,11 @@
       { id: "#ef4444", name: "אדום", price: 20 },
       { id: "#a855f7", name: "סגול", price: 40 },
       { id: "#f59e0b", name: "זהב", price: 120 },
+      // פריטי יהלומים 💎: המחיר האמיתי נקבע בשרת (gem_items ב-supabase/update-10.sql), כאן רק לתצוגה.
+      { id: "#06b6d4", name: "טורקיז", gems: 30 },
+      { id: "#ec4899", name: "ורוד", gems: 30 },
+      { id: "#111827", name: "שחור מלכותי", gems: 50 },
+      { id: "#c0c0c0", name: "כסף", gems: 80 },
     ],
     extra: [
       { id: "none", name: "בלי", price: 0 },

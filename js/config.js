@@ -9,4 +9,10 @@ window.TEIRE_CONFIG = {
   QUESTIONS_PER_MISSION: 5,
   // חשבונות שחקנים (שם משתמש וסיסמה). להפעיל רק אחרי שמריצים supabase/update-4.sql ב-Supabase.
   ACCOUNTS: false,
+  // יהלומים 💎 שקונים בכסף אמיתי באפליקציה. להפעיל רק אחרי supabase/update-10.sql ואחרי שמפעילים
+  // Anonymous sign-ins ב-Supabase (ראו docs/PURCHASES.md).
+  GEMS: false,
+  // המפתחות הציבוריים מ-RevenueCat (Project settings -> API keys). ריק = אין קנייה במכשיר הזה.
+  REVENUECAT_IOS_KEY: "",
+  REVENUECAT_ANDROID_KEY: "",
 };
