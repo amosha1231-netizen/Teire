@@ -473,7 +473,8 @@ body.shabbat .music-btn { display: none; }
 /* עולמות המרוץ */
 .race-worlds { margin: 12px 0; }
 .race-worlds h3 { margin: 0 0 8px; }
-.rw-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rw-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 640px) { .rw-list { grid-template-columns: repeat(2, 1fr); } }
 .rw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; border: 2px solid #e5e7eb; background: #fff; cursor: pointer; font: inherit; color: #1f2937; }
 .rw b { font-size: .95rem; }
 .rw-icon { font-size: 1.7rem; line-height: 1.1; }
@@ -780,3 +781,9 @@ button.olama-name { cursor: pointer; }
 .device-chip { animation: none; border-color: #16a34a; color: #166534; }
 @keyframes jpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 @media (prefers-reduced-motion: reduce) { .jstop.now .jdot, .journey-chip { animation: none; } }
+/* רמפה ותא הנהג */
+.track.cockpit .lane-label { bottom: 18px; font-size: 1.05rem; padding: 10px 6px; background: rgba(17,24,39,.88); border-color: #facc15; box-shadow: 0 0 0 3px rgba(250,204,21,.35); animation: cockpitPulse .9s infinite alternate; }
+.track.cockpit .tap-zone { z-index: 2; }
+.track.cockpit .hud-l, .track.cockpit .hud-r, .track.cockpit .hud-snd, .track.cockpit .race-tag { opacity: 0; }
+@keyframes cockpitPulse { to { box-shadow: 0 0 0 6px rgba(250,204,21,.15); } }
+.track.ramp-near .race-banner.lap { color: #fde047; }

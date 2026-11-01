@@ -200,6 +200,12 @@
       gate() { burst("bandpass", 900, 0.25, 0.25, 2500); tone(660, 0.12, 0.08, "triangle"); },
       crash() { burst("lowpass", 1800, 1.1, 1.0, 120); tone(70, 0.6, 0.5, "sine", 30); burst("bandpass", 3000, 0.5, 0.4); },
       shield() { tone(520, 0.35, 0.15, "triangle", 1040); },
+      // קפיצת הרמפה: שיגור, דופק בזמן ההחלטה, ונחיתה
+      launch() { burst("bandpass", 600, 0.7, 0.45, 2400); tone(160, 0.7, 0.12, "sawtooth", 520); },
+      heart() { tone(62, 0.16, 0.5, "sine", 40); setTimeout(() => tone(55, 0.14, 0.35, "sine", 38), 170); },
+      tick() { tone(1200, 0.05, 0.05, "square"); },
+      land() { burst("lowpass", 900, 0.5, 0.9, 90); tone(55, 0.35, 0.45, "sine", 30); },
+      cheer() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.18, 0.1, "triangle"), i * 90)); },
       toggle() {
         on = !on;
         try { localStorage.setItem(SFX_KEY, on ? "on" : "off"); } catch (e) { /* ignore */ }
@@ -215,11 +221,19 @@
   const SEG = 200, N = 1600, ROAD_W = 1500, CAM_H = 1000, DRAW = 140, LANES = 2;
   const CAM_D = 1 / Math.tan((50 * Math.PI / 180)); // עומק המצלמה לפי זווית ראייה של 100°
   const PLAYER_Z = CAM_H * CAM_D;
+  const RAMP_T = 5.5; // שניות להחליט בתוך תא הנהג
   const GATE_DIST = 70 * SEG; // השער נולד במרחק הזה מהמכונית
   // הנתיבים: שמאל, אמצע (בין הנתיבים), ימין. ביחידות של חצי רוחב הכביש
   const LANE_X = { left: -0.5, mid: 0, right: 0.5 };
 
-  function buildTrack() {
+  // נופי המסלולים: שמיים, רכסים, שוליים ועצמים בצד הדרך
+  const THEMES = {
+    forest: { sky: ["#4f9ee0", "#a9d4f2", "#e8f3f8"], ridges: ["#8fb3c9", "#4e7d5b", "#2f6a40"], grass: ["#3f8a3a", "#4a9a42"], fog: "232,243,248", rock: "#8b8378", side: ["tree", "tree"], extra: "rock" },
+    desert: { sky: ["#5aa9e6", "#f3d9a4", "#fbe7c0"], ridges: ["#e0b07a", "#c98a50", "#a9683a"], grass: ["#d6ae6a", "#e0bb78"], fog: "251,231,192", rock: "#a8774a", side: ["cactus", "rock"], extra: "cactus" },
+    sea: { sky: ["#2f8fe0", "#8fd0f5", "#e6f7ff"], ridges: ["#a7c9dd", "#2b8fc9", "#e6d39c"], grass: ["#e1cc92", "#ead8a6"], fog: "230,247,255", rock: "#9a8f7a", side: ["palm", "palm"], extra: "umbrella", water: true },
+    jerusalem: { sky: ["#f97316", "#fbbf77", "#fde7c8"], ridges: ["#caa47f", "#b38d69", "#97734f"], grass: ["#988a58", "#a69866"], fog: "253,231,200", rock: "#cdbb98", side: ["house", "cypress"], extra: "house" },
+  };
+  function buildTrack(theme) {
     // קטעים: ישר, פנייה רכה, ופנייה חדה עם שלטי חץ. גבעות בגלים שנסגרים בסוף המסלול
     const segs = [];
     const rnd = (a, b) => a + Math.random() * (b - a);
@@ -243,18 +257,25 @@
       s.y1 = hill(s.i); s.y2 = hill(s.i + 1);
       s.dark = Math.floor(s.i / 3) % 2;
       // עצים, סלעים ושלטי חץ לפניות החדות
-      if (s.i % 3 === 0) s.sprites.push({ kind: "tree", x: -(1.55 + Math.random() * 1.8), s: 0.8 + Math.random() * 0.6 });
-      if (s.i % 3 === 1) s.sprites.push({ kind: "tree", x: 1.55 + Math.random() * 1.8, s: 0.8 + Math.random() * 0.6 });
-      if (s.i % 17 === 5) s.sprites.push({ kind: "rock", x: (Math.random() < 0.5 ? -1 : 1) * (1.4 + Math.random()), s: 1 });
+      const pick = () => theme.side[Math.random() < 0.7 ? 0 : 1];
+      if (s.i % 3 === 0) s.sprites.push({ kind: pick(), x: -(1.55 + Math.random() * 1.8), s: 0.8 + Math.random() * 0.6 });
+      if (s.i % 3 === 1) s.sprites.push({ kind: pick(), x: 1.55 + Math.random() * 1.8, s: 0.8 + Math.random() * 0.6 });
+      if (s.i % 17 === 5) s.sprites.push({ kind: theme.extra, x: (Math.random() < 0.5 ? -1 : 1) * (1.4 + Math.random()), s: 1 });
       if (s.sharp && s.i % 4 === 0) s.sprites.push({ kind: "chevron", x: s.curve > 0 ? 1.28 : -1.28, dir: s.curve > 0 ? 1 : -1 });
     });
     return segs;
   }
 
   function start(opts) {
-    const { root, look, boost = 1, shield: shield0 = 0, deck, sidesFor, ui } = opts;
+    const { root, look, boost: boost0 = 1, shield: shield0 = 0, sidesFor, ui } = opts;
+    const theme = THEMES[opts.theme] || THEMES.forest, boost = boost0 * (opts.speed || 1);
+    // שלבי הקושי בתוך המרוץ: שערים 1-5 מהחפיסה הראשונה, 6-10 מהשנייה, ומשם מהשלישית
+    const decks = opts.decks || [opts.deck], ks = decks.map(() => 0);
+    const stageOf = n => Math.min(decks.length - 1, n <= 5 ? 0 : n <= 10 ? 1 : 2);
+    const isRamp = n => opts.ramps !== false && (n === 5 || n === 10 || n === 15 || (n > 15 && n % 10 === 5));
+    const driverName = (opts.driver && opts.driver.name) || "";
     const canvas = root.querySelector("canvas"), g = canvas.getContext("2d");
-    const segs = buildTrack(), trackLen = N * SEG;
+    const segs = buildTrack(theme), trackLen = N * SEG;
     const snd = makeSound(); snd.start();
     let W = 0, H = 0, dpr = 1;
     function resize() {
@@ -270,6 +291,9 @@
     let pos = 0, speed = 0, target = 0, laneName = "mid", px = 0, score = 0, streak = 0, shield = shield0;
     let phase = "count", phaseT = 0, clock = 0, raceT = 0, gateZ = null, item = null, sides = null, k = 0, raf = 0, last = 0;
     let lap = 0, bgX = 0, crashT = 0, nitroT = 0, lean = 0, ended = false, flash = 0;
+    // רמפה: gates = מספר השער, ramp = השער הנוכחי הוא רמפה, lift/zoom = גובה הקפיצה והזום לתא הנהג
+    let gates = 0, ramp = false, lift = 0, zoom = 0, airTilt = 0, chosen = null, choseT = 0, beatT = 0, slow = 1, shake = 0, bodyLean = 0, stage = -1;
+    const sparks = [];
     // המתחרים: מתחילים לפנינו, כל אחד במהירות קבועה. השחקן מאיץ עם כל תשובה נכונה ועוקף אותם
     const RIVALS = [
       { color: "#1d4ed8", stripe: "#e5e7eb", plate: "רש״י" },
@@ -283,18 +307,57 @@
 
     const segAt = z => segs[Math.floor(((z % trackLen) + trackLen) % trackLen / SEG) % N];
     function newGate() {
-      item = deck[k++ % deck.length]; sides = sidesFor(item);
+      gates++;
+      ramp = isRamp(gates);
+      const st = stageOf(gates), di = ramp ? Math.min(decks.length - 1, st + 1) : st, d = decks[di];
+      if (st !== stage) { if (stage >= 0 && ui.stage) ui.stage(st); stage = st; }
+      item = d[ks[di]++ % d.length]; sides = sidesFor(item);
       gateZ = pos + PLAYER_Z + GATE_DIST;
       target = GATE_DIST / (durFor(score) / 1000);
+      if (ramp) {
+        // לפני הרמפה רואים רק את המשפט. המקורות יופיעו בתוך תא הנהג
+        ui.question(item, null);
+        ui.banner("🛫 רמפה! קפיצה לפניכם", "lap");
+        if (ui.ramp) ui.ramp("near");
+      } else ui.question(item, sides);
+    }
+    function startJump() {
+      phase = "jump"; phaseT = 0; gateZ = null; snd.launch(); flash = 0.2;
+      chosen = null; choseT = 0; beatT = 0;
+      if (ui.ramp) ui.ramp("air");
+    }
+    function enterCockpit() {
+      phase = "cockpit"; phaseT = 0; laneName = "mid"; zoom = 1;
       ui.question(item, sides);
+      if (ui.ramp) ui.ramp("cockpit");
+    }
+    function leaveCockpit() {
+      chosen = laneName; phase = "fall"; phaseT = 0;
+      if (ui.ramp) ui.ramp("fall");
+    }
+    function landed() {
+      phase = "landed"; phaseT = 0; snd.land(); shake = 0.5; flash = 0.25; lift = 0;
+      const carX = W / 2, carY = H - Math.max(14, H * 0.06);
+      for (let q = 0; q < 34; q++) sparks.push({ x: carX + (Math.random() - 0.5) * W * 0.3, y: carY, vx: (Math.random() - 0.5) * 420, vy: -120 - Math.random() * 380, life: 0.6 + Math.random() * 0.5 });
+    }
+    function resolveRamp() {
+      if (ui.ramp) ui.ramp("done");
+      if (chosen === sides.correct) {
+        score += 3; streak++; ui.score(score); snd.cheer();
+        phase = "turbo"; phaseT = 0; nitroT = 1.8; snd.nitro();
+        ui.banner("🎯 נחיתה מושלמת! +3", "turbo"); ui.question(null);
+        if (Math.floor(score / 10) > lap) lap = Math.floor(score / 10);
+        return;
+      }
+      wrongAnswer();
     }
     function steer(s) {
-      if (phase === "crash" || ended) return;
+      if (phase === "crash" || ended || phase === "fall" || phase === "landed") return;
       laneName = laneName === "mid" ? s : (laneName === s ? s : "mid"); // מהצד השני חוזרים קודם לאמצע
     }
     // הג'ויסטיק בוחר נתיב ישירות: שמאל, אמצע או ימין
     function setLane(s) {
-      if (phase === "crash" || ended || !LANE_X.hasOwnProperty(s)) return;
+      if (phase === "crash" || ended || phase === "fall" || phase === "landed" || !LANE_X.hasOwnProperty(s)) return;
       laneName = s;
     }
     function passGate() {
@@ -311,6 +374,9 @@
         if (Math.floor(score / 10) > lap) { lap = Math.floor(score / 10); ui.banner(`🏁 הקפה ${lap} הושלמה!`, "lap"); }
         return;
       }
+      wrongAnswer();
+    }
+    function wrongAnswer() {
       if (shield > 0) {
         shield--; streak = 0; snd.shield(); gateZ = null; flash = 0.4;
         ui.banner("🛡️ המגן ספג את הפגיעה!", "shield"); ui.toast("המקור הנכון: " + item.right);
@@ -377,15 +443,147 @@
       g.fillStyle = "#fbbf24"; g.beginPath(); g.arc(p.x - bw / 2, p.y - bh, Math.max(2, bh * 0.12), 0, 7); g.arc(p.x + bw / 2, p.y - bh, Math.max(2, bh * 0.12), 0, 7); g.fill();
     }
 
+    function drawSprite(kind, x, y, h, sc) {
+      if (kind === "tree") return drawTree(x, y, h, sc);
+      if (kind === "rock") { g.fillStyle = theme.rock; g.beginPath(); g.ellipse(x, y - h * 0.35, h * 0.8, h * 0.45, 0, 0, 7); g.fill(); return; }
+      if (kind === "cactus") {
+        const w = h * 0.16; g.fillStyle = "#3f7d3a";
+        rr(g, x - w / 2, y - h, w, h, w / 2); g.fill();
+        rr(g, x - w * 1.9, y - h * 0.7, w * 0.8, h * 0.35, w * 0.4); g.fill(); g.fillRect(x - w * 1.5, y - h * 0.42, w * 1.2, w * 0.7);
+        rr(g, x + w * 1.1, y - h * 0.85, w * 0.8, h * 0.4, w * 0.4); g.fill(); g.fillRect(x + w * 0.3, y - h * 0.5, w * 1.2, w * 0.7);
+        return;
+      }
+      if (kind === "palm") {
+        g.strokeStyle = "#8a5a2b"; g.lineWidth = Math.max(1.5, h * 0.06); g.lineCap = "round";
+        g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + h * 0.12, y - h * 0.5, x + h * 0.05, y - h * 0.92); g.stroke();
+        g.fillStyle = "#2f8f46";
+        for (let a = 0; a < 6; a++) {
+          const an = -Math.PI / 2 + (a - 2.5) * 0.55, ex = x + h * 0.05 + Math.cos(an) * h * 0.42, ey = y - h * 0.92 + Math.sin(an) * h * 0.22 + h * 0.12;
+          g.beginPath(); g.moveTo(x + h * 0.05, y - h * 0.92); g.quadraticCurveTo((x + ex) / 2, ey - h * 0.2, ex, ey); g.quadraticCurveTo((x + ex) / 2, ey - h * 0.08, x + h * 0.05, y - h * 0.9); g.fill();
+        }
+        return;
+      }
+      if (kind === "umbrella") {
+        g.fillStyle = "#555"; g.fillRect(x - h * 0.02, y - h, h * 0.04, h);
+        ["#ef4444", "#fff", "#ef4444", "#fff"].forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.moveTo(x, y - h); g.arc(x, y - h * 0.82, h * 0.5, Math.PI + i * Math.PI / 4, Math.PI + (i + 1) * Math.PI / 4); g.closePath(); g.fill(); });
+        return;
+      }
+      if (kind === "cypress") { g.fillStyle = "#2d4a2b"; g.beginPath(); g.ellipse(x, y - h * 0.5, h * 0.12, h * 0.5, 0, 0, 7); g.fill(); return; }
+      if (kind === "house") {
+        const w = h * 0.9, hh = h * 0.6;
+        g.fillStyle = "#e9d8b4"; g.fillRect(x - w / 2, y - hh, w, hh);
+        g.fillStyle = "#cdb88f"; g.fillRect(x - w / 2, y - hh, w, hh * 0.08);
+        if (sc > 1.1) { g.fillStyle = "#d4a017"; g.beginPath(); g.arc(x, y - hh, w * 0.24, Math.PI, 0); g.fill(); }
+        g.fillStyle = "#5b4636";
+        for (const fx of [-0.28, 0.28]) { rr(g, x + w * fx - w * 0.07, y - hh * 0.7, w * 0.14, hh * 0.3, w * 0.07); g.fill(); }
+        rr(g, x - w * 0.09, y - hh * 0.38, w * 0.18, hh * 0.38, w * 0.09); g.fill();
+      }
+    }
+    function drawRamp(p) {
+      // רמפה צהובה-שחורה על כל רוחב הכביש
+      const hgt = p.sc * 520 * H / 2, w = p.w * 1.02;
+      g.fillStyle = "#3b3f46";
+      g.beginPath(); g.moveTo(p.x - w, p.y); g.lineTo(p.x - w * 0.96, p.y - hgt); g.lineTo(p.x + w * 0.96, p.y - hgt); g.lineTo(p.x + w, p.y); g.closePath(); g.fill();
+      const n = 10;
+      for (let q = 0; q < n; q++) {
+        if (q % 2) continue;
+        g.fillStyle = "#facc15";
+        const x1 = p.x - w + (2 * w) * q / n, x2 = p.x - w + (2 * w) * (q + 1) / n;
+        g.beginPath(); g.moveTo(x1, p.y); g.lineTo(x1 + hgt * 0.5, p.y - hgt); g.lineTo(x2 + hgt * 0.5, p.y - hgt); g.lineTo(x2, p.y); g.closePath(); g.fill();
+      }
+      g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(p.x - w * 0.96, p.y - hgt, w * 1.92, Math.max(1, hgt * 0.12));
+      // שלט מעל
+      const top = p.y - p.sc * 1700 * H / 2, post = Math.max(2, p.w * 0.03);
+      g.fillStyle = "#6b7280"; g.fillRect(p.x - w * 1.15, top, post, p.y - top); g.fillRect(p.x + w * 1.15, top, post, p.y - top);
+      const sh = p.sc * 480 * H / 2, sw = w * 1.3;
+      g.fillStyle = "#e11d48"; rr(g, p.x - sw / 2, top, sw, sh, Math.max(2, sh * 0.15)); g.fill();
+      const fs = sh * 0.55;
+      if (fs > 5) {
+        g.fillStyle = "#fff"; g.font = `800 ${fs}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
+        g.fillText("🛫 קפיצה!", p.x, top + sh / 2); g.direction = "ltr";
+      }
+    }
+    // תא הנהג: הדמות עם קסדה, מבעד לשמשה, נוטה לצד שנבחר
+    function drawCockpit(t) {
+      const sky = g.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, theme.sky[0]); sky.addColorStop(1, theme.sky[1]);
+      g.fillStyle = sky; g.fillRect(0, 0, W, H);
+      // עננים וקווים שזזים מהר: אנחנו באוויר
+      g.strokeStyle = "rgba(255,255,255,.7)"; g.lineCap = "round";
+      for (let q = 0; q < 18; q++) {
+        const x = (q * 97.3 % 1) * W, sp = 0.6 + (q * 37 % 10) / 10, y = ((q * 53 + t * 900 * sp) % (H * 1.3)) - H * 0.15;
+        g.lineWidth = 2 + (q % 3); g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 30 + 40 * sp); g.stroke();
+      }
+      const cx = W / 2, base = H * 0.86, S = Math.min(W * 0.8, H * 0.85);
+      const tgt = laneName === "left" ? -0.38 : laneName === "right" ? 0.38 : 0;
+      g.save();
+      // הגוף כולו נוטה סביב המותניים
+      g.translate(cx, base); g.rotate(bodyLean);
+      const suit = look.color, dark = shade(look.color, -0.45);
+      // כתפיים וחליפת מרוצים
+      g.fillStyle = suit;
+      g.beginPath(); g.moveTo(-S * 0.36, 0); g.quadraticCurveTo(-S * 0.38, -S * 0.36, -S * 0.12, -S * 0.42); g.lineTo(S * 0.12, -S * 0.42); g.quadraticCurveTo(S * 0.38, -S * 0.36, S * 0.36, 0); g.closePath(); g.fill();
+      g.fillStyle = look.stripe || "#111"; g.fillRect(-S * 0.035, -S * 0.42, S * 0.07, S * 0.42);
+      g.fillStyle = "#f8fafc"; rr(g, -S * 0.1, -S * 0.46, S * 0.2, S * 0.07, S * 0.03); g.fill(); // צווארון
+      g.fillStyle = "#fff"; g.font = `800 ${S * 0.035}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText("TORAH", -S * 0.22, -S * 0.25); g.fillText("RACING", S * 0.22, -S * 0.25);
+      // קסדה
+      const hy = -S * 0.62, hr = S * 0.19;
+      g.save(); g.translate(0, hy); g.rotate(bodyLean * 0.4);
+      const hg = g.createRadialGradient(-hr * 0.4, -hr * 0.5, hr * 0.1, 0, 0, hr * 1.1);
+      hg.addColorStop(0, shade(suit, 0.55)); hg.addColorStop(0.5, suit); hg.addColorStop(1, dark);
+      g.fillStyle = hg; g.beginPath(); g.ellipse(0, 0, hr, hr * 1.08, 0, 0, 7); g.fill();
+      g.fillStyle = look.stripe || "#111"; g.beginPath(); g.ellipse(0, -hr * 0.2, hr * 0.14, hr * 0.92, 0, Math.PI, 0); g.fill();
+      // משקף כהה עם השתקפות של השמיים
+      const vg = g.createLinearGradient(0, -hr * 0.2, 0, hr * 0.35);
+      vg.addColorStop(0, "#0b1220"); vg.addColorStop(0.5, "#1e3a8a"); vg.addColorStop(1, "#0b1220");
+      g.fillStyle = vg; rr(g, -hr * 0.78, -hr * 0.18, hr * 1.56, hr * 0.5, hr * 0.22); g.fill();
+      g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.moveTo(-hr * 0.6, -hr * 0.14); g.lineTo(-hr * 0.25, -hr * 0.14); g.lineTo(-hr * 0.45, hr * 0.28); g.lineTo(-hr * 0.7, hr * 0.28); g.closePath(); g.fill();
+      g.fillStyle = "#111"; rr(g, -hr * 0.5, hr * 0.45, hr, hr * 0.42, hr * 0.15); g.fill(); // סנטר
+      g.fillStyle = "#9ca3af"; for (let q = -2; q <= 2; q++) g.fillRect(q * hr * 0.16 - hr * 0.04, hr * 0.56, hr * 0.08, hr * 0.2);
+      if (driverName) {
+        g.fillStyle = "#fff"; g.font = `800 ${hr * 0.2}px Rubik, sans-serif`;
+        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
+        g.fillText(driverName.slice(0, 10), 0, -hr * 0.55); g.direction = "ltr";
+      }
+      g.restore();
+      // ידיים על ההגה
+      g.fillStyle = suit;
+      g.save(); g.rotate(-bodyLean * 0.3);
+      g.beginPath(); g.ellipse(-S * 0.26, -S * 0.14, S * 0.07, S * 0.16, 0.5, 0, 7); g.fill();
+      g.beginPath(); g.ellipse(S * 0.26, -S * 0.14, S * 0.07, S * 0.16, -0.5, 0, 7); g.fill();
+      g.restore();
+      g.restore();
+      // ההגה מסתובב לכיוון הנטייה
+      g.save(); g.translate(cx, H * 0.84); g.rotate(bodyLean * 1.6);
+      g.strokeStyle = "#111"; g.lineWidth = S * 0.045; g.beginPath(); g.arc(0, 0, S * 0.24, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+      g.fillStyle = "#1f2937"; rr(g, -S * 0.07, -S * 0.1, S * 0.14, S * 0.1, S * 0.02); g.fill();
+      g.fillStyle = "#e11d48"; g.fillRect(-S * 0.012, -S * 0.25, S * 0.024, S * 0.05);
+      g.fillStyle = "#111"; g.beginPath(); g.ellipse(-S * 0.2, -S * 0.12, S * 0.05, S * 0.04, 0, 0, 7); g.ellipse(S * 0.2, -S * 0.12, S * 0.05, S * 0.04, 0, 0, 7); g.fill(); // כפפות
+      g.restore();
+      // מסגרת השמשה: עמודים בצבע המכונית ולוח מחוונים
+      g.fillStyle = dark;
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(W * 0.1, 0); g.lineTo(W * 0.02, H); g.lineTo(0, H); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(W, 0); g.lineTo(W * 0.9, 0); g.lineTo(W * 0.98, H); g.lineTo(W, H); g.closePath(); g.fill();
+      g.fillRect(0, 0, W, H * 0.035);
+      // לוח המחוונים מתחת לשמשה
+      const dg = g.createLinearGradient(0, H * 0.8, 0, H);
+      dg.addColorStop(0, "#1f2937"); dg.addColorStop(1, "#0b0f17");
+      g.fillStyle = dg; g.beginPath(); g.moveTo(0, H * 0.84); g.quadraticCurveTo(W / 2, H * 0.78, W, H * 0.84); g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+      return tgt;
+    }
+
     function render(t) {
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (shake > 0) g.translate((Math.random() - 0.5) * shake * 30, (Math.random() - 0.5) * shake * 20);
       const base = segAt(pos), basePct = (pos % SEG) / SEG;
       const pSeg = segAt(pos + PLAYER_Z), pPct = ((pos + PLAYER_Z) % SEG) / SEG;
       const playerY = pSeg.y1 + (pSeg.y2 - pSeg.y1) * pPct;
       const camX = px * ROAD_W * 0.55, camY = playerY + CAM_H;
       // שמיים, הרים ויער רחוק שזזים בפניות
       const sky = g.createLinearGradient(0, 0, 0, H * 0.6);
-      sky.addColorStop(0, "#4f9ee0"); sky.addColorStop(0.6, "#a9d4f2"); sky.addColorStop(1, "#e8f3f8");
+      sky.addColorStop(0, theme.sky[0]); sky.addColorStop(0.6, theme.sky[1]); sky.addColorStop(1, theme.sky[2]);
       g.fillStyle = sky; g.fillRect(0, 0, W, H);
       g.fillStyle = "rgba(255,255,255,.85)";
       [[0.15, 0.12, 1], [0.5, 0.07, 1.4], [0.82, 0.15, 0.9]].forEach(([cx2, cy2, s]) => {
@@ -398,9 +596,10 @@
         for (let x = 0; x <= W + 10; x += 10) g.lineTo(x, hz - amp * (0.6 + 0.4 * Math.sin((x + bgX * par) * freq + off)) - amp * 0.3 * Math.sin((x + bgX * par) * freq * 2.7));
         g.lineTo(W, H); g.closePath(); g.fill();
       };
-      ridge(H * 0.16, 0.006, 1, "#8fb3c9", 0.2);
-      ridge(H * 0.1, 0.013, 3, "#4e7d5b", 0.45);
-      ridge(H * 0.05, 0.03, 0, "#2f6a40", 0.8);
+      ridge(H * 0.16, 0.006, 1, theme.ridges[0], 0.2);
+      if (theme.water) { g.fillStyle = theme.ridges[1]; g.fillRect(0, hz - H * 0.04, W, H); g.fillStyle = "rgba(255,255,255,.35)"; for (let q = 0; q < 8; q++) g.fillRect(((q * 131 + bgX * 0.5) % W + W) % W, hz - H * 0.02 + q % 3 * 6, 30, 2); }
+      else ridge(H * 0.1, 0.013, 3, theme.ridges[1], 0.45);
+      ridge(H * 0.05, 0.03, 0, theme.ridges[2], 0.8);
 
       // הכביש: מהקרוב לרחוק, וזוכרים איפה נגמר כל קטע כדי לחתוך את מה שמאחורי גבעה
       let maxy = H, x = 0, dx = -(base.curve * basePct);
@@ -413,7 +612,7 @@
         drawn.push(s);
         if (z0 - pos <= CAM_D || p2.y >= p1.y || p2.y >= maxy) continue;
         const fog = Math.min(1, n / DRAW);
-        g.fillStyle = s.dark ? "#3f8a3a" : "#4a9a42"; g.fillRect(0, p2.y, W, p1.y - p2.y + 1);
+        g.fillStyle = theme.grass[s.dark ? 0 : 1]; g.fillRect(0, p2.y, W, p1.y - p2.y + 1);
         // שולי הכביש, גדר בטיחות, אספלט וקווים
         poly(p1.x, p1.y, p1.w * 1.18, p2.x, p2.y, p2.w * 1.18, s.dark ? "#9aa0a6" : "#7d838a");
         poly(p1.x, p1.y, p1.w * 1.08, p2.x, p2.y, p2.w * 1.08, s.dark ? "#d62828" : "#f5f5f5");
@@ -430,7 +629,7 @@
           g.beginPath(); g.moveTo(p1.x + sd * p1.w * 1.2, p1.y - rh1 * 0.4); g.lineTo(p2.x + sd * p2.w * 1.2, p2.y - rh2 * 0.4);
           g.lineTo(p2.x + sd * p2.w * 1.2, p2.y - rh2); g.lineTo(p1.x + sd * p1.w * 1.2, p1.y - rh1); g.closePath(); g.fill();
         });
-        if (fog > 0.55) { g.fillStyle = `rgba(232,243,248,${(fog - 0.55) * 1.6})`; g.fillRect(0, p2.y, W, p1.y - p2.y + 1); }
+        if (fog > 0.55) { g.fillStyle = `rgba(${theme.fog},${(fog - 0.55) * 1.6})`; g.fillRect(0, p2.y, W, p1.y - p2.y + 1); }
         maxy = p1.y;
       }
 
@@ -448,11 +647,10 @@
         if (th.sp) {
           const p = th.s.p1, sx = p.x + p.w * th.sp.x, sy = p.y;
           if (sy > th.s.clip + 2) return;
-          const h = p.sc * (th.sp.kind === "tree" ? 1700 * th.sp.s : th.sp.kind === "rock" ? 380 : 520) * H / 2;
+          const k3 = th.sp.kind, h = p.sc * ({ tree: 1700, palm: 1900, cypress: 1800, cactus: 1000, house: 1300, umbrella: 750 }[k3] * th.sp.s || (k3 === "rock" ? 380 : 520)) * H / 2;
           g.save(); g.beginPath(); g.rect(0, 0, W, th.s.clip); g.clip();
-          if (th.sp.kind === "tree") drawTree(sx, sy, h, th.sp.s);
-          else if (th.sp.kind === "rock") { g.fillStyle = "#8b8378"; g.beginPath(); g.ellipse(sx, sy - h * 0.35, h * 0.8, h * 0.45, 0, 0, 7); g.fill(); }
-          else drawChevron(sx, sy, h, th.sp.dir);
+          if (k3 === "chevron") drawChevron(sx, sy, h, th.sp.dir);
+          else drawSprite(k3, sx, sy, h, th.sp.s);
           g.restore();
           return;
         }
@@ -465,7 +663,7 @@
         const p = s.p1;
         if (p.y > s.clip + 2) return;
         g.save(); g.beginPath(); g.rect(0, 0, W, s.clip); g.clip();
-        if (th.gate) drawGate(p, sides || {});
+        if (th.gate) { if (ramp) drawRamp(p); else drawGate(p, sides || {}); }
         else drawCar(g, p.x + p.w * th.rival.x, p.y, p.w * 0.55, th.rival.look, { t, lean: s.curve * 0.3 });
         g.restore();
       });
@@ -474,9 +672,15 @@
       const sc0 = CAM_D / PLAYER_Z, carW = Math.min(W * 0.36, sc0 * ROAD_W * W / 2 * 0.55);
       const carX = W / 2 + sc0 * (px * ROAD_W - camX) * W / 2;
       let carY = H - Math.max(14, H * 0.06);
+      if (lift > 0) {
+        // צל על הכביש, והמכונית באוויר מעליו
+        g.fillStyle = `rgba(0,0,0,${0.35 * (1 - lift * 0.6)})`; g.beginPath(); g.ellipse(carX, carY, carW * 0.55 * (1 - lift * 0.3), carW * 0.05, 0, 0, 7); g.fill();
+        carY -= lift * H * 0.28;
+      }
       const speed01 = Math.min(1, speed / (baseV * 2.4));
       const skid = Math.min(1, Math.abs(pSeg.curve) / 7) * speed01 * (pSeg.sharp ? 1 : 0.35);
       g.save();
+      if (airTilt) { g.translate(carX, carY - carW * 0.25); g.rotate(airTilt); g.translate(-carX, -(carY - carW * 0.25)); }
       if (phase === "crash") { g.translate(carX, carY - carW * 0.25); g.rotate(Math.sin(crashT * 9) * 0.25 * Math.max(0, 1 - crashT)); g.translate(-carX, -(carY - carW * 0.25)); }
       drawCar(g, carX, carY, carW, look, { t, lean, brake: phase === "crash" || phase === "count", nitro: nitroT > 0, smoke: phase === "crash" ? 1 : skid > 0.25 ? skid : 0, bounce: speed > 10 });
       g.restore();
@@ -488,6 +692,31 @@
           const a = (q / 26) * Math.PI * 2 + t * 0.7, r1 = Math.min(W, H) * (0.35 + ((t * 3 + q * 0.13) % 1) * 0.5);
           g.beginPath(); g.moveTo(W / 2 + Math.cos(a) * r1, H * 0.45 + Math.sin(a) * r1 * 0.6); g.lineTo(W / 2 + Math.cos(a) * (r1 + 60), H * 0.45 + Math.sin(a) * (r1 + 60) * 0.6); g.stroke();
         }
+      }
+      // ניצוצות הנחיתה
+      sparks.forEach(sp => { g.fillStyle = `rgba(255,${180 + Math.random() * 60 | 0},60,${Math.min(1, sp.life * 2)})`; g.fillRect(sp.x, sp.y, 3, 3); });
+      // זום לתא הנהג: עיגול שנפתח מהמכונית ובתוכו תא הנהג
+      if (zoom > 0) {
+        const R = Math.hypot(W, H) * zoom, zx = carX + (W / 2 - carX) * zoom, zy = carY - carW * 0.4 + (H / 2 - carY + carW * 0.4) * zoom;
+        g.save(); g.beginPath(); g.arc(zx, zy, Math.max(1, R), 0, 7); g.clip();
+        drawCockpit(t);
+        g.restore();
+        if (zoom < 1) { g.strokeStyle = "#fff"; g.lineWidth = 6; g.beginPath(); g.arc(zx, zy, Math.max(1, R), 0, 7); g.stroke(); }
+      }
+      if (phase === "cockpit") {
+        // שעון: פס שהולך ומתקצר, ודופק אדום בשוליים
+        const left = Math.max(0, 1 - phaseT / RAMP_T);
+        g.fillStyle = "rgba(0,0,0,.45)"; rr(g, W * 0.15, H * 0.05, W * 0.7, 12, 6); g.fill();
+        g.fillStyle = left < 0.35 ? "#ef4444" : "#facc15"; rr(g, W * 0.15, H * 0.05, W * 0.7 * left, 12, 6); g.fill();
+        g.fillStyle = "#fff"; g.font = `800 ${Math.max(14, Math.min(22, W / 22))}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "top";
+        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
+        g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 6;
+        g.fillText(chosen || laneName !== "mid" ? "אפשר עוד לשנות... ⏳" : "הטו את הגוף לצד המקור הנכון!", W / 2, H * 0.05 + 20);
+        g.shadowBlur = 0; g.direction = "ltr";
+        const pulse = Math.max(0, Math.sin(phaseT * Math.PI * (1.6 + phaseT * 0.5)));
+        const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+        vg.addColorStop(0, "rgba(220,38,38,0)"); vg.addColorStop(1, `rgba(220,38,38,${0.15 + 0.25 * pulse})`);
+        g.fillStyle = vg; g.fillRect(0, 0, W, H);
       }
       if (flash > 0) { g.fillStyle = phase === "crash" ? `rgba(255,80,40,${flash})` : `rgba(255,255,255,${flash})`; g.fillRect(0, 0, W, H); }
       return { skid, speed01 };
@@ -507,13 +736,40 @@
         if (phaseT >= 1.8) { phase = "drive"; newGate(); }
       } else if (phase === "pause") {
         if (phaseT >= 1.2) { phase = "drive"; newGate(); }
+      } else if (phase === "jump") {
+        // עולים באוויר, הכל מאט, והמצלמה נכנסת לתא הנהג
+        lift = Math.min(1, phaseT / 0.7); lift = 1 - (1 - lift) * (1 - lift);
+        slow = Math.max(0.15, 1 - phaseT * 1.3);
+        zoom = Math.max(0, Math.min(1, (phaseT - 0.55) / 0.45));
+        if (phaseT >= 1.0) enterCockpit();
+      } else if (phase === "cockpit") {
+        slow = 0.12; lift = 1;
+        if (laneName !== "mid" && !choseT) choseT = phaseT;
+        beatT -= dt;
+        if (beatT <= 0) { snd.heart(); beatT = Math.max(0.35, 0.85 - phaseT * 0.1); }
+        if (phaseT >= RAMP_T || (choseT && phaseT - choseT >= 1.6 && laneName !== "mid")) leaveCockpit();
+      } else if (phase === "fall") {
+        // יוצאים מהזום, המכונית נוטה לצד שנבחר ונוחתת
+        zoom = Math.max(0, 1 - phaseT / 0.45);
+        const dir = chosen === "left" ? -1 : chosen === "right" ? 1 : 0;
+        airTilt = dir * 0.22 * Math.sin(Math.min(1, phaseT / 1.1) * Math.PI);
+        lift = phaseT < 0.45 ? 1 : Math.max(0, 1 - Math.pow((phaseT - 0.45) / 0.65, 2));
+        slow = Math.min(1, 0.12 + phaseT * 0.8);
+        if (phaseT >= 1.1) { airTilt = 0; landed(); }
+      } else if (phase === "landed") {
+        slow = 1;
+        if (phaseT >= 0.7) resolveRamp();
       }
-      if (phase !== "count" && phase !== "crash") raceT += dt;
+      if (phase !== "jump" && phase !== "cockpit" && phase !== "fall") slow = 1;
+      bodyLean += ((laneName === "left" ? -0.38 : laneName === "right" ? 0.38 : 0) - bodyLean) * Math.min(1, dt * 7);
+      shake = Math.max(0, shake - dt * 1.2);
+      for (let q = sparks.length - 1; q >= 0; q--) { const sp = sparks[q]; sp.life -= dt; sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 900 * dt; if (sp.life <= 0) sparks.splice(q, 1); }
+      if (phase !== "count" && phase !== "crash" && phase !== "cockpit") raceT += dt;
       // מהירות: מאיצים ובולמים בהדרגה
       const acc = phase === "crash" || target < speed ? 3 : phase === "turbo" ? 2.2 : 1.6;
       speed += (target - speed) * Math.min(1, dt * acc);
       if (phase === "crash") speed *= Math.max(0, 1 - dt * 2.5);
-      pos += speed * dt;
+      pos += speed * dt * slow;
       // מעבר בין נתיבים, ונטייה של המכונית בפנייה ובהחלפת נתיב
       const goal = LANE_X[laneName], dpx = goal - px;
       px += dpx * Math.min(1, dt * 9);
@@ -524,7 +780,7 @@
       // מתחרים: נוסעים קדימה, ומפנים את הנתיב כשהשחקן מתקרב מאחור
       RIVALS.forEach(r => {
         r.v += (baseV * r.mul * (phase === "count" ? 0 : 1) - r.v) * Math.min(1, dt * 0.8);
-        r.z += (r.v - speed) * dt;
+        r.z += (r.v - speed) * dt * slow;
         if (r.z > PLAYER_Z && r.z < PLAYER_Z + 3500 && Math.abs(r.x - px) < 0.45) r.tx = px > 0 ? -0.5 : 0.5;
         r.x += (r.tx - r.x) * Math.min(1, dt * 2.5);
         const ahead = r.z > PLAYER_Z;
@@ -532,14 +788,14 @@
         r.ahead = ahead;
       });
       // הגענו לשער?
-      if (phase === "drive" && gateZ != null && pos + PLAYER_Z >= gateZ) passGate();
-      if (phase === "crash") { crashT += dt; if (crashT > 1.6 && !ended) { ended = true; ui.end(score); return; } }
+      if (phase === "drive" && gateZ != null && pos + PLAYER_Z >= gateZ) { if (ramp) startJump(); else passGate(); }
+      if (phase === "crash") { crashT += dt; if (crashT > 1.6 && !ended) { ended = true; ui.end(score, gates); return; } }
       const r = render(t);
       const kmh = Math.round(kmhOf(speed));
       const place = 1 + RIVALS.filter(x2 => x2.z > PLAYER_Z).length;
       const dist = gateZ != null ? Math.max(0, Math.min(1, 1 - (gateZ - pos - PLAYER_Z) / GATE_DIST)) : (phase === "turbo" ? 1 : 0);
       ui.hud({ kmh, place, of: RIVALS.length + 1, lapPct: Math.round(((score % 10) + dist * (phase === "drive" ? 1 : 0)) * 10), time: raceT, shield, lane: laneName });
-      snd.update(kmh, r.speed01, phase === "crash" ? 0 : r.skid, nitroT > 0);
+      snd.update(phase === "cockpit" ? kmh * 0.3 : kmh, r.speed01 * slow, phase === "crash" || lift > 0 ? 0 : r.skid, nitroT > 0);
       raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);
