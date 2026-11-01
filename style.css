@@ -380,7 +380,6 @@ body.shabbat { background: linear-gradient(180deg, #1e2a52, #3b2f6b); }
 @keyframes flicker { to { transform: scaleY(1.18) scaleX(.9); } }
 
 /* טבלת האלופים */
-.lead-chip { top: 50px; border-color: #f59e0b; }
 .leaders { list-style: none; margin: 0; padding: 0; }
 .leaders li { display: flex; align-items: center; gap: 8px; padding: 8px 6px; border-bottom: 1px solid #f1e6c8; }
 .leaders li:last-child { border-bottom: none; }
@@ -634,29 +633,15 @@ body.shabbat .music-btn { display: none; }
 .report-box { margin-top: 8px; display: grid; gap: 8px; }
 .report-box textarea { width: 100%; box-sizing: border-box; border-radius: 10px; padding: 8px; font: inherit; }
 /* שאלת השבוע בדף הבית: כרטיס צף מעל המפה, אפשר לקפל אותו */
-#weekly { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 10px; right: 10px; z-index: 20; max-width: 560px; margin: 0 auto; pointer-events: none; }
-.weekly { pointer-events: auto; max-height: 52vh; overflow-y: auto; margin: 0; padding: 12px 14px; border: 2px dashed var(--amber, #d97706); background: #fffbeb; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
-.weekly-wrap { position: relative; pointer-events: none; }
-.weekly-x { position: absolute; top: 6px; inset-inline-end: 6px; z-index: 1; pointer-events: auto; width: 30px; height: 30px; border-radius: 50%; border: 0; background: #fde68a; color: #92400e; font-weight: 800; cursor: pointer; line-height: 1; }
 .weekly-tag { font-weight: 700; padding-inline-end: 34px; color: #92400e; cursor: pointer; list-style: none; }
-.weekly-tag::-webkit-details-marker { display: none; }
-.weekly .qtext { font-size: 16px; margin: 8px 0; }
-.weekly-sug { margin-top: 10px; border-top: 1px dashed #e5c46a; padding-top: 8px; }
-.weekly-sug summary { cursor: pointer; color: #92400e; font-weight: 600; }
-.weekly-sug textarea, .weekly-sug input { width: 100%; box-sizing: border-box; margin: 6px 0; border-radius: 10px; padding: 8px; font: inherit; }
 
 /* פינג להצעת שאלה: מופיע בכניסה לאתר, אפשר לסגור ב-X */
-.suggest-ping { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 30; max-width: 480px; margin: 0 auto; background: #fff; border: 2px solid var(--primary, #2b4c8c); border-radius: 16px; box-shadow: 0 8px 22px rgba(0,0,0,.2); padding: 14px 40px 14px 14px; display: grid; gap: 8px; animation: pingIn .35s ease-out; }
-.suggest-ping .ping-text { font-size: 15px; line-height: 1.5; }
-.suggest-ping .btn { justify-self: start; }
-.suggest-ping .ping-x { position: absolute; top: 6px; left: 8px; background: none; border: 0; font-size: 18px; color: var(--muted, #6b7280); cursor: pointer; padding: 4px 8px; }
 @keyframes pingIn { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* יציאה מהשאלון, בפינה, קטנה ושקטה */
 .quit-link { display: inline-block; margin: 0 0 6px; font-size: 13px; color: var(--muted, #6b7280); text-decoration: none; }
 
 /* היכל עלמא: משחקים חיים לכל החדר */
-.olama-chip { top: 90px; border-color: #7c3aed; color: #5b21b6; }
 .olama-hero { background: linear-gradient(135deg, #4c1d95, #7c3aed 55%, #c084fc); }
 .olama-join { display: flex; gap: 8px; max-width: 360px; margin: 8px auto 0; }
 .olama-join input { text-align: center; font-size: 1.4rem; font-weight: 800; letter-spacing: .2em; }
@@ -753,7 +738,6 @@ button.olama-name { cursor: pointer; }
 
 /* ---------- מסע הפתיחה ---------- */
 .link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: .9rem; cursor: pointer; padding: 8px; margin-top: 6px; display: inline-block; }
-.onb-dots span { width: 46px; }
 .device-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0 10px; }
 .device-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px; border: 3px solid var(--line); border-radius: 18px; background: #fff; font: inherit; font-weight: 800; color: var(--ink); cursor: pointer; box-shadow: 0 4px 0 var(--line); transition: transform .12s; }
 .device-btn span { font-size: 2.2rem; line-height: 1; }
@@ -776,7 +760,22 @@ button.olama-name { cursor: pointer; }
 .jtag.hard { background: var(--bad); }
 .journey-next { border-color: var(--gold); background: #fffbeb; }
 .journey-next.ok { border-color: var(--good); background: var(--good-soft); }
-.journey-chip { top: 130px; border-color: var(--primary); color: var(--primary); animation: jpulse 2.2s ease-in-out infinite; }
 .device-chip { animation: none; border-color: #16a34a; color: #166534; }
 @keyframes jpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-@media (prefers-reduced-motion: reduce) { .jstop.now .jdot, .journey-chip { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .jstop.now .jdot { animation: none; } }
+
+/* יצירת דמות במסך אחד: שם, טלפון, ובמה מתחילים */
+.onb h1 { margin-bottom: 4px; }
+.onb-q { margin: 18px 0 8px; text-align: start; font-size: 1.05rem; }
+.onb input.need, .device-pick.need { outline: 3px solid #ef4444; outline-offset: 3px; border-radius: 14px; }
+.level-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 6px 0 4px; }
+.level-btn { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 4px 10px; border: 3px solid var(--line); border-radius: 18px; background: #fff; font: inherit; font-size: .82rem; line-height: 1.25; color: var(--ink); cursor: pointer; box-shadow: 0 4px 0 var(--line); transition: transform .12s; }
+.level-btn .lv-icon { font-size: 2rem; line-height: 1; }
+.level-btn.on { border-color: var(--gold); background: #fffbeb; transform: translateY(-2px); box-shadow: 0 5px 0 #d4a017; }
+.level-btn .rec { position: absolute; top: -11px; inset-inline: 0; margin: 0 auto; width: max-content; background: var(--gold); color: #5a3600; font-size: .72rem; font-weight: 800; padding: 1px 8px; border-radius: 99px; }
+
+/* שאלת השבוע: הצעה שקופצת פעם בשבוע מעל המפה */
+.weekly-pop { position: fixed; inset: 0; z-index: 40; background: rgba(15, 23, 42, .45); display: grid; place-items: center; padding: 16px; animation: pingIn .3s ease-out; }
+.weekly-card { max-width: 420px; width: 100%; border: 3px dashed #d97706; background: #fffbeb; }
+.weekly-card .weekly-tag { padding: 0; cursor: default; }
+.weekly-card .qtext { font-size: 1.1rem; margin: 12px 0 16px; }

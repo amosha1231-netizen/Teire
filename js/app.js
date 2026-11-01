@@ -82,49 +82,76 @@
   }
 
   // ---------- היכרות: יצירת דמות ----------
+  // שחקן חדש: הכול במסך אחד. מראה, שם, סוג טלפון ובחירת משחק ראשון (קל, בינוני או קשה).
+  // המרוץ הבינוני מסומן מראש כמומלץ. אחרי "יוצאים לדרך" נכנסים ישר למשחק שבחרו.
   function viewOnboarding() {
     setTab("map");
     const look = { ...player.look };
+    const isNew = !player.name;
+    let typed = player.name, dev = player.device || "", pick = 1, tried = false;
     function draw() {
       app.innerHTML = `
-        ${player.name ? "" : stepDots(0)}
-        <div class="card center">
-          <h1>ברוכים הבאים למסע!</h1>
-          <p class="muted">צרו את הדמות שלכם ויוצאים לדרך במפת התורה</p>
-          <div class="avatar-stage">${avatarSVG(look, 120)}</div>
+        <div class="card center onb">
+          <h1>${isNew ? "ברוכים הבאים למסע!" : "שינוי שם ומראה"}</h1>
+          ${isNew ? `<p class="muted">יוצרים דמות, ויוצאים לשחק</p>` : ""}
+          <div class="avatar-stage">${avatarSVG(look, 110)}</div>
           <div class="seg">
             <button class="${look.gender === "boy" ? "on" : ""}" data-g="boy">בן</button>
             <button class="${look.gender === "girl" ? "on" : ""}" data-g="girl">בת</button>
           </div>
           <div class="swatches">${SKINS.map(c => `<button class="sw ${look.skin === c ? "on" : ""}" data-skin="${c}" style="background:${c}" aria-label="צבע עור"></button>`).join("")}</div>
           <div class="swatches">${HAIR.map(c => `<button class="sw ${look.hair === c ? "on" : ""}" data-hair="${c}" style="background:${c}" aria-label="צבע שיער"></button>`).join("")}</div>
-          <input id="pname" placeholder="איך קוראים לך?" maxlength="20" value="${esc(typed)}">
-          <button class="btn big-btn" id="go">יוצאים לדרך!</button>
+          <h3 class="onb-q">1. איך קוראים לך?</h3>
+          <input id="pname" class="${tried && !typed.trim() ? "need" : ""}" placeholder="השם שלך" maxlength="20" value="${esc(typed)}">
+          ${isNew ? `
+          <h3 class="onb-q">2. איזה טלפון יש לך?</h3>
+          <div class="device-pick ${tried && !dev ? "need" : ""}">${DEVICES.map(d => `<button class="device-btn ${dev === d.id ? "on" : ""}" data-dev="${d.id}"><span>${d.icon}</span>${d.name}</button>`).join("")}</div>
+          <h3 class="onb-q">3. במה מתחילים?</h3>
+          <div class="level-pick">${JOURNEY.map((s, i) => `
+            <button class="level-btn ${s.cls} ${pick === i ? "on" : ""}" data-pick="${i}">
+              ${i === 1 ? `<span class="rec">⭐ מומלץ</span>` : ""}
+              <span class="lv-icon">${s.icon}</span>
+              <span class="jtag ${s.cls}">${s.tag}</span>
+              <b>${s.title}</b>
+            </button>`).join("")}</div>
+          <p class="small muted">${esc(JOURNEY[pick].desc)}</p>
+          <p class="small muted">שומרים רק את השם ואת סוג הטלפון, כדי לדעת איזו אפליקציה להכין.</p>` : ""}
+          <button class="btn gold big-btn" id="go">${isNew ? "יוצאים לדרך!" : "שמירה"}</button>
         </div>`;
+      const nameEl = document.getElementById("pname");
+      nameEl.oninput = () => { typed = nameEl.value; };
       app.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
         look.gender = b.dataset.g;
         look.hat = look.gender === "girl" ? "none" : "kippah";
-        keepName(); draw();
+        draw();
       });
-      app.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { look.skin = b.dataset.skin; keepName(); draw(); });
-      app.querySelectorAll("[data-hair]").forEach(b => b.onclick = () => { look.hair = b.dataset.hair; keepName(); draw(); });
+      app.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { look.skin = b.dataset.skin; draw(); });
+      app.querySelectorAll("[data-hair]").forEach(b => b.onclick = () => { look.hair = b.dataset.hair; draw(); });
+      app.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => { dev = b.dataset.dev; draw(); });
+      app.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => { pick = Number(b.dataset.pick); draw(); });
       document.getElementById("go").onclick = () => {
-        const name = document.getElementById("pname").value.trim();
-        if (!name) { document.getElementById("pname").focus(); return; }
-        const isNew = !player.name;
+        const name = typed.trim();
+        if (!name || (isNew && !dev)) {
+          tried = true; draw();
+          const miss = !name ? document.getElementById("pname") : app.querySelector(".device-pick");
+          if (miss) { miss.scrollIntoView({ block: "center", behavior: "smooth" }); if (!name) miss.focus(); }
+          toast(!name ? "מה השם שלך?" : "איזה טלפון יש לך?");
+          return;
+        }
         player.name = name; player.look = look;
-        if (isNew && !player.journey) player.journey = { step: 0 }; // שחקן חדש יוצא למסע הפתיחה
-        savePlayer();
-        if (isNew || !player.device) location.hash = "#/device/start"; else { location.hash = "#/"; viewCity(); }
+        if (!isNew) { savePlayer(); location.hash = "#/"; return void viewCity(); }
+        player.device = dev; player.tester = false;
+        player.journey = { step: pick, start: pick }; // המסע מתחיל מהמשחק שבחרו וממשיך משם לקשה יותר
+        weeklyLater(); // שאלת השבוע תוצע רק מהכניסה הבאה
+        savePlayer(); sendDevice();
+        startJourneyStop(pick);
       };
     }
-    let typed = player.name;
-    function keepName() { const el = document.getElementById("pname"); if (el) typed = el.value; }
     draw();
   }
 
   // ---------- מסע הפתיחה לשחקן חדש ----------
-  // אחרי יצירת הדמות: שאלה איזה טלפון יש לשחקן, ואז שלוש תחנות מהקל אל הקשה, ובסוף תיבת אוצר.
+  // ביצירת הדמות בוחרים במה מתחילים (קל, בינוני או קשה), והמסע ממשיך משם אל הקשה, ובסוף תיבת אוצר.
   // התחנות הן ההיכלות הקיימים (אוהל אברהם, מרוץ המקורות, מסע בגמרא), לא מערכת נפרדת.
   const DEVICES = [
     { id: "android", icon: "🤖", name: "אנדרואיד" },
@@ -142,8 +169,6 @@
   ];
   const JOURNEY_PRIZE = 100;
   const journeyOn = () => !!(player.journey && !player.journey.done);
-  // הנקודות שמראות באיזה שלב של ההרשמה נמצאים
-  const stepDots = n => `<div class="dots onb-dots">${["הדמות", "הטלפון", "המסע"].map((t, i) => `<span class="${i < n ? "done" : i === n ? "now" : ""}" title="${t}"></span>`).join("")}</div>`;
   function ensureSecret() {
     if (player.secret) return;
     const a = new Uint8Array(16); crypto.getRandomValues(a);
@@ -164,7 +189,6 @@
     let sel = player.device || "", tester = !!player.tester;
     function draw() {
       app.innerHTML = `
-        ${start ? stepDots(1) : ""}
         <div class="card center">
           <div class="avatar-stage">${avatarSVG(player.look, 96)}</div>
           <h1>שלום ${esc(player.name)}! 👋</h1>
@@ -200,9 +224,9 @@
     if (arg === "leave") { J.done = true; J.left = true; savePlayer(); return void (location.hash = "#/"); }
     const fresh = J.done && !J.left && !J.seenPrize;
     if (fresh) { J.seenPrize = true; savePlayer(); setTimeout(confetti, 200); }
-    const state = i => J.done || i < J.step ? "done" : i === J.step ? "now" : "next";
+    // תחנות לפני המשחק שבחרו בהתחלה לא נחשבות "עברתם", אבל פתוחות למי שרוצה לנסות
+    const state = i => i < (J.start || 0) ? "open" : J.done || i < J.step ? "done" : i === J.step ? "now" : "next";
     app.innerHTML = `
-      ${J.step === 0 && !J.done ? stepDots(2) : ""}
       <div class="place-hero journey-hero" style="--c:#2b4c8c">
         <div class="place-icon">🧭</div>
         <h1>מסע הפתיחה</h1>
@@ -217,8 +241,9 @@
               <h3>${i + 1}. ${s.title}</h3>
               <p class="small">${s.desc}</p>
               <div class="small muted">🎯 כדי לעבור: ${s.pass}</div>
-              ${state(i) === "now" ? `<button class="btn gold big-btn" data-go="${i}">${i === 0 ? "יוצאים לדרך!" : "לתחנה הבאה!"}</button>`
-                : state(i) === "done" ? `<button class="btn ghost small-btn" data-go="${i}">לשחק שוב</button>` : `<div class="small">🔒 נפתח אחרי התחנה הקודמת</div>`}
+              ${state(i) === "now" ? `<button class="btn gold big-btn" data-go="${i}">${i === (J.start || 0) ? "יוצאים לדרך!" : "לתחנה הבאה!"}</button>`
+                : state(i) === "done" ? `<button class="btn ghost small-btn" data-go="${i}">לשחק שוב</button>`
+                : state(i) === "open" ? `<button class="btn ghost small-btn" data-go="${i}">לנסות גם כאן</button>` : `<div class="small">🔒 נפתח אחרי התחנה הקודמת</div>`}
             </div>
           </div>`).join("")}
         <div class="jstop prize ${J.done && !J.left ? "done" : "next"}">
@@ -274,10 +299,6 @@
         <a class="btn gold big-btn" href="#/journey">${nx ? "ממשיכים במסע ➜" : "🎁 לפתוח את תיבת האוצר"}</a>
       </div>`;
   }
-  const journeyChip = () => journeyOn()
-    ? `<a class="soul-chip journey-chip" href="#/journey">🧭 מסע הפתיחה · תחנה ${player.journey.step + 1}/${JOURNEY.length}</a>`
-    : !player.device ? `<a class="soul-chip journey-chip device-chip" href="#/device">📱 באיזה טלפון אתם משחקים?</a>` : "";
-
   // ---------- חשבון שחקן ----------
   // שחקן חדש מתחיל מהתחלה. ההתקדמות של מי שנכנס נטענת מהשרת בלבד, ולא מהדפדפן.
   const freshPlayer = () => ({ name: "", look: { ...DEFAULT_LOOK }, owned: [], coins: 0, stars: {}, souls: [], activeSoul: null, pos: null });
@@ -340,50 +361,35 @@
     route();
   }
 
-  // ---------- שאלת השבוע בדף הבית ----------
-  // שאלה מההיכלות של הפרשה של השבוע, עם תיבה להצעת שאלה ותשובה. מתחלפת כל שבוע.
+  // ---------- שאלת השבוע ----------
+  // פעם בשבוע, כשנכנסים למפה, קופצת הצעה לענות על שאלת השבוע מהיכל הפרשה. לא בכניסה הראשונה.
+  const weekNo = () => Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
   function weeklyQuestion() {
     const all = (Parasha.COMMENTATORS || []).flatMap(c => [1, 2, 3, 4, 5, 6, 7, 8].flatMap(l => (((window.TEIRE_LEVELS || {})["parasha-" + c.id] || {})[l] || []).map(q => ({ ...q, commentator: c }))));
     if (!all.length) return null;
-    const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-    return all[week % all.length];
+    return all[weekNo() % all.length];
   }
-  function renderWeekly() {
-    const box = document.getElementById("weekly");
-    if (!box) return;
-    const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-    let hidden = false;
-    try { hidden = localStorage.getItem("teire.weeklyHidden") === String(week); } catch (e) { /* ignore */ }
-    if (hidden) { box.innerHTML = ""; return; } // נסגרה ב-X השבוע, תחזור בשבוע הבא
+  // שחקן חדש: השבוע הזה כבר נחשב "הוצע", כך שההצעה הראשונה תגיע בשבוע הבא
+  function weeklyLater() { player.weeklySeen = weekNo(); }
+  function offerWeekly() {
+    if (player.weeklySeen === weekNo() || document.querySelector(".weekly-pop")) return;
     const q = weeklyQuestion();
-    box.innerHTML = `
-      <div class="weekly-wrap">
-        <details class="weekly card" open>
-          <summary class="weekly-tag">📜 שאלת השבוע · ${esc(Parasha.current.name || "")}</summary>
-          ${q ? `
-            <div class="qtext">${esc(q.question)}</div>
-            <a class="btn ghost small" href="#/place/parasha-${q.commentator.id}">לענות בהיכל ${esc(q.commentator.name)}</a>` : `<p class="small muted">שאלת השבוע תתעדכן בקרוב.</p>`}
-        </details>
-        <button class="weekly-x" aria-label="סגירת שאלת השבוע">✕</button>
+    if (!q || !document.getElementById("city")) return;
+    player.weeklySeen = weekNo(); savePlayer();
+    const pop = document.createElement("div");
+    pop.className = "weekly-pop";
+    pop.innerHTML = `
+      <div class="card center weekly-card" role="dialog" aria-label="שאלת השבוע">
+        <div class="weekly-tag">📜 שאלת השבוע · ${esc(Parasha.current.name || "")}</div>
+        <div class="qtext">${esc(q.question)}</div>
+        <a class="btn gold big-btn" href="#/place/parasha-${q.commentator.id}">לענות עכשיו</a>
+        <div><button class="link-btn" id="wk-later">בפעם אחרת</button></div>
       </div>`;
-    box.querySelector(".weekly-x").onclick = () => {
-      try { localStorage.setItem("teire.weeklyHidden", String(week)); } catch (e) { /* ignore */ }
-      box.innerHTML = "";
-    };
-  }
-
-  // פינג קטן שמציע להציע שאלה. מופיע רק בכניסה לאתר (פעם בכל ביקור), ואפשר לסגור אותו ב-X.
-  function showSuggestPing() {
-    try { if (sessionStorage.getItem("teire.pinged")) return; sessionStorage.setItem("teire.pinged", "1"); } catch (e) { /* ignore */ }
-    const ping = document.createElement("div");
-    ping.className = "suggest-ping";
-    ping.innerHTML = `
-      <button class="ping-x" aria-label="סגירה">✕</button>
-      <div class="ping-text">✏️ יש לכם שאלה טובה? הציעו שאלה ותשובה, ואם מנהל יאשר אותה, היא תופיע באתר.</div>
-      <a class="btn small" href="#/suggest">להציע שאלה</a>`;
-    ping.querySelector(".ping-x").onclick = () => ping.remove();
-    ping.querySelector("a").onclick = () => ping.remove();
-    document.body.appendChild(ping);
+    const close = () => pop.remove();
+    pop.querySelector("a").onclick = close;
+    pop.querySelector("#wk-later").onclick = close;
+    pop.onclick = ev => { if (ev.target === pop) close(); };
+    document.body.appendChild(pop);
   }
 
   // ---------- העיר ----------
@@ -421,7 +427,6 @@
     const pts = arr => arr.map(p => p.join(",")).join(" ");
 
     app.innerHTML = `
-      <div id="weekly"></div>
       <div class="city" id="city">
         <div class="world" id="world" style="width:${W}px;height:${H}px">
           <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
@@ -463,15 +468,9 @@
           ${meHtml(soul, pos)}
         </div>
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
-        <a class="soul-chip lead-chip" href="#/leaders">🏆 טבלת האלופים</a>
-        <a class="soul-chip olama-chip" href="#/olama">🌐 היכל עלמא · משחק חי</a>
-        ${journeyChip()}
-        <a class="soul-chip" href="#/souls">${soul ? `🕯️ נשמת ${esc(soul.name)}` : "🕯️ עוד אין נשמה"} · ${player.souls.length}/${Sages.SAGES.length}</a>
       </div>`;
 
-    renderWeekly();
-    Parasha.ready.then(renderWeekly);
-    showSuggestPing();
+    Parasha.ready.then(() => setTimeout(offerWeekly, 700));
     startWalker({
       W, H, pos,
       savePos: p => { player.pos = p; savePlayer(); },
@@ -1898,6 +1897,7 @@
         <div class="row center-row">
           <a class="btn ghost small-btn" href="#/device">📱 הטלפון שלי: ${esc(deviceName(player.device))}${player.tester ? " · 🛠️ בודק" : ""}</a>
           <a class="btn ghost small-btn" href="#/journey">🧭 ${journeyOn() ? "להמשיך את מסע הפתיחה" : "מסע הפתיחה"}</a>
+          <a class="btn ghost small-btn" href="#/leaders">🏆 טבלת האלופים</a>
         </div>
         <div id="shopmsg"></div>
       </div>
@@ -2457,7 +2457,7 @@
     stopDuel();
     stopGame();
     window.TeireOlama.stop();
-    document.querySelectorAll(".suggest-ping").forEach(e => e.remove()); // הפינג נסגר כשעוברים לעמוד אחר
+    document.querySelectorAll(".weekly-pop").forEach(e => e.remove()); // ההצעה נסגרת כשעוברים לעמוד אחר
     Music.mood(moodFor(page, arg));
     if (checkShabbat()) return;
     if (db.accounts && !accountState.user && page !== "admin") return viewAccount();
