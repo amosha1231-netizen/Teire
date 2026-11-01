@@ -22,7 +22,25 @@
     clearTimeout(progressTimer);
     progressTimer = setTimeout(() => db.saveProgress(player).catch(() => toast("לא הצלחנו לשמור את ההתקדמות. בדקו את החיבור")), 800);
   }
+  // ---------- כמה שחקנים באותו מכשיר ----------
+  // כל שחקן נשמר גם ברשימת השחקנים של המכשיר, כדי שאפשר יהיה להתנתק ולחזור אליו, או להחליף לשחקן אחר.
+  const PROFILES_KEY = "teire.profiles.v1";
+  function loadProfiles() {
+    try { return JSON.parse(localStorage.getItem(PROFILES_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function storeProfiles(all) {
+    try { localStorage.setItem(PROFILES_KEY, JSON.stringify(all)); } catch (e) { /* ignore */ }
+  }
+  const newPid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function rememberProfile() {
+    if (db.accounts || !player.name) return; // בחשבונות שרת ההתקדמות נשמרת בשרת
+    if (!player.pid) player.pid = newPid();
+    const all = loadProfiles();
+    all[player.pid] = player;
+    storeProfiles(all);
+  }
   function savePlayer() {
+    rememberProfile();
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     saveProgressSoon();
     renderHud();
@@ -117,7 +135,10 @@
           <p class="small muted">${esc(JOURNEY[pick].desc)}</p>
           <p class="small muted">שומרים רק את השם ואת סוג הטלפון, כדי לדעת איזו אפליקציה להכין.</p>` : ""}
           <button class="btn gold big-btn" id="go">${isNew ? "יוצאים לדרך!" : "שמירה"}</button>
+          ${isNew && hasProfiles() ? `<div><a class="link-btn" href="#/players" id="to-players">חזרה לבחירת שחקן</a></div>` : ""}
         </div>`;
+      const tp = document.getElementById("to-players");
+      if (tp) tp.onclick = () => { creatingNew = false; };
       const nameEl = document.getElementById("pname");
       nameEl.oninput = () => { typed = nameEl.value; };
       app.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
@@ -141,6 +162,8 @@
         player.name = name; player.look = look;
         if (!isNew) { savePlayer(); location.hash = "#/"; return void viewCity(); }
         player.device = dev; player.tester = false;
+        player.pid = newPid(); player.lastPlayed = Date.now(); creatingNew = false;
+        player.tour = 0; // אחרי המשחק הראשון, כשחוזרים למפה, מתחילה ההדרכה
         player.journey = { step: pick, start: pick }; // המסע מתחיל מהמשחק שבחרו וממשיך משם לקשה יותר
         weeklyLater(); // שאלת השבוע תוצע רק מהכניסה הבאה
         savePlayer(); sendDevice();
@@ -351,6 +374,75 @@
       }
     };
   }
+  // ---------- בחירת שחקן (התנתקות והחלפת שחקן במכשיר) ----------
+  const hasProfiles = () => Object.keys(loadProfiles()).length > 0;
+  let creatingNew = false; // לחצו "שחקן חדש": מראים את יצירת הדמות ולא את בחירת השחקן
+  function setPlayer(p) {
+    player = Object.assign(freshPlayer(), p);
+    try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
+    renderHud();
+  }
+  // התנתקות: השחקן נשמר במכשיר, ועוברים למסך בחירת השחקן
+  function signOutLocal() {
+    if (player.name) rememberProfile();
+    setPlayer({});
+    try { localStorage.removeItem(PKEY); } catch (e) { /* ignore */ }
+    renderHud();
+    location.hash = "#/players";
+    route();
+  }
+  function viewPlayers() {
+    setTab("me");
+    document.body.classList.add("no-player");
+    const all = Object.values(loadProfiles()).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+    let removing = null;
+    function draw() {
+      app.innerHTML = `
+        <div class="card center players-card">
+          <div class="players-logo">📜</div>
+          <h1>מי משחק עכשיו?</h1>
+          <p class="muted">${all.length ? "בחרו את השחקן שלכם, או צרו שחקן חדש" : "עוד אין שחקנים במכשיר הזה"}</p>
+          <div class="players-list">
+            ${all.map(p => `
+              <div class="player-row ${player.pid === p.pid ? "on" : ""}">
+                <button class="player-pick" data-pid="${esc(p.pid)}">
+                  <span class="player-av">${avatarSVG(p.look || DEFAULT_LOOK, 54)}</span>
+                  <span class="player-info"><b>${esc(p.name)}</b>
+                    <span class="small muted">⭐ ${Object.values(p.stars || {}).reduce((a, b) => a + b, 0)} · 🪙 ${p.coins || 0} · 🕯️ ${(p.souls || []).length}</span></span>
+                  <span class="player-go">${removing === p.pid ? "" : "◀"}</span>
+                </button>
+                ${removing === p.pid
+                  ? `<div class="player-del-ask"><span class="small">למחוק את ${esc(p.name)} מהמכשיר?</span><button class="btn bad small-btn" data-del-yes="${esc(p.pid)}">מחיקה</button><button class="btn ghost small-btn" data-del-no>ביטול</button></div>`
+                  : `<button class="player-del" data-del="${esc(p.pid)}" aria-label="מחיקת ${esc(p.name)}">🗑️</button>`}
+              </div>`).join("")}
+          </div>
+          <button class="btn gold big-btn" id="newp">➕ שחקן חדש</button>
+          ${db.accounts ? "" : `<p class="small muted">השחקנים נשמרים במכשיר הזה. כל שחקן ממשיך מאיפה שעצר.</p>`}
+        </div>`;
+      app.querySelectorAll("[data-pid]").forEach(b => b.onclick = () => {
+        const p = loadProfiles()[b.dataset.pid];
+        if (!p) return;
+        document.body.classList.remove("no-player");
+        setPlayer(p); player.lastPlayed = Date.now(); savePlayer();
+        toast(`שלום ${player.name}! 👋`);
+        location.hash = "#/"; route();
+      });
+      app.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { removing = b.dataset.del; draw(); });
+      app.querySelectorAll("[data-del-no]").forEach(b => b.onclick = () => { removing = null; draw(); });
+      app.querySelectorAll("[data-del-yes]").forEach(b => b.onclick = () => {
+        const all2 = loadProfiles(); delete all2[b.dataset.delYes]; storeProfiles(all2);
+        const i = all.findIndex(p => p.pid === b.dataset.delYes); if (i >= 0) all.splice(i, 1);
+        removing = null; draw();
+      });
+      document.getElementById("newp").onclick = () => {
+        document.body.classList.remove("no-player");
+        setPlayer({}); creatingNew = true;
+        if ((location.hash || "#/") === "#/") viewOnboarding(); else location.hash = "#/";
+      };
+    }
+    draw();
+  }
+
   async function logoutPlayer() {
     try { await db.signOutPlayer(); } catch (e) { /* ignore */ }
     accountState.user = null; accountState.loaded = false;
@@ -359,6 +451,118 @@
     try { localStorage.removeItem(PKEY); } catch (e) { /* ignore */ }
     location.hash = "#/";
     route();
+  }
+
+  // ---------- התפריט (☰ בסרגל העליון) ----------
+  // כל הקישורים שלא צריכים להיות על המפה: הנשמה, מסע הפתיחה, טבלת האלופים, היכל עלמא, הטלפון, החלפת שחקן
+  function closeMenu() {
+    document.querySelectorAll(".menu-wrap").forEach(e => e.remove());
+    document.getElementById("menuBtn").setAttribute("aria-expanded", "false");
+  }
+  function openMenu() {
+    if (document.querySelector(".menu-wrap")) return closeMenu();
+    if (!player.name) return;
+    const soul = player.activeSoul && Sages.byId(player.activeSoul);
+    const J = player.journey;
+    const items = [
+      ["#/souls", "🕯️", soul ? `נשמת ${soul.name}` : "היכל הנשמות", `${player.souls.length}/${Sages.SAGES.length} נשמות`],
+      ["#/journey", "🧭", "מסע הפתיחה", journeyOn() ? `תחנה ${Math.min(J.step, JOURNEY.length - 1) + 1}/${JOURNEY.length}` : J && J.done ? "הושלם ✓" : ""],
+      ["#/leaders", "🏆", "טבלת האלופים", ""],
+      ["#/olama", "🌐", "היכל עלמא", "משחק חי עם כל החדר"],
+      ["#/device", "📱", "באיזה טלפון אתם משחקים?", deviceName(player.device)],
+      ["#/review", "📋", "כל השאלות והמקורות", ""],
+      ["tour", "🎓", "הדרכה למתחילים", "לראות שוב איך משחקים"],
+    ];
+    const wrap = document.createElement("div");
+    wrap.className = "menu-wrap";
+    wrap.innerHTML = `
+      <aside class="menu-sheet" role="dialog" aria-label="תפריט">
+        <div class="menu-me">
+          <span class="menu-av">${avatarSVG(player.look, 58)}</span>
+          <div><b>${esc(player.name)}</b>
+            <div class="small">${db.accounts && accountState.user ? "שם משתמש: " + esc(accountState.user.username) : `⭐ ${totalStars()} · 🪙 ${player.coins}`}</div></div>
+          <button class="menu-x" aria-label="סגירה">✕</button>
+        </div>
+        <nav class="menu-list">
+          ${items.map(([href, icon, title, sub]) => `
+            <a class="menu-item" href="${href === "tour" ? "#/" : href}" ${href === "tour" ? `data-tour="1"` : ""}>
+              <span class="menu-ic">${icon}</span><span class="menu-t">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="menu-arrow">‹</span>
+            </a>`).join("")}
+        </nav>
+        <div class="menu-foot">
+          <button class="btn ghost" id="m-out">🚪 התנתקות / החלפת שחקן</button>
+        </div>
+      </aside>`;
+    wrap.onclick = ev => { if (ev.target === wrap || ev.target.closest(".menu-x")) closeMenu(); };
+    wrap.querySelectorAll(".menu-item").forEach(a => a.addEventListener("click", () => {
+      const tour = a.dataset.tour;
+      closeMenu();
+      if (tour) { player.tour = 0; savePlayer(); if ((location.hash || "#/") === "#/") setTimeout(startTour, 50); }
+    }));
+    wrap.querySelector("#m-out").onclick = () => { closeMenu(); if (db.accounts) logoutPlayer(); else signOutLocal(); };
+    document.body.appendChild(wrap);
+    document.getElementById("menuBtn").setAttribute("aria-expanded", "true");
+  }
+  document.getElementById("menuBtn").onclick = openMenu;
+
+  // ---------- הדרכה לשחקן חדש ----------
+  // כמו במשחקים: אחרי המשחק הראשון, דמות מלווה מראה על המסך מה כל דבר עושה, צעד אחרי צעד.
+  // player.tour = מספר הצעד (מתחיל ב-0 אצל שחקן חדש), ו-"done" כשסיימו. לשחקנים ותיקים אין הדרכה.
+  const TOUR_GIFT = 20;
+  const TOUR = [
+    { sel: null, text: n => `שלום ${n}! אני ינשופי 🦉 ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.` },
+    { sel: "#me", text: (n, girl) => `${girl ? "זאת את" : "זה אתה"}! הדמות שלך הולכת במפה של ארץ ישראל, מעיר לעיר.` },
+    { sel: ".bld[data-b='jerusalem']", text: () => "כל בית במפה הוא מקום עם משימות. מקישים על מקום, הדמות הולכת אליו, ונכנסים לשחק." },
+    { sel: "#hud", text: () => "כאן רואים מה אספת: 🕯️ נשמות של חכמים, ⭐ כוכבים על משימות, ו-🪙 מטבעות שקונים בהם בגדים לדמות." },
+    { sel: ".bottomnav", text: () => "בתפריט התחתון: המפה, הנשמות שאספת, הדמות והחנות, ותיבה להציע שאלה משלך." },
+    { sel: "#menuBtn", text: () => "וכאן התפריט: טבלת האלופים, היכל עלמא, מסע הפתיחה, וגם החלפת שחקן או התנתקות." },
+    { sel: null, text: (n, girl) => `זהו, ${girl ? "את מוכנה" : "אתה מוכן"}! הנה מתנה לדרך: ${TOUR_GIFT} מטבעות 🪙. בהצלחה במסע!`, last: true },
+  ];
+  function startTour() {
+    document.querySelectorAll(".tour").forEach(e => e.remove());
+    if (typeof player.tour !== "number" || !document.getElementById("city")) return;
+    const step = TOUR[player.tour];
+    if (!step) { player.tour = "done"; savePlayer(); return; }
+    const target = step.sel && document.querySelector(step.sel);
+    const box = document.createElement("div");
+    box.className = "tour";
+    box.innerHTML = `
+      <div class="tour-hole"></div>
+      <div class="tour-card" role="dialog" aria-label="הדרכה">
+        <div class="tour-guide">🦉</div>
+        <div class="tour-body">
+          <p>${esc(step.text(player.name, player.look && player.look.gender === "girl"))}</p>
+          <div class="tour-row">
+            <span class="tour-dots">${TOUR.map((_, i) => `<i class="${i === player.tour ? "on" : i < player.tour ? "done" : ""}"></i>`).join("")}</span>
+            ${step.last ? "" : `<button class="link-btn" id="tour-skip">דילוג</button>`}
+            <button class="btn gold small-btn" id="tour-next">${step.last ? "יוצאים לדרך! 🎁" : player.tour === 0 ? "בואו נתחיל" : "הבא ➜"}</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    const hole = box.querySelector(".tour-hole"), card = box.querySelector(".tour-card");
+    const r = target && target.getBoundingClientRect();
+    if (r && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth) {
+      const pad = 8;
+      Object.assign(hole.style, { left: r.left - pad + "px", top: r.top - pad + "px", width: r.width + pad * 2 + "px", height: r.height + pad * 2 + "px" });
+      // הכרטיס בצד השני של המסך מהדבר שמסמנים
+      card.classList.add(r.top + r.height / 2 > innerHeight / 2 ? "at-top" : "at-bottom");
+    } else {
+      hole.classList.add("none");
+      card.classList.add("at-middle");
+    }
+    const finish = gift => {
+      box.remove();
+      player.tour = "done";
+      if (gift) { player.coins += TOUR_GIFT; confetti(); toast(`🪙 +${TOUR_GIFT} מטבעות!`); }
+      savePlayer();
+    };
+    box.querySelector("#tour-next").onclick = () => {
+      if (step.last) return finish(true);
+      player.tour++; savePlayer(); startTour();
+    };
+    const sk = box.querySelector("#tour-skip");
+    if (sk) sk.onclick = () => finish(false);
   }
 
   // ---------- שאלת השבוע ----------
@@ -372,7 +576,7 @@
   // שחקן חדש: השבוע הזה כבר נחשב "הוצע", כך שההצעה הראשונה תגיע בשבוע הבא
   function weeklyLater() { player.weeklySeen = weekNo(); }
   function offerWeekly() {
-    if (player.weeklySeen === weekNo() || document.querySelector(".weekly-pop")) return;
+    if (player.weeklySeen === weekNo() || document.querySelector(".weekly-pop, .tour")) return;
     const q = weeklyQuestion();
     if (!q || !document.getElementById("city")) return;
     player.weeklySeen = weekNo(); savePlayer();
@@ -432,17 +636,30 @@
           <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
             <defs>
               <linearGradient id="landg" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#7dc95e"/><stop offset=".45" stop-color="#a4d36b"/>
+                <stop offset="0" stop-color="#6cc25a"/><stop offset=".45" stop-color="#9fd266"/>
                 <stop offset=".62" stop-color="#e3cf7a"/><stop offset="1" stop-color="#e7a85a"/>
               </linearGradient>
+              <radialGradient id="seag" cx=".45" cy=".5" r=".75">
+                <stop offset="0" stop-color="#47b3ea"/><stop offset=".6" stop-color="#2f8fd6"/><stop offset="1" stop-color="#1d63b0"/>
+              </radialGradient>
+              <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".1"/>
+              </linearGradient>
+              <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="9"/></filter>
               <pattern id="waves" width="80" height="40" patternUnits="userSpaceOnUse">
-                <path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3" stroke-linecap="round"/>
+                <path d="M0 20 q10 -8 20 0 t20 0" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="3" stroke-linecap="round"/>
+              </pattern>
+              <pattern id="grass" width="46" height="38" patternUnits="userSpaceOnUse">
+                <path d="M8 30 l3 -7 l3 7 M30 12 l2.5 -6 l2.5 6" fill="none" stroke="rgba(40,90,20,.1)" stroke-width="2" stroke-linecap="round"/>
               </pattern>
             </defs>
-            <rect width="${W}" height="${H}" fill="#3fa0e0"/>
+            <rect width="${W}" height="${H}" fill="url(#seag)"/>
             <rect width="${W}" height="${H}" fill="url(#waves)" class="waves"/>
+            ${mapScenery.back(pts)}
             ${[LAND, SINAI, BAVEL, EUROPE, MIZRACH].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
             <polygon points="${pts(LAND)}" fill="url(#landg)" stroke="#8fbf5a" stroke-width="4" stroke-linejoin="round"/>
+            <polygon points="${pts(LAND)}" fill="url(#grass)"/>
+            <polygon points="${pts(LAND)}" fill="url(#sun)"/>
             <polygon points="${pts(SINAI)}" fill="#e9b468" stroke="#d39a4a" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(BAVEL)}" fill="#e8c27a" stroke="#c99a50" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(EUROPE)}" fill="#9ccf7a" stroke="#6fa34f" stroke-width="4" stroke-linejoin="round"/>
@@ -452,13 +669,15 @@
             <ellipse cx="706" cy="1215" rx="24" ry="100" fill="#4fb3d9" stroke="#f5dc8c" stroke-width="6"/>
             <path d="M840 600 C 860 760, 850 900, 870 1060" fill="none" stroke="#3fa0e0" stroke-width="7" stroke-linecap="round" opacity=".8"/>
             <path d="M560 1060 L 520 1060" stroke="#c9a46a" stroke-width="0"/>
+            ${mapScenery.front()}
           </svg>
+          ${mapScenery.cloudShadows()}
           ${LABELS.map(l => `<span class="map-label ${l.cls}" style="left:${l.x}px;top:${l.y}px">${l.text}</span>`).join("")}
           ${mapDecorations()}
           ${LOCATIONS.map(L => {
             const info = locInfo(L);
             const sages = Sages.SAGES.filter(s => s.building === L.id);
-            return `<button class="bld ${info.open ? "" : "locked"} ${L.duel ? "arena" : ""}" data-b="${L.id}" style="left:${L.x}px;top:${L.y}px;--c:${info.color}">
+            return `<button class="bld ${info.open ? "" : "locked"} ${L.duel ? "arena" : ""}" data-b="${L.id}" style="left:${L.x}px;top:${L.y}px;--c:${info.color};z-index:${L.y + 40}">
               <span class="bld-roof"></span>
               <span class="bld-body"><span class="bld-icon">${info.open ? info.icon : "🔒"}</span></span>
               ${sages.length ? `<span class="bld-sages">${sages.map(s => `<span class="${player.souls.includes(s.id) ? "got" : ""}">${Sages.sageSVG(s, 30)}</span>`).join("")}</span>` : ""}
@@ -467,10 +686,13 @@
           }).join("")}
           ${meHtml(soul, pos)}
         </div>
+        ${mapScenery.sky()}
+        <div class="city-shade"></div>
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
       </div>`;
 
-    Parasha.ready.then(() => setTimeout(offerWeekly, 700));
+    if (typeof player.tour === "number") setTimeout(startTour, 600);
+    else Parasha.ready.then(() => setTimeout(offerWeekly, 700));
     startWalker({
       W, H, pos,
       savePos: p => { player.pos = p; savePlayer(); },
@@ -497,6 +719,7 @@
   function startWalker({ W, H, pos, savePos, onBuilding, onGround, onMove, blocked = [] }) {
     const city = document.getElementById("city"), world = document.getElementById("world");
     const me = document.getElementById("me"), body = me.querySelector(".me-body"), tgt = document.getElementById("target");
+    const sky = document.getElementById("sky");
     const SPEED = 260; // פיקסלים לשנייה
     // בטלפון מקטינים את העולם כדי לראות יותר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
@@ -554,6 +777,8 @@
       cam.x = snap ? wantX : cam.x + (wantX - cam.x) * .15;
       cam.y = snap ? wantY : cam.y + (wantY - cam.y) * .15;
       world.style.transform = `translate(${-cam.x}px, ${-cam.y}px) scale(${S})`;
+      // העננים גבוהים יותר מהקרקע, ולכן זזים מהר יותר ממנה: זה נותן תחושת עומק
+      if (sky) sky.style.transform = `translate(${-cam.x * 1.35}px, ${-cam.y * 1.35}px) scale(${S})`;
     }
 
     function walkTo(x, y, cb) {
@@ -826,13 +1051,98 @@
     };
   }
 
+  // ---------- נוף המפה: עומק ותלת מימד ----------
+  // הארץ נראית כמו אי מוגבה: צוק וצל מתחת לחוף, מים רדודים ליד החוף, הרים מוצללים, יערות עם צל,
+  // ועננים שזזים מהר יותר מהקרקע כשהמצלמה זזה (פרלקסה).
+  const mapScenery = (() => {
+    const { LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, W, H } = City;
+    const SHAPES = [LAND, SINAI, BAVEL, EUROPE, MIZRACH];
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const inPoly = (x, y, poly) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i], [xj, yj] = poly[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    // מקום פנוי: רחוק מהבניינים, מהשמות, מהירדן ומהימים הפנימיים
+    const free = (x, y, r) => LOCATIONS.every(L => Math.hypot(L.x - x, (L.y + 20) - y) > r + 62)
+      && LABELS.every(l => Math.hypot(l.x - x, l.y - y) > r + 40)
+      && !(x > 680 && x < 745 && y > 330 && y < 1330) && Math.hypot(x - 520, y - 1060) > 70;
+    const where = (x, y) => SHAPES.find(p => inPoly(x, y, p));
+
+    // הרים: [x, y, רוחב, גובה, שלג]
+    const HILLS = [[748, 78, 120, 80, 1], [690, 120, 80, 52], [430, 300, 80, 50], [560, 330, 70, 44], [470, 650, 74, 46], [650, 590, 70, 44],
+      [520, 1150, 70, 42], [655, 1060, 64, 40], [610, 1450, 80, 44], [520, 1660, 90, 50], [205, 1560, 80, 50], [400, 1650, 100, 64], [230, 1880, 70, 40],
+      [960, 600, 60, 36], [1220, 230, 90, 56], [1330, 560, 70, 44], [1110, 1290, 70, 40], [1300, 1220, 80, 46]]
+      .filter(([x, y, w]) => free(x, y, w / 3));
+    const hill = ([x, y, w, h, snow]) => {
+      const sandy = y > 1350 || x > 1040 && y > 1000 || (x > 800 && x < 1000);
+      const lit = sandy ? "#e9c27f" : "#8fcf6a", dark = sandy ? "#c4914c" : "#5f9f45", base = sandy ? "#d8a95f" : "#76b955";
+      return `<g class="hill">
+        <ellipse cx="${x + w * .12}" cy="${y + 4}" rx="${w * .62}" ry="${h * .2}" fill="rgba(0,0,0,.2)"/>
+        <path d="M${x - w / 2} ${y} L${x} ${y - h} L${x + w / 2} ${y} Z" fill="${base}"/>
+        <path d="M${x - w / 2} ${y} L${x} ${y - h} L${x - w * .06} ${y} Z" fill="${lit}"/>
+        <path d="M${x} ${y - h} L${x + w / 2} ${y} L${x + w * .1} ${y} Z" fill="${dark}"/>
+        ${snow ? `<path d="M${x - w * .16} ${y - h * .68} L${x} ${y - h} L${x + w * .16} ${y - h * .68} L${x + w * .06} ${y - h * .6} L${x} ${y - h * .7} L${x - w * .07} ${y - h * .6} Z" fill="#fff"/>` : ""}
+      </g>`;
+    };
+
+    // עצים: צפוף בצפון, דקלים ושיחים בדרום
+    const TREES = [];
+    for (let i = 0; i < 900 && TREES.length < 130; i++) {
+      const x = 120 + rnd() * (W - 160), y = 60 + rnd() * (H - 120);
+      const shape = where(x, y);
+      if (!shape || !free(x, y, 14) || TREES.some(t => Math.hypot(t.x - x, t.y - y) < 30)) continue;
+      const south = y > 1320 || shape === SINAI || shape === MIZRACH || shape === BAVEL;
+      if (south && rnd() < .55) continue; // במדבר פחות צמחייה
+      TREES.push({ x, y, s: .8 + rnd() * .5, kind: south ? (rnd() < .5 ? "palm" : "bush") : shape === EUROPE ? "pine" : rnd() < .25 ? "pine" : "tree" });
+    }
+    TREES.sort((a, b) => a.y - b.y);
+    const tree = ({ x, y, s, kind }) => {
+      const sh = `<ellipse cx="${x + 7 * s}" cy="${y + 2}" rx="${15 * s}" ry="${5 * s}" fill="rgba(0,0,0,.2)"/>`;
+      if (kind === "pine") return `${sh}<rect x="${x - 2 * s}" y="${y - 8 * s}" width="${4 * s}" height="${8 * s}" fill="#7a5230"/>
+        <path d="M${x - 12 * s} ${y - 6 * s} L${x} ${y - 34 * s} L${x + 12 * s} ${y - 6 * s} Z" fill="#2f7d3a"/>
+        <path d="M${x} ${y - 34 * s} L${x + 12 * s} ${y - 6 * s} L${x + 2 * s} ${y - 6 * s} Z" fill="#23642d"/>`;
+      if (kind === "palm") return `${sh}<path d="M${x} ${y} q${3 * s} ${-14 * s} ${-1 * s} ${-26 * s}" stroke="#9a6b3a" stroke-width="${3.5 * s}" fill="none" stroke-linecap="round"/>
+        <path d="M${x - 1 * s} ${y - 26 * s} q${-10 * s} ${-4 * s} ${-15 * s} ${4 * s} M${x - 1 * s} ${y - 26 * s} q${10 * s} ${-5 * s} ${15 * s} ${3 * s} M${x - 1 * s} ${y - 26 * s} q${-4 * s} ${-9 * s} ${-11 * s} ${-9 * s} M${x - 1 * s} ${y - 26 * s} q${5 * s} ${-9 * s} ${12 * s} ${-8 * s}" stroke="#3f9a3a" stroke-width="${3.5 * s}" fill="none" stroke-linecap="round"/>`;
+      if (kind === "bush") return `${sh}<circle cx="${x}" cy="${y - 6 * s}" r="${8 * s}" fill="#8fae4a"/><circle cx="${x - 2.5 * s}" cy="${y - 8.5 * s}" r="${3.5 * s}" fill="#b4cc6a"/>`;
+      return `${sh}<rect x="${x - 2 * s}" y="${y - 10 * s}" width="${4 * s}" height="${10 * s}" fill="#7a5230"/>
+        <circle cx="${x}" cy="${y - 20 * s}" r="${12 * s}" fill="#3e9a3e"/>
+        <circle cx="${x + 4 * s}" cy="${y - 17 * s}" r="${8 * s}" fill="#2f8133"/>
+        <circle cx="${x - 4 * s}" cy="${y - 24 * s}" r="${5 * s}" fill="#6cc25a"/>`;
+    };
+
+    // ניצוצות על המים
+    const SPARKS = [[120, 520], [230, 760], [90, 1120], [210, 1380], [960, 200], [980, 1260], [880, 1500], [140, 220], [1000, 420], [60, 1700]];
+    // עננים: [x, y, גודל]. הצל שלהם על הקרקע זז יחד איתם
+    const CLOUDS = [[300, 200, 1.1], [800, 520, .9], [380, 900, 1], [1100, 980, 1.2], [620, 1280, .95], [250, 1600, 1.1], [1000, 1700, .9], [1200, 400, 1]];
+    const cloud = (cls, x, y, k, i) => `<div class="${cls}" style="left:${x}px;top:${y}px;--k:${k};animation-delay:${-i * 7}s"><i></i><i></i><i></i></div>`;
+
+    return {
+      back(pts) {
+        return `
+          <g class="shallow">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#7fd6f2" stroke-opacity=".45" stroke-width="120" stroke-linejoin="round"/>`).join("")}</g>
+          <g opacity=".7">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#a9e6f7" stroke-opacity=".6" stroke-width="64" stroke-linejoin="round"/>`).join("")}</g>
+          <g class="foam">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#fff" stroke-width="46" stroke-linejoin="round"/>`).join("")}</g>
+          <g filter="url(#soft)" transform="translate(16 30)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="rgba(10,40,90,.45)" stroke="rgba(10,40,90,.45)" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>
+          <g transform="translate(0 16)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="#b98546" stroke="#b98546" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>
+          ${SPARKS.map(([x, y], i) => `<path class="spark" style="animation-delay:${i * .37}s" d="M${x} ${y - 7} L${x + 2} ${y - 2} L${x + 7} ${y} L${x + 2} ${y + 2} L${x} ${y + 7} L${x - 2} ${y + 2} L${x - 7} ${y} L${x - 2} ${y - 2} Z" fill="#fff"/>`).join("")}`;
+      },
+      front() { return HILLS.map(hill).join("") + TREES.map(tree).join(""); },
+      cloudShadows() { return `<div class="cloud-shadows">${CLOUDS.map(([x, y, k], i) => cloud("cloud-sh", x + 40, y + 160, k, i)).join("")}</div>`; },
+      sky() { return `<div class="sky" id="sky" style="width:${W}px;height:${H}px">${CLOUDS.map(([x, y, k], i) => cloud("cloud", x, y, k, i)).join("")}<span class="bird" style="top:640px">🕊️</span><span class="bird b2" style="top:1420px">🕊️</span></div>`; },
+    };
+  })();
+
   function mapDecorations() {
     // קישוטים קבועים: הרים, עצים, דקלים וסירות
     const items = [
-      ["⛰️", 700, 110], ["🌲", 520, 170], ["🌳", 610, 560], ["🌿", 430, 470], ["🌳", 680, 640], ["🐑", 520, 650],
-      ["🌳", 680, 900], ["🍇", 380, 960], ["🐄", 470, 820], ["🌾", 650, 760], ["🌳", 660, 1060], ["🐑", 500, 1250],
-      ["🌵", 600, 1330], ["🐪", 560, 1480], ["🌴", 600, 1640], ["⛺", 520, 1560], ["🌵", 590, 1800],
-      ["🐪", 230, 1650], ["🌵", 380, 1820], ["🌴", 940, 700], ["🌴", 840, 980], ["🐫", 950, 900],
+      // העצים וההרים מצוירים עכשיו בנוף (mapScenery), כאן נשארו החיות, הסירות והאוהל
+      ["🐑", 520, 650], ["🍇", 380, 960], ["🐄", 470, 820], ["🌾", 650, 760], ["🐑", 500, 1250],
+      ["🐪", 560, 1480], ["⛺", 520, 1560], ["🐪", 230, 1650], ["🐫", 950, 900],
       ["⛵", 210, 900], ["🐋", 120, 1250], ["🐟", 240, 450], ["⛵", 90, 330], ["🐠", 900, 1250],
     ];
     return items.map(([e, x, y]) => `<span class="deco" style="left:${x}px;top:${y}px">${e}</span>`).join("");
@@ -1892,7 +2202,7 @@
         <div class="avatar-stage">${avatarSVG(player.look, 120)}</div>
         <h2>${esc(player.name)}</h2>
         ${db.accounts && accountState.user ? `<p class="muted small">שם משתמש: ${esc(accountState.user.username)} </p>` : ""}
-        ${db.accounts && accountState.user ? `<button class="btn ghost" id="logout">יציאה מהחשבון</button>` : ""}
+        ${!db.accounts || accountState.user ? `<button class="btn ghost small-btn" id="logout">🚪 התנתקות / החלפת שחקן</button>` : ""}
         <div class="row center-row"><span class="pill dark">⭐ ${totalStars()} כוכבים</span><span class="pill dark">🪙 ${player.coins} מטבעות</span></div>
         <div class="row center-row">
           <a class="btn ghost small-btn" href="#/device">📱 הטלפון שלי: ${esc(deviceName(player.device))}${player.tester ? " · 🛠️ בודק" : ""}</a>
@@ -1943,7 +2253,7 @@
     });
     document.getElementById("redo").onclick = viewOnboarding;
     const lo = document.getElementById("logout");
-    if (lo) lo.onclick = logoutPlayer;
+    if (lo) lo.onclick = () => db.accounts ? logoutPlayer() : signOutLocal();
     const showNext = () => {
       const st = TeireShabbat.status(), el = document.getElementById("nextsh");
       if (el && st.next) el.textContent = `האתר ייסגר ל${st.next.name} ב${dayName(st.next.start)} בשעה ${hm(st.next.start)}`;
@@ -2457,11 +2767,16 @@
     stopDuel();
     stopGame();
     window.TeireOlama.stop();
-    document.querySelectorAll(".weekly-pop").forEach(e => e.remove()); // ההצעה נסגרת כשעוברים לעמוד אחר
+    document.querySelectorAll(".weekly-pop, .tour").forEach(e => e.remove()); // ההצעה וההדרכה נסגרות כשעוברים לעמוד אחר
+    closeMenu();
+    document.body.classList.remove("no-player");
     Music.mood(moodFor(page, arg));
     if (checkShabbat()) return;
     if (db.accounts && !accountState.user && page !== "admin") return viewAccount();
     window.scrollTo(0, 0);
+    if (page === "players" && !db.accounts) return viewPlayers();
+    // אין שחקן פעיל אבל יש שחקנים שמורים במכשיר: בוחרים מי משחק
+    if (!db.accounts && !player.name && !creatingNew && hasProfiles() && page !== "admin") return viewPlayers();
     if (page === "place" && arg) return viewPlace(arg);
     if (page === "b" && arg) return viewBuilding(arg);
     if (page === "town" && arg) return viewTown(arg);
