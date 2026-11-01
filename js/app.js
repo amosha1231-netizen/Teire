@@ -1817,31 +1817,36 @@
         <p class="small" id="garmsg"></p>
       </div>`;
   }
-  // עולמות המרוץ: מתחילים בעולם הספרים (קל), וכל עולם נפתח אחרי RACE_UNLOCK שערים בעולם שלפניו
-  const RACE_UNLOCK = 8, RACE_COINS = { 1: 3, 2: 4, 3: 6 };
-  const raceWorlds = () => X.RACE_WORLDS.length ? X.RACE_WORLDS : [{ n: 3, name: "מרוץ המקורות", icon: "🏁", tag: "", desc: "", items: X.RACE }];
-  const raceBest = n => ((player.raceBest || {})[n]) || 0;
-  // כמה עולמות פתוחים. מי שכבר הגיע ל-8 במרוץ הישן (שהיה ברמת הפסוקים) מקבל את כל העולמות פתוחים
+  // מרוץ המקורות: כל מרוץ נעשה קשה יותר (שערים 1-5 ספרים, 6-10 פרקים, ומשם פסוקים), וברמפות שאלה קשה יותר.
+  // המסלולים שונים בנוף ובמהירות, וכל מסלול נפתח אחרי RACE_UNLOCK שערים במסלול שלפניו
+  const RACE_UNLOCK = 10;
+  const RACE_TRACKS = [
+    { n: 1, theme: "forest", name: "יער הגליל", icon: "🌲", speed: 1, coins: 4 },
+    { n: 2, theme: "desert", name: "מדבר יהודה", icon: "🏜️", speed: 1.08, coins: 5 },
+    { n: 3, theme: "sea", name: "חוף הים", icon: "🌊", speed: 1.16, coins: 6 },
+    { n: 4, theme: "jerusalem", name: "ירושלים", icon: "🏛️", speed: 1.24, coins: 7 },
+  ];
+  const raceStages = () => X.RACE_WORLDS.length ? X.RACE_WORLDS : [{ n: 3, name: "פסוקים", icon: "💎", items: X.RACE }];
+  const raceBest = n => ((player.raceBest || {})["t" + n]) || 0;
+  // מי שכבר הגיע ל-10 במרוץ מקבל את המסלול השני פתוח
   const raceUnlocked = () => {
-    if (!player.raceUnlocked) player.raceUnlocked = ((player.best || {}).race || 0) >= RACE_UNLOCK ? 3 : 1;
-    return player.raceUnlocked;
+    if (!player.raceTracks) player.raceTracks = ((player.best || {}).race || 0) >= RACE_UNLOCK ? 2 : 1;
+    return player.raceTracks;
   };
   const raceOpen = n => n <= raceUnlocked();
-  const raceWorld = () => {
-    const ws = raceWorlds(), want = player.raceWorld || ws[0].n;
-    return ws.find(w => w.n === want && raceOpen(w.n)) || ws[0];
-  };
+  const raceTrack = () => RACE_TRACKS.find(w => w.n === player.raceTrack && raceOpen(w.n)) || RACE_TRACKS[0];
   function worldsHTML() {
-    const cur = raceWorld();
+    const cur = raceTrack();
     return `<div class="race-worlds">
-      <h3>🌍 בחרו עולם</h3>
-      <div class="rw-list">${raceWorlds().map(w => {
+      <h3>🗺️ בחרו מסלול</h3>
+      <p class="small muted">כל מרוץ מתחיל בקל (באיזה ספר?), עובר לפרקים ומשער 11 לפסוקים. בשערים 5, 10 ו-15 יש רמפה 🛫</p>
+      <div class="rw-list">${RACE_TRACKS.map(w => {
         const open = raceOpen(w.n);
         return `<button class="rw ${w.n === cur.n ? "on" : ""} ${open ? "" : "locked"}" data-world="${w.n}" ${open ? "" : "aria-disabled=\"true\""}>
           <span class="rw-icon">${open ? w.icon : "🔒"}</span>
-          <b>${w.name}</b><span class="rw-tag">${w.tag}</span>
-          <span class="small">${open ? w.desc : `נפתח אחרי ${RACE_UNLOCK} שערים ב${raceWorlds().find(x => x.n === w.n - 1).name}`}</span>
-          ${open && raceBest(w.n) ? `<span class="small">שיא: ${raceBest(w.n)}</span>` : ""}
+          <b>${w.name}</b>
+          <span class="small">${open ? `🪙 ${w.coins} לנקודה` : `${RACE_UNLOCK} שערים ב${RACE_TRACKS[w.n - 2].name}`}</span>
+          ${open && raceBest(w.n) ? `<span class="small">שיא: ${raceBest(w.n)} שערים</span>` : ""}
         </button>`;
       }).join("")}</div>
       <p class="small" id="rwmsg"></p>
@@ -1849,15 +1854,15 @@
   }
   function viewRace() {
     if (!player.name) return viewOnboarding();
-    gameIntro("race", "מרוץ המקורות", "🏎️", "שער עם שני שלטים מתקרב, ובכל שלט מקור אחר למשפט שלמעלה. עברו לנתיב של המקור הנכון לפני שמגיעים לשער: הזיזו את הג'ויסטיק, החליקו, הקישו על צד הכביש או השתמשו בחיצים. נתיב לא נכון, או להישאר באמצע מול המחסום, ואתם בחוץ! כל 4 תשובות ברצף: טורבו ונקודת בונוס.", playRace, worldsHTML() + garageHTML());
+    gameIntro("race", "מרוץ המקורות", "🏎️", "שער עם שני שלטים מתקרב, ובכל שלט מקור אחר למשפט שלמעלה. עברו לנתיב של המקור הנכון לפני שמגיעים לשער: הזיזו את הג'ויסטיק, החליקו, הקישו על צד הכביש או השתמשו בחיצים. נתיב לא נכון, או להישאר באמצע מול המחסום, ואתם בחוץ! כל 4 תשובות ברצף: טורבו ונקודת בונוס. ברמפה המכונית עפה, נכנסים לתא הנהג ומטים את הגוף לצד המקור הנכון: נחיתה נכונה שווה 3 נקודות.", playRace, worldsHTML() + garageHTML());
     app.querySelectorAll("[data-world]").forEach(b => b.onclick = () => {
       const n = Number(b.dataset.world);
       if (!raceOpen(n)) {
-        const prev = raceWorlds().find(x => x.n === n - 1);
-        document.getElementById("rwmsg").innerHTML = `<span class="notice err">🔒 עברו ${RACE_UNLOCK} שערים ב${prev.name} כדי לפתוח את העולם הזה (השיא שלכם שם: ${raceBest(prev.n)}).</span>`;
+        const prev = RACE_TRACKS[n - 2];
+        document.getElementById("rwmsg").innerHTML = `<span class="notice err">🔒 עברו ${RACE_UNLOCK} שערים ב${prev.name} כדי לפתוח את המסלול הזה (השיא שלכם שם: ${raceBest(prev.n)}).</span>`;
         return;
       }
-      player.raceWorld = n; savePlayer(); viewRace();
+      player.raceTrack = n; savePlayer(); viewRace();
     });
     app.querySelectorAll("[data-prev]").forEach(cv => TeireRace.preview(cv, CARS.find(c => c.id === cv.dataset.prev).look));
     app.querySelectorAll(".garage-car").forEach(b => b.onclick = () => {
@@ -1922,7 +1927,7 @@
   // המשחק עצמו מצויר ב-js/race.js; כאן רק בונים את הדף ומעדכנים את הטקסטים
   function playRace() {
     stopGame();
-    const car0 = raceCar(), world = raceWorld();
+    const car0 = raceCar(), world = raceTrack(), stages = raceStages();
     app.innerHTML = `
       <div class="race" id="race">
         <div class="race-q" id="rq">מתכוננים לזינוק...</div>
@@ -1942,7 +1947,7 @@
           <button class="joy-btn" data-joy="left" aria-label="שמאלה">◀</button>
           <div class="joy-base" role="slider" aria-label="ג'ויסטיק: שמאל, אמצע, ימין"><span class="joy-groove"></span><span class="joy-knob"></span></div>
           <button class="joy-btn" data-joy="right" aria-label="ימינה">▶</button>
-          <span class="joy-world">${world.icon} ${world.name}</span>
+          <span class="joy-world" id="jstage">${stages[0].icon} ${stages[0].name}</span>
         </div>
       </div>${backToTorah}`;
     const $ = id => document.getElementById(id), track = $("track"), ban = $("hban");
@@ -1952,7 +1957,7 @@
     let banT = 0, lastHud = "";
     if (window.Music && Music.duck) Music.duck(true);
     const r = TeireRace.start({
-      root: track, look: car0.look, boost: car0.boost, shield: car0.shield, deck: db.shuffle(world.items), sidesFor,
+      root: track, look: car0.look, boost: car0.boost, shield: car0.shield, decks: stages.map(st => db.shuffle(st.items)), theme: world.theme, speed: world.speed, driver: { name: player.name }, sidesFor,
       ui: {
         question(item, sides) {
           $("rq").textContent = item ? "\"" + item.text + "\"" : "🔥 טורבו!";
@@ -1969,6 +1974,14 @@
           clearTimeout(banT); banT = setTimeout(() => { ban.className = "race-banner"; }, kind === "count" || kind === "go" ? 800 : 1500);
         },
         toast,
+        stage(i) {
+          const st = stages[i];
+          $("jstage").textContent = `${st.icon} ${st.name}`;
+          ban.textContent = `${st.icon} עולים ל${st.name}!`; ban.className = "race-banner show lap";
+          clearTimeout(banT); banT = setTimeout(() => { ban.className = "race-banner"; }, 1600);
+        },
+        // רמפה: בתא הנהג המקורות גדולים יותר
+        ramp(st) { track.classList.toggle("cockpit", st === "cockpit"); track.classList.toggle("ramp-near", st === "near"); },
         hud(h) {
           if (joySync) joySync(h.lane);
           const t = h.time, mm = String(Math.floor(t / 60)).padStart(2, "0"), ss = (t % 60).toFixed(2).padStart(5, "0");
@@ -1979,19 +1992,19 @@
           $("htime").textContent = `⏱ ${mm}:${ss}`;
           $("rsh").textContent = "🛡️ " + h.shield;
         },
-        end(score) {
+        end(score, gates) {
           stopGame();
-          // שיא לכל עולם, ופתיחת העולם הבא
+          // שיא שערים לכל מסלול, ופתיחת המסלול הבא
           player.raceBest = player.raceBest || {};
-          const was = player.raceBest[world.n] || 0, next = raceWorlds().find(w => w.n === world.n + 1);
+          const passed = Math.max(0, (gates || 1) - 1), next = RACE_TRACKS.find(w => w.n === world.n + 1);
           const nextWasOpen = next && raceOpen(next.n);
-          if (score > was) player.raceBest[world.n] = score;
-          if (next && score >= RACE_UNLOCK && !nextWasOpen) player.raceUnlocked = next.n;
+          if (passed > raceBest(world.n)) player.raceBest["t" + world.n] = passed;
+          if (next && passed >= RACE_UNLOCK && !nextWasOpen) player.raceTracks = next.n;
           savePlayer();
-          app.innerHTML = gameOver("race", score, RACE_COINS[world.n] || 4) + backToTorah;
+          app.innerHTML = gameOver("race", score, world.coins) + backToTorah;
           if (next && !nextWasOpen && raceOpen(next.n)) {
-            document.querySelector(".result h2").insertAdjacentHTML("afterend", `<p class="notice ok">🔓 נפתח עולם חדש: ${next.icon} ${next.name}! <a href="#/race" id="gonext">לעבור אליו</a></p>`);
-            document.getElementById("gonext").onclick = () => { player.raceWorld = next.n; savePlayer(); };
+            document.querySelector(".result h2").insertAdjacentHTML("afterend", `<p class="notice ok">🔓 נפתח מסלול חדש: ${next.icon} ${next.name}! <a href="#/race" id="gonext">לעבור אליו</a></p>`);
+            document.getElementById("gonext").onclick = () => { player.raceTrack = next.n; savePlayer(); };
           }
           document.getElementById("again").onclick = playRace;
         },
