@@ -900,3 +900,8 @@ body.no-player .hud, body.no-player .menu-btn { visibility: hidden; }
 .track.cockpit .hud-l, .track.cockpit .hud-r, .track.cockpit .hud-snd, .track.cockpit .race-tag { opacity: 0; }
 @keyframes cockpitPulse { to { box-shadow: 0 0 0 6px rgba(250,204,21,.15); } }
 .track.ramp-near .race-banner.lap { color: #fde047; }
+
+/* ---------- שלט (js/gamepad.js) ---------- */
+body.using-pad :focus { outline: 4px solid #ffd54a; outline-offset: 3px; box-shadow: 0 0 0 7px rgba(30, 58, 95, .55); }
+body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
+.pad-note { position: fixed; left: 50%; top: 72px; transform: translateX(-50%); z-index: 120; background: #1e3a5f; color: #fff; padding: 10px 16px; border-radius: 14px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); text-align: center; animation: pingIn .3s ease-out; }
