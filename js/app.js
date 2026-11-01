@@ -54,7 +54,15 @@
     scoreTimer = setTimeout(() => db.submitScore(player.secret, player.name, totalStars(), player.souls.length), 1500);
   }
   const totalStars = () => Object.values(player.stars).reduce((a, b) => a + b, 0);
-  const owns = (slot, item) => item.price === 0 || player.owned.includes(slot + ":" + item.id);
+  const owns = (slot, item) => item.gems ? gemState.owned.includes(slot + ":" + item.id) : item.price === 0 || player.owned.includes(slot + ":" + item.id);
+  // יהלומים 💎: היתרה והפריטים נשמרים בשרת בלבד (js/db.js), כאן רק עותק לתצוגה.
+  const gemState = { gems: 0, owned: [] };
+  async function loadGems() {
+    if (!db.gems) return;
+    try { Object.assign(gemState, await db.gems.state()); } catch (e) { return; }
+    renderHud();
+    if (location.hash === "#/me") viewMe();
+  }
   // תחנה פתוחה אם זו הראשונה, או שבתחנה הקודמת יש לפחות כוכב אחד
   const isOpen = i => i === 0 || (PLACES[i] && PLACES[i].free) || (player.stars[PLACES[i - 1].id] || 0) >= 1 || (PLACES[i] && (player.stars[PLACES[i].id] || 0) >= 1);
   // שלבים: שלב 1 שומר כוכבים תחת שם המקום, שלבים גבוהים תחת "מקום@שלב"
@@ -69,7 +77,8 @@
     document.getElementById("hud").innerHTML = player.name ? `
       <span class="pill">🕯️ ${player.souls.length}</span>
       <span class="pill">⭐ ${totalStars()}</span>
-      <span class="pill">🪙 ${player.coins}</span>` : "";
+      <span class="pill">🪙 ${player.coins}</span>${db.gems ? `
+      <a class="pill" href="#/gems">💎 ${gemState.gems}</a>` : ""}` : "";
   }
 
   // ---------- עזרים ----------
@@ -2268,6 +2277,50 @@
   }
 
   // ---------- הדמות שלי וחנות ----------
+  // קניית יהלומים: החבילות והמחירים מגיעים מהחנות (Apple / Google). בדפדפן אין קנייה.
+  async function viewGems() {
+    if (!player.name) return viewOnboarding();
+    setTab("me");
+    if (!db.gems) { location.hash = "#/me"; return; }
+    const shirts = ITEMS.shirt.filter(it => it.gems).map(it => avatarSVG({ ...player.look, shirt: it.id }, 56)).join("");
+    app.innerHTML = `
+      <div class="card center">
+        <h2>💎 יהלומים</h2>
+        <p class="big-time">יש לכם <b>${gemState.gems}</b> יהלומים</p>
+        <p class="small muted">ביהלומים קונים בגדים מיוחדים בעמוד "הדמות שלי".</p>
+        <div class="row center-row">${shirts}</div>
+        <div id="packs" class="row center-row"><p class="muted">טוענים...</p></div>
+        <div id="gemmsg"></div>
+        <a class="btn ghost" href="#/me">חזרה לדמות</a>
+      </div>`;
+    const packs = document.getElementById("packs"), msg = document.getElementById("gemmsg");
+    if (!window.TeirePurchases.available()) {
+      packs.innerHTML = `<p class="notice">קניית יהלומים אפשרית רק באפליקציה, מ-App Store או מ-Google Play.</p>`;
+      return;
+    }
+    let list;
+    try { list = await window.TeirePurchases.packages(); } catch (e) { packs.innerHTML = `<p class="notice err">החנות לא זמינה כרגע. נסו שוב מאוחר יותר.</p>`; return; }
+    if (!list.length) { packs.innerHTML = `<p class="notice">אין כרגע חבילות למכירה.</p>`; return; }
+    packs.innerHTML = list.map((p, i) => `<button class="btn" data-pack="${i}">💎 ${esc(p.title)}<br><span class="small">${esc(p.price)}</span></button>`).join("");
+    packs.querySelectorAll("[data-pack]").forEach(b => b.onclick = async () => {
+      packs.querySelectorAll("button").forEach(x => x.disabled = true);
+      const before = gemState.gems;
+      try {
+        if (!(await window.TeirePurchases.buy(list[b.dataset.pack]))) return viewGems();
+      } catch (e) { msg.innerHTML = `<div class="notice err">הקנייה לא הושלמה. לא חויבתם.</div>`; packs.querySelectorAll("button").forEach(x => x.disabled = false); return; }
+      // השרת מוסיף את היהלומים אחרי שהחנות מאשרת. מחכים עד חצי דקה.
+      msg.innerHTML = `<div class="notice">✔️ התשלום עבר! מוסיפים את היהלומים...</div>`;
+      for (let t = 0; t < 15 && gemState.gems <= before; t++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try { Object.assign(gemState, await db.gems.state()); } catch (e) { /* ננסה שוב */ }
+      }
+      renderHud();
+      if (location.hash !== "#/gems") return;
+      if (gemState.gems > before) { confetti(); viewGems(); }
+      else msg.innerHTML = `<div class="notice">היהלומים יופיעו בעוד כמה דקות. אם לא, כתבו לנו בדף הפניות.</div>`;
+    });
+  }
+
   function viewMe() {
     if (!player.name) return viewOnboarding();
     setTab("me");
@@ -2279,7 +2332,7 @@
         <h2>${esc(player.name)}</h2>
         ${db.accounts && accountState.user ? `<p class="muted small">שם משתמש: ${esc(accountState.user.username)} </p>` : ""}
         ${!db.accounts || accountState.user ? `<button class="btn ghost small-btn" id="logout">🚪 התנתקות / החלפת שחקן</button>` : ""}
-        <div class="row center-row"><span class="pill dark">⭐ ${totalStars()} כוכבים</span><span class="pill dark">🪙 ${player.coins} מטבעות</span></div>
+        <div class="row center-row"><span class="pill dark">⭐ ${totalStars()} כוכבים</span><span class="pill dark">🪙 ${player.coins} מטבעות</span>${db.gems ? `<a class="pill dark" href="#/gems">💎 ${gemState.gems} יהלומים</a>` : ""}</div>
         <div class="row center-row">
           <a class="btn ghost small-btn" href="#/device">📱 הטלפון שלי: ${esc(deviceName(player.device))}${player.tester ? " · 🛠️ בודק" : ""}</a>
           <a class="btn ghost small-btn" href="#/journey">🧭 ${journeyOn() ? "להמשיך את מסע הפתיחה" : "מסע הפתיחה"}</a>
@@ -2290,12 +2343,12 @@
       ${SLOTS.map(([slot, title]) => `
         <h3 class="shop-title">${title}</h3>
         <div class="shop">
-          ${ITEMS[slot].map(it => {
+          ${ITEMS[slot].filter(it => !it.gems || db.gems).map(it => {
             const have = owns(slot, it), on = player.look[slot] === it.id;
             return `<button class="item ${on ? "on" : ""} ${have ? "" : "buy"}" data-slot="${slot}" data-id="${it.id}">
               <span class="item-prev">${preview(slot, it)}</span>
               <span class="item-name">${it.name}</span>
-              <span class="item-price">${on ? "לבוש ✓" : have ? "ללבוש" : "🪙 " + it.price}</span>
+              <span class="item-price">${on ? "לבוש ✓" : have ? "ללבוש" : it.gems ? "💎 " + it.gems : "🪙 " + it.price}</span>
             </button>`;
           }).join("")}
         </div>`).join("")}
@@ -2311,11 +2364,19 @@
       </div>
       <div class="row center-row"><button class="btn ghost" id="redo">שינוי שם ומראה</button><a class="btn ghost" href="#/review">📋 כל השאלות והמקורות</a></div>
       <p class="small muted center">🎵 צלילי הכלים במוזיקה: FluidR3 GM מאת Frank Wen, ברישיון <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></p>
-      <p class="small muted center"><a href="privacy.html">מדיניות פרטיות</a></p>`;
+      <p class="small muted center"><a href="privacy.html">מדיניות פרטיות</a>${db.gems ? ` · <a href="#" id="delacc">מחיקת החשבון שלי בשרת</a>` : ""}</p>`;
 
-    app.querySelectorAll(".item").forEach(b => b.onclick = () => {
+    app.querySelectorAll(".item").forEach(b => b.onclick = async () => {
       const slot = b.dataset.slot, it = ITEMS[slot].find(x => x.id === b.dataset.id);
-      if (!owns(slot, it)) {
+      if (it.gems && !owns(slot, it)) {
+        const msg = document.getElementById("shopmsg");
+        if (gemState.gems < it.gems) {
+          msg.innerHTML = `<div class="notice err">חסרים לכם ${it.gems - gemState.gems} יהלומים. <a href="#/gems">לקניית יהלומים</a></div>`;
+          return;
+        }
+        try { Object.assign(gemState, await db.gems.buy(slot + ":" + it.id)); } catch (e) { msg.innerHTML = `<div class="notice err">${esc(e.message)}</div>`; return; }
+        confetti();
+      } else if (!owns(slot, it)) {
         if (player.coins < it.price) {
           document.getElementById("shopmsg").innerHTML = `<div class="notice err">חסרים לכם ${it.price - player.coins} מטבעות. ענו על עוד שאלות במפה!</div>`;
           return;
@@ -2328,6 +2389,15 @@
       savePlayer(); viewMe();
     });
     document.getElementById("redo").onclick = viewOnboarding;
+    const del = document.getElementById("delacc");
+    if (del) del.onclick = async ev => {
+      ev.preventDefault();
+      if (!confirm("למחוק את החשבון בשרת? היהלומים והפריטים שנקנו ביהלומים יימחקו ולא יחזרו.")) return;
+      try { await db.gems.deleteAccount(); } catch (e) { toast("המחיקה נכשלה. בדקו את החיבור ונסו שוב"); return; }
+      Object.assign(gemState, { gems: 0, owned: [] });
+      if (ITEMS.shirt.some(x => x.gems && x.id === player.look.shirt)) { player.look.shirt = ITEMS.shirt[0].id; savePlayer(); }
+      toast("החשבון נמחק"); renderHud(); viewMe();
+    };
     const lo = document.getElementById("logout");
     if (lo) lo.onclick = () => db.accounts ? logoutPlayer() : signOutLocal();
     const showNext = () => {
@@ -2870,6 +2940,7 @@
     if (page === "learn") return viewLearn(arg);
     if (page === "review") return viewReview();
     if (page === "me") return viewMe();
+    if (page === "gems") return viewGems();
     if (page === "suggest") return viewSuggest(arg);
     if (page === "admin") return viewAdmin();
     return viewCity();
@@ -2882,5 +2953,5 @@
     if (a && a.getAttribute("href") === (location.hash || "#/")) { ev.preventDefault(); route(); }
   });
   renderHud();
-  startAccount().then(route);
+  startAccount().then(route).then(loadGems);
 })();

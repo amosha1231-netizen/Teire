@@ -286,4 +286,36 @@
   window.TeireDB.accounts = accounts;
   window.TeireDB.shuffle = shuffle;
   window.TeireDB.realtime = sb; // לדו-קרב בזמן אמת (null במצב מקומי)
+
+  // ---------- יהלומים 💎 ----------
+  // נשמרים רק בשרת (עדכון 10). כל מכשיר מקבל חשבון שקט (anonymous) בלי הרשמה, והיהלומים שייכים לו.
+  // השרת לבדו מוסיף יהלומים (אחרי תשלום) ומוריד אותם (בקנייה), כך שאי אפשר לזייף מהדפדפן.
+  async function session() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) return session;
+    const { data, error } = await sb.auth.signInAnonymously();
+    if (error) throw new Error("לא הצלחנו להתחבר לשרת");
+    return data.session;
+  }
+  window.TeireDB.gems = useSupabase && cfg.GEMS === true ? {
+    async userId() { return (await session()).user.id; },
+    async state() {
+      await session();
+      const { data, error } = await sb.rpc("my_gems");
+      if (error) throw error;
+      return data;
+    },
+    async buy(itemId) {
+      await session();
+      const { data, error } = await sb.rpc("buy_gem_item", { p_item: itemId });
+      if (error) throw new Error(/not enough/.test(error.message) ? "אין מספיק יהלומים" : "הקנייה נכשלה, נסו שוב");
+      return data;
+    },
+    async deleteAccount() {
+      await session();
+      const { error } = await sb.rpc("delete_my_account");
+      if (error) throw error;
+      await sb.auth.signOut();
+    },
+  } : null;
 })();
