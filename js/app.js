@@ -3,7 +3,7 @@
   const cfg = window.TEIRE_CONFIG;
   const { PLACES, ITEMS, SKINS, HAIR, avatarSVG } = window.TeireWorld;
   const Parasha = window.TEIRE_PARASHA, Parashot = window.TEIRE_PARASHOT;
-  const Sages = window.TeireSages, City = window.TeireCity;
+  const Sages = window.TeireSages, City = window.TeireCity, Rides = window.TeireRides;
   const app = document.getElementById("app");
   const placeById = id => PLACES.find(p => p.id === id);
 
@@ -40,6 +40,7 @@
     storeProfiles(all);
   }
   function savePlayer() {
+    rideCheck();
     rememberProfile();
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     saveProgressSoon();
@@ -77,8 +78,67 @@
     document.getElementById("hud").innerHTML = player.name ? `
       <span class="pill">🕯️ ${player.souls.length}</span>
       <span class="pill">⭐ ${totalStars()}</span>
-      <span class="pill">🪙 ${player.coins}</span>${db.gems ? `
+      <span class="pill">🪙 ${player.coins}</span>${ridePill()}${db.gems ? `
       <a class="pill" href="#/gems">💎 ${gemState.gems}</a>` : ""}` : "";
+  }
+
+  // ---------- כלי רכב לפרס (js/rides.js) ----------
+  // כשמגיעים לסף כוכבים חדש מקבלים כלי רכב ל-24 שעות, עם קלף כמו בפתיחת חבילה. הקלף מחכה רגע, כדי שמסך התוצאה יספיק להופיע.
+  let rideShowing = false;
+  function rideCheck() {
+    if (!player.name) return;
+    const got = Rides.check(player, totalStars());
+    if (got) setTimeout(() => showRide(got, true), 900);
+  }
+  function showRide(r, isNew) {
+    if (rideShowing) return;
+    rideShowing = true;
+    const next = Rides.nextFor(totalStars());
+    cardReveal({
+      tier: r.tier, rating: r.stars, pos: "כוכבים",
+      art: riderHTML(player.look, r.id, 1.6), name: r.icon + " " + r.name,
+      stats: [["מהירות", "×" + r.speed], ["זמן", "24 שעות"]],
+      caption: isNew ? `קיבלתם ${r.name} ליום שלם! במפה נוסעים מהר יותר${next ? `. הבא בתור: ${next.name} ב-${next.stars} כוכבים` : ""}` : `${r.name} חזרה אליכם לעוד יום!`,
+      button: "יוצאים לנסיעה 🛣️",
+    }).then(() => { rideShowing = false; if ((location.hash || "#/") === "#/" || location.hash.startsWith("#/town/")) route(); });
+  }
+  const rideNow = () => player.name ? Rides.active(player) : null;
+  const rideSpeed = () => { const r = rideNow(); return r ? r.speed : 1; };
+  function ridePill() {
+    const r = rideNow();
+    return r ? `<a class="pill ride-pill" href="#/rides" title="${esc(r.name)}">${r.icon} ${Rides.left(r.until)}</a>` : "";
+  }
+  // הדמות יושבת בתוך הרכב: הרכב מצויר מעליה ומסתיר את החצי התחתון שלה
+  function riderHTML(look, rideId, scale = 1) {
+    return `<span class="rider" style="--seat:${Rides.SEAT[rideId] || 55}%;--rs:${scale}">
+      <span class="rider-me">${avatarSVG(look, Math.round(44 * scale))}</span>${Rides.svg(rideId, Math.round(50 * scale))}</span>`;
+  }
+  function viewRides() {
+    if (!player.name) return viewOnboarding();
+    setTab("me");
+    const stars = totalStars(), cur = rideNow(), next = Rides.nextFor(stars), best = Rides.bestFor(stars);
+    const prevStars = best ? best.stars : 0;
+    app.innerHTML = `
+      <div class="card center rides-top">
+        <h2>🐎 האורווה והמוסך</h2>
+        <p class="muted">כל הישג גדול נותן כלי רכב ליום שלם. ברכב נוסעים במפה מהר יותר.</p>
+        ${cur ? `<div class="ride-stage">${riderHTML(player.look, cur.id, 1.8)}</div>
+          <p><b>${cur.icon} ${esc(cur.name)}</b> אצלכם עוד <b>${Rides.left(cur.until)}</b> שעות · מהירות ×${cur.speed}</p>`
+        : best ? `<div class="ride-stage">${avatarSVG(player.look, 90)}</div><p>היום של ה${esc(best.name)} נגמר. <b>משימה מושלמת (3 כוכבים)</b> מחזירה אותה לעוד 24 שעות.</p>`
+        : `<div class="ride-stage">${avatarSVG(player.look, 90)}</div><p>עוד אין לכם רכב. הולכים ברגל בינתיים 🚶</p>`}
+        ${next ? `<div class="ride-bar"><i style="width:${Math.round((stars - prevStars) / (next.stars - prevStars) * 100)}%"></i></div>
+          <p class="small">⭐ ${stars} / ${next.stars}: עוד ${next.stars - stars} כוכבים ל${esc(next.name)}</p>` : `<p class="small">⭐ ${stars}: השגתם את כל כלי הרכב! 👑</p>`}
+      </div>
+      <div class="rides-list">${Rides.RIDES.map(r => {
+        const got = stars >= r.stars, on = cur && cur.id === r.id;
+        return `<div class="ride-row ${got ? "got" : "locked"} ${on ? "on" : ""}">
+          <span class="ride-pic">${Rides.svg(r.id, 40)}</span>
+          <span class="ride-txt"><b>${r.icon} ${esc(r.name)}</b><span class="small">${esc(r.note)}</span>
+            <span class="small muted">⭐ ${r.stars} כוכבים · מהירות ×${r.speed}</span></span>
+          <span class="chip ${on ? "gold-chip" : ""}">${on ? "בנסיעה ✓" : got ? "הושג" : "🔒"}</span>
+        </div>`;
+      }).join("")}</div>
+      <div class="row center-row"><a class="btn" href="#/">למפה</a><a class="btn ghost" href="#/me">לדמות</a></div>`;
   }
 
   // ---------- עזרים ----------
@@ -778,7 +838,7 @@
   const meHtml = (soul, pos) => `
     <div class="me ${soul ? "has-soul" : ""}" id="me" style="${mePlace(pos)}">
       ${soul ? `<span class="me-soul">🕯️ ${esc(soul.name)}</span>` : `<span class="me-name">${esc(player.name)}</span>`}
-      <span class="me-body">${avatarSVG(player.look, 52)}</span>
+      <span class="me-body">${rideNow() ? riderHTML(player.look, rideNow().id) : avatarSVG(player.look, 52)}</span>
       <span class="me-shadow"></span>
     </div>
     <div class="target" id="target"></div>`;
@@ -793,7 +853,7 @@
     const city = document.getElementById("city"), world = document.getElementById("world");
     const me = document.getElementById("me"), body = me.querySelector(".me-body"), tgt = document.getElementById("target");
     const sky = document.getElementById("sky");
-    const SPEED = 260; // פיקסלים לשנייה
+    const SPEED = 260 * rideSpeed(); // פיקסלים לשנייה. ברכב מהפרס נוסעים מהר יותר (js/rides.js)
     // בטלפון מקטינים את העולם כדי לראות יותר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
     const banner = document.getElementById("pre-shabbat");
@@ -1422,6 +1482,9 @@
       const before = player.stars[key] || 0;
       player.coins += coins;
       if (stars > before) player.stars[key] = stars;
+      // משימה מושלמת מחזירה את הרכב הכי טוב שהשגתם, אם היום שלו נגמר
+      const renewed = stars === 3 && Rides.renew(player, totalStars());
+      if (renewed) setTimeout(() => showRide(renewed, false), 900);
       savePlayer();
       const i = PLACES.indexOf(place);
       const next = PLACES[i + 1];
@@ -2388,6 +2451,7 @@
           <a class="btn ghost small-btn" href="#/device">📱 הטלפון שלי: ${esc(deviceName(player.device))}${player.tester ? " · 🛠️ בודק" : ""}</a>
           <a class="btn ghost small-btn" href="#/journey">🧭 ${journeyOn() ? "להמשיך את מסע הפתיחה" : "מסע הפתיחה"}</a>
           <a class="btn ghost small-btn" href="#/leaders">🏆 טבלת האלופים</a>
+          <a class="btn ghost small-btn" href="#/rides">🐎 האורווה והמוסך${rideNow() ? ": " + rideNow().icon + " " + esc(rideNow().name) : ""}</a>
         </div>
         <div id="shopmsg"></div>
       </div>
@@ -3007,6 +3071,7 @@
     if (page === "learn") return viewLearn(arg);
     if (page === "review") return viewReview();
     if (page === "me") return viewMe();
+    if (page === "rides") return viewRides();
     if (page === "gems") return viewGems();
     if (page === "suggest") return viewSuggest(arg);
     if (page === "admin") return viewAdmin();
