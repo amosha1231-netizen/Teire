@@ -108,6 +108,49 @@
     setTimeout(() => box.remove(), 2600);
   }
 
+  // ---------- חשיפת קלף (כמו פתיחת חבילה בפיפ"א) ----------
+  // קלף סגור רועד ונוצץ, הבזק, והקלף מתהפך ומראה את הדמות או את הפריט החדש עם הדרגה שלו.
+  // רק transform ו-opacity, אלמנט אחד שנמחק בסוף, כדי לא להכביד על טלפונים.
+  // tier: bronze / silver / gold / special. מחזיר Promise שנפתר כשסוגרים.
+  const TIERS = { bronze: "ברונזה", silver: "כסף", gold: "זהב", special: "💎 מיוחד" };
+  function itemTier(it) {
+    if (it.gems) return "special";
+    return it.price >= 150 ? "gold" : it.price >= 50 ? "silver" : "bronze";
+  }
+  function cardReveal({ tier = "gold", rating, pos, art, name, stats = [], caption, button = "המשך" }) {
+    return new Promise(resolve => {
+      const ov = document.createElement("div");
+      ov.className = "pack-ov tier-" + tier;
+      ov.innerHTML = `
+        <div class="pack-rays"></div>
+        <div class="pack-flash"></div>
+        <div class="pack-stage">
+          <div class="pack-card">
+            <div class="pc-face pc-back"><span>📜</span><b>?</b></div>
+            <div class="pc-face pc-front">
+              <div class="pc-top"><b class="pc-rate">${rating}</b><span class="pc-pos">${esc(pos)}</span><span class="pc-tier">${TIERS[tier]}</span></div>
+              <div class="pc-art">${art}</div>
+              <div class="pc-name">${esc(name)}</div>
+              ${stats.length ? `<div class="pc-stats">${stats.map(([k, v]) => `<span><b>${esc(v)}</b>${esc(k)}</span>`).join("")}</div>` : ""}
+              <i class="pc-shine"></i>
+            </div>
+          </div>
+        </div>
+        <div class="pack-cap">${esc(caption)}</div>
+        <button class="btn gold big-btn pack-go">${esc(button)}</button>`;
+      document.body.appendChild(ov);
+      let done = false, shown = false;
+      const show = () => { if (shown) return; shown = true; ov.classList.add("open"); if (tier === "gold" || tier === "special") confetti(); };
+      const timer = setTimeout(show, 1500);
+      const close = () => { if (done) return; done = true; clearTimeout(timer); ov.remove(); resolve(); };
+      // נגיעה בזמן האנימציה מדלגת ישר לקלף הפתוח; אחרי שנפתח, הכפתור ממשיך
+      ov.onclick = e => {
+        if (!shown) { ov.classList.add("skip"); show(); return; }
+        if (e.target.closest(".pack-go")) close();
+      };
+    });
+  }
+
   // ---------- היכרות: יצירת דמות ----------
   // שחקן חדש: הכול במסך אחד. מראה, שם, סוג טלפון ובחירת משחק ראשון (קל, בינוני או קשה).
   // המרוץ הבינוני מסומן מראש כמומלץ. אחרי "יוצאים לדרך" נכנסים ישר למשחק שבחרו.
@@ -176,7 +219,14 @@
         player.journey = { step: pick, start: pick }; // המסע מתחיל מהמשחק שבחרו וממשיך משם לקשה יותר
         weeklyLater(); // שאלת השבוע תוצע רק מהכניסה הבאה
         savePlayer(); sendDevice();
-        startJourneyStop(pick);
+        const girl = look.gender === "girl";
+        cardReveal({
+          tier: "gold", rating: 60, pos: girl ? "תלמידה" : "תלמיד",
+          art: avatarSVG(look, 150), name,
+          stats: [["כוכבים", 0], ["מטבעות", player.coins], ["רמה", 1]],
+          caption: `${girl ? "שחקנית חדשה הצטרפה" : "שחקן חדש הצטרף"} למסע! ✨`,
+          button: `יוצאים לדרך: ${JOURNEY[pick].title}`,
+        }).then(() => startJourneyStop(pick));
       };
     }
     draw();
@@ -2368,6 +2418,7 @@
 
     app.querySelectorAll(".item").forEach(b => b.onclick = async () => {
       const slot = b.dataset.slot, it = ITEMS[slot].find(x => x.id === b.dataset.id);
+      const wasOwned = owns(slot, it);
       if (it.gems && !owns(slot, it)) {
         const msg = document.getElementById("shopmsg");
         if (gemState.gems < it.gems) {
@@ -2375,7 +2426,6 @@
           return;
         }
         try { Object.assign(gemState, await db.gems.buy(slot + ":" + it.id)); } catch (e) { msg.innerHTML = `<div class="notice err">${esc(e.message)}</div>`; return; }
-        confetti();
       } else if (!owns(slot, it)) {
         if (player.coins < it.price) {
           document.getElementById("shopmsg").innerHTML = `<div class="notice err">חסרים לכם ${it.price - player.coins} מטבעות. ענו על עוד שאלות במפה!</div>`;
@@ -2383,10 +2433,20 @@
         }
         player.coins -= it.price;
         player.owned.push(slot + ":" + it.id);
-        confetti();
       }
+      const bought = !wasOwned && owns(slot, it);
       player.look[slot] = it.id;
       savePlayer(); viewMe();
+      if (bought) {
+        const tier = itemTier(it);
+        cardReveal({
+          tier, rating: it.gems ? it.gems : it.price, pos: it.gems ? "יהלומים" : "מטבעות",
+          art: avatarSVG(player.look, 150), name: it.name,
+          stats: [["השחקן", player.name]],
+          caption: `פריט חדש ל${player.name}! ${TIERS[tier]}`,
+          button: "ללבוש ✓",
+        });
+      }
     });
     document.getElementById("redo").onclick = viewOnboarding;
     const del = document.getElementById("delacc");
