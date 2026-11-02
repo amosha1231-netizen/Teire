@@ -639,7 +639,7 @@
     if (!player.name) return viewOnboarding();
     setTab("map");
     document.body.classList.add("in-city");
-    const { W, H, LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, START } = City;
+    const { W, H, LAND, SINAI, BAVEL, EUROPE, MIZRACH, AMERICA, LOCATIONS, LABELS, START } = City;
     const soul = player.activeSoul && Sages.byId(player.activeSoul);
     const pos = Object.assign({}, player.pos || START);
     const pts = arr => arr.map(p => p.join(",")).join(" ");
@@ -675,7 +675,7 @@
               </pattern>
             </defs>
             ${mapScenery.back(pts)}
-            ${[LAND, SINAI, BAVEL, EUROPE, MIZRACH].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
+            ${[LAND, SINAI, BAVEL, EUROPE, MIZRACH, AMERICA].map(shape => `<polygon points="${pts(shape)}" fill="#f5dc8c" stroke="#f5dc8c" stroke-width="34" stroke-linejoin="round"/>`).join("")}
             <polygon points="${pts(LAND)}" fill="url(#landg)" stroke="#8fbf5a" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(LAND)}" fill="url(#grass)"/>
             <polygon points="${pts(LAND)}" fill="url(#sun)"/>
@@ -683,6 +683,7 @@
             <polygon points="${pts(BAVEL)}" fill="#e8c27a" stroke="#c99a50" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(EUROPE)}" fill="#9ccf7a" stroke="#6fa34f" stroke-width="4" stroke-linejoin="round"/>
             <polygon points="${pts(MIZRACH)}" fill="#ecc98a" stroke="#c99a50" stroke-width="4" stroke-linejoin="round"/>
+            <polygon points="${pts(AMERICA)}" fill="#a7d982" stroke="#6fa34f" stroke-width="4" stroke-linejoin="round"/>
             <path d="M712 432 C 725 600, 705 800, 722 1000 S 712 1080, 706 1110" fill="none" stroke="#3fa0e0" stroke-width="9" stroke-linecap="round"/>
             <ellipse cx="712" cy="395" rx="28" ry="42" fill="#3fa0e0" stroke="#f5dc8c" stroke-width="6"/>
             <ellipse cx="706" cy="1215" rx="24" ry="100" fill="#4fb3d9" stroke="#f5dc8c" stroke-width="6"/>
@@ -1111,8 +1112,8 @@
   // הארץ נראית כמו אי מוגבה: צוק וצל מתחת לחוף, מים רדודים ליד החוף, הרים מוצללים, יערות עם צל,
   // ועננים שזזים מהר יותר מהקרקע כשהמצלמה זזה (פרלקסה).
   const mapScenery = (() => {
-    const { LAND, SINAI, BAVEL, EUROPE, MIZRACH, LOCATIONS, LABELS, W, H } = City;
-    const SHAPES = [LAND, SINAI, BAVEL, EUROPE, MIZRACH];
+    const { LAND, SINAI, BAVEL, EUROPE, MIZRACH, AMERICA, LOCATIONS, LABELS, W, H } = City;
+    const SHAPES = [LAND, SINAI, BAVEL, EUROPE, MIZRACH, AMERICA];
     let seed = 7;
     const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     const inPoly = (x, y, poly) => {
@@ -1172,7 +1173,7 @@
     };
 
     // ניצוצות על המים
-    const SPARKS = [[120, 520], [230, 760], [90, 1120], [210, 1380], [960, 200], [980, 1260], [880, 1500], [140, 220], [1000, 420], [60, 1700]];
+    const SPARKS = [[120, 520], [230, 760], [90, 1120], [210, 1380], [960, 200], [980, 1260], [880, 1500], [340, 40], [1000, 420], [60, 1700]];
     // עננים: [x, y, גודל]. הצל שלהם על הקרקע זז יחד איתם
     const CLOUDS = [[300, 200, 1.1], [800, 520, .9], [380, 900, 1], [1100, 980, 1.2], [620, 1280, .95], [250, 1600, 1.1], [1000, 1700, .9], [1200, 400, 1]];
     const cloud = (cls, x, y, k, i) => `<div class="${cls}" style="left:${x}px;top:${y}px;--k:${k};animation-delay:${-i * 7}s"><i></i><i></i><i></i></div>`;
@@ -2423,6 +2424,7 @@
     { name: "📜 היכל פרשת השבוע", test: p => isParashaPlace(p.id) },
     { name: "🔤 השלמת הפסוק", test: p => p.id === "verse-hall" },
     { name: "🗝️ היכל הארמית", test: p => p.id === "aramaic-hall" },
+    { name: "🇺🇸 היכלות חב\"ד בקראון הייטס", test: p => p.chabad },
   ];
   const isParashaPlace = id => !!id && id.startsWith("parasha-");
   // אפשרויות הפרשה בתוך חומש אחד
@@ -2806,6 +2808,7 @@
       const kollel = place.startsWith("kollel-");
       const verse = place === "verse-hall", aram = place === "aramaic-hall";
       if (aram) return quiz("ר", "היכל הארמית", "content/aramaic.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
+      if (place === "rebbe-hall" || place === "tanya-hall") return quiz("ח", "היכלות חב\"ד", "content/chabad.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
       quiz(kollel ? "כ" : verse ? "ה" : "ש", kollel ? "כוללי הרבנים" : verse ? "השלמת הפסוק" : "שאלות התחנות", verse ? "content/verses.js" : kollel ? "content/kollels.js" : "content/levels.js", `${pname(place)} · ${LEVEL_NAMES[l]}`, q);
     })));
     const PAR = window.TEIRE_PARASHA;
@@ -2901,6 +2904,9 @@
     if ((page === "town" || page === "b") && (arg === "tzfat" || arg === "meron")) return "mystic";
     if (page === "town" && arg === "jerusalem") return "jerusalem";
     if (page === "town" && arg === "parasha") return "study";
+    // קראון הייטס והיכלות חב"ד: הניגון שעמוס ניגן
+    if (page === "town" && arg === "crown-heights") return "amos";
+    if (page === "place" && (arg === "rebbe-hall" || arg === "tanya-hall")) return "amos";
     if (page === "b" || page === "place" || page === "learn" || page === "souls") return "study";
     return "calm";
   }

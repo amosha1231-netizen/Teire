@@ -1,3 +1,6 @@
 Instrument samples: FluidR3_GM soundfont by Frank Wen, rendered to mp3 by github.com/gleitz/midi-js-soundfonts.
 License: Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
 Changes: trimmed to 3.5 seconds, faded out, converted to mono 64 kbps.
+
+amos-nigun.mp3: a tune played and recorded by AMOS (the site owner) in GarageBand.
+Changes: silent start and end cut, low rumble and hiss removed, light room echo, loudness evened, short fade in/out so it loops.

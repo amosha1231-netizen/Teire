@@ -125,6 +125,35 @@
     },
   };
 
+  // ניגון מוקלט: מנגינה שעמוס ניגן (audio/amos-nigun.mp3), מתנגנת בקראון הייטס ובהיכלות חב"ד.
+  // מנגנים אותה שוב ושוב, עם נשימה קצרה בין סיבוב לסיבוב, ועם הד האולם של שאר המוזיקה.
+  const RECORDED = { amos: { src: "audio/amos-nigun.mp3", vol: 0.95, gap: 1.4 } };
+  const recBufs = {};
+  let recNode = null, recGain = null;
+  function stopRecorded() {
+    if (!recNode) return;
+    const n = recNode, g = recGain, t = ctx.currentTime;
+    recNode = recGain = null;
+    n.onended = null;
+    g.gain.setTargetAtTime(0, t, 0.25);
+    try { n.stop(t + 1.2); } catch (e) { /* כבר נעצר */ }
+  }
+  function playRecorded(name) {
+    const R = RECORDED[name], want = mood;
+    const go = buf => {
+      if (!playing || mood !== want) return;
+      stopRecorded();
+      const s = ctx.createBufferSource(), g = ctx.createGain();
+      s.buffer = buf; g.gain.value = R.vol;
+      s.connect(g); g.connect(master); g.connect(verb);
+      s.onended = () => { if (recNode === s) { recNode = null; timer = setTimeout(() => go(buf), R.gap * 1000); } };
+      recNode = s; recGain = g;
+      s.start(ctx.currentTime + 0.05);
+    };
+    if (!recBufs[name]) recBufs[name] = fetch(R.src).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b));
+    recBufs[name].then(go).catch(() => { /* אין קובץ: שקט */ });
+  }
+
   function tick() {
     const song = SONGS[mood] || SONGS.calm;
     song.tick(step, ctx.currentTime + 0.05, song.bars[(step >> 3) % song.bars.length]);
@@ -133,6 +162,8 @@
   }
   function begin() {
     clearTimeout(timer); step = 0;
+    stopRecorded();
+    if (RECORDED[mood]) return playRecorded(mood);
     const song = SONGS[mood] || SONGS.calm, want = mood;
     // מחכים שהכלים של השיר ייטענו, ואז מתחילים
     Promise.all(song.inst.map(load)).then(() => { if (playing && mood === want) { clearTimeout(timer); step = 0; tick(); } });
