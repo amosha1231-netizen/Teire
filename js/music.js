@@ -140,18 +140,20 @@
     violin: [[0.2, 79, 1.5], [1.8, 75, 1.4], [3.3, 72, 1.6], [4.9, 75, 1.5], [6.5, 74, 1.5], [8, 77, 1.4],
              [9.5, 79, 2], [11.6, 80, 0.8], [12.4, 79, 1.6], [14.1, 75, 1.8], [16, 72, 1.5],
              [17.6, 74, 0.7], [18.3, 75, 2.2], [20.7, 72, 1.5], [22.3, 75, 1.5], [23.95, 74, 1.2]],
-    layer(t, round) {
-      const r = round % 4;
-      if (r === 0) return;
+    layer(t) {
+      // AMOS ביקש שהליווי המלא (צ'לו וכינור) יישמע כבר מהסיבוב הראשון
       this.chords.forEach(([a, b, n]) => {
         for (let x = a; x < b - 0.4; x += 3) play("cello", n, t + x, 0.9, Math.min(3, b - x) - 0.1);
       });
-      if (r >= 2) this.violin.forEach(([x, n, len]) => play("violin", n, t + x, 1, len));
+      this.violin.forEach(([x, n, len]) => play("violin", n, t + x, 1, len));
     },
   };
   const GUITAR = { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9, inst: ["cello", "violin"], layers: AMOS };
-  // אותה גיטרה במפה ובקראון הייטס ובהיכלות חב"ד (mood "amos"), כך שהמעבר ביניהם לא קוטע אותה
-  const TRACKS = { calm: GUITAR, amos: GUITAR };
+  // במפה: הגיטרה. בקראון הייטס ובהיכלות חב"ד (mood "amos"): קטע בסגנון בן צור.
+  // קטע בסגנון שי בן צור באותו סולם ואקורדים (הרמוניום, דולאק, כלי נשיפה, מחיאות כפיים), 16 תיבות ב-100 BPM.
+  // הקובץ נבנה כך שסופו מתחבר לתחילתו, אז הסיבוב הבא מתחיל בדיוק כשהקודם נגמר.
+  const BENTZUR = { url: "audio/guitar/ben-tzur-style.mp3", period: 38.4, vol: 0.85 };
+  const TRACKS = { calm: GUITAR, amos: BENTZUR };
   const tracks = {};
   let live = [], loopT = 0;
   function loadTrack(tr) {

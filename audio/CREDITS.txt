@@ -4,4 +4,4 @@ Changes: trimmed to 3.5 seconds, faded out, converted to mono 64 kbps.
 
 audio/guitar/amos.mp3: guitar recorded by the site's creator in GarageBand, for this game (all rights reserved).
 Changes: metronome click removed, start and end trimmed, rumble filtered, loudness evened, faded out so it loops smoothly, mono 64 kbps.
-Also used in Crown Heights and the Chabad halls.
+audio/guitar/ben-tzur-style.mp3: composed and synthesized for this game in the spirit of Shye Ben Tzur (harmonium, dholak, brass, claps) over the same chords. Clarinet and guitar notes are the FluidR3 samples above.
