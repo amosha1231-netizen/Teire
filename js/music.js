@@ -140,18 +140,33 @@
     violin: [[0.2, 79, 1.5], [1.8, 75, 1.4], [3.3, 72, 1.6], [4.9, 75, 1.5], [6.5, 74, 1.5], [8, 77, 1.4],
              [9.5, 79, 2], [11.6, 80, 0.8], [12.4, 79, 1.6], [14.1, 75, 1.8], [16, 72, 1.5],
              [17.6, 74, 0.7], [18.3, 75, 2.2], [20.7, 72, 1.5], [22.3, 75, 1.5], [23.95, 74, 1.2]],
-    layer(t, round) {
-      const r = round % 4;
-      if (r === 0) return;
+    layer(t) {
+      // AMOS ביקש שהליווי המלא (צ'לו וכינור) יישמע כבר מהסיבוב הראשון
       this.chords.forEach(([a, b, n]) => {
         for (let x = a; x < b - 0.4; x += 3) play("cello", n, t + x, 0.9, Math.min(3, b - x) - 0.1);
       });
-      if (r >= 2) this.violin.forEach(([x, n, len]) => play("violin", n, t + x, 1, len));
+      this.violin.forEach(([x, n, len]) => play("violin", n, t + x, 1, len));
     },
   };
   const GUITAR = { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9, inst: ["cello", "violin"], layers: AMOS };
-  // אותה גיטרה במפה ובקראון הייטס ובהיכלות חב"ד (mood "amos"), כך שהמעבר ביניהם לא קוטע אותה
-  const TRACKS = { calm: GUITAR, amos: GUITAR };
+  // קטע בסגנון שי בן צור באותו סולם ואקורדים (הרמוניום, דולאק, כלי נשיפה, מחיאות כפיים), 16 תיבות ב-100 BPM.
+  // הקטעים המחוברים נבנו כך שסופם מתחבר לתחילתם, אז הסיבוב הבא מתחיל בדיוק כשהקודם נגמר.
+  const BENTZUR = { url: "audio/guitar/ben-tzur-style.mp3", period: 38.4, vol: 0.85 };
+  // "הרים ורחמים": גיטרה בפריטה איטית, כינור וצ'לו, בדו מינור כמו הנגינה של עמוס
+  const MOUNTAINS = { url: "audio/guitar/mountains.mp3", period: 60.614, vol: 0.9 };
+  // שלושת הקטעים מתחלפים כל 20 דקות לפי השעון (אותו קטע לכל השחקנים באותו זמן),
+  // כך שלא כל מי שנכנס שומע תמיד את אותו קטע ראשון. במפה, בקראון הייטס ובהיכלות חב"ד.
+  const ROTATION = [GUITAR, BENTZUR, MOUNTAINS], SLOT = 20 * 60 * 1000;
+  const TRACKS = { calm: "rotate", amos: "rotate" };
+  function trackFor(m) {
+    if (TRACKS[m] !== "rotate") return TRACKS[m];
+    const n = Math.floor(Date.now() / SLOT);
+    for (let k = 0; k < ROTATION.length; k++) {
+      const tr = ROTATION[(n + k) % ROTATION.length];
+      if (!tr.failed) return tr; // קובץ שלא נטען: עוברים לבא בתור
+    }
+    return null;
+  }
   const tracks = {};
   let live = [], loopT = 0;
   function loadTrack(tr) {
@@ -187,8 +202,13 @@
     }
     s.onended = () => { live = live.filter(x => x.s !== s && x.of !== s); };
     const next = t + tr.period;
-    // קובעים את הסיבוב הבא שנייה לפני הזמן, לפי השעון של הצליל (מדויק יותר מ-setTimeout)
-    loopT = setTimeout(() => { if (playing) loopTrack(tr, Math.max(next, ctx.currentTime + 0.05), round + 1); },
+    // קובעים את הסיבוב הבא שנייה לפני הזמן, לפי השעון של הצליל (מדויק יותר מ-setTimeout).
+    // אם בינתיים הגיע תורו של קטע אחר, עוברים אליו בסוף הסיבוב.
+    loopT = setTimeout(() => {
+      if (!playing) return;
+      if (trackFor(mood) !== tr) return begin();
+      loopTrack(tr, Math.max(next, ctx.currentTime + 0.05), round + 1);
+    },
       Math.max(0, (next - ctx.currentTime - 1) * 1000));
   }
 
@@ -201,9 +221,9 @@
   function begin() {
     clearTimeout(timer); step = 0;
     stopTrack(true);
-    const want = mood, tr = TRACKS[mood];
+    const want = mood, tr = trackFor(mood);
     if (tr && !tr.failed) {
-      (tr.inst || []).forEach(load); // כלי הליווי נטענים ברקע, עד שהם נכנסים בסיבוב השני
+      (tr.inst || []).forEach(load); // כלי הליווי נטענים ברקע
       loadTrack(tr).then(sound => {
         tracks[tr.url].value = sound;
         if (playing && mood === want) { stopTrack(true); clearTimeout(timer); loopTrack(tr, ctx.currentTime + 0.1); }
@@ -256,7 +276,7 @@
   function duck(d) { ducked = d; if (master && ctx) master.gain.setTargetAtTime(d ? 0.12 : 0.6, ctx.currentTime, 0.2); }
   function setMood(m) {
     if (m === mood) return;
-    const same = TRACKS[m] && TRACKS[m] === TRACKS[mood] && !TRACKS[m].failed;
+    const tr = trackFor(m), same = tr && tr === trackFor(mood) && !tr.failed;
     mood = m;
     if (playing && !same) begin();
   }
