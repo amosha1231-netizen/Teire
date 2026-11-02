@@ -149,7 +149,9 @@
       if (r >= 2) this.violin.forEach(([x, n, len]) => play("violin", n, t + x, 1, len));
     },
   };
-  const TRACKS = { calm: { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9, inst: ["cello", "violin"], layers: AMOS } };
+  const GUITAR = { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9, inst: ["cello", "violin"], layers: AMOS };
+  // אותה גיטרה במפה ובקראון הייטס ובהיכלות חב"ד (mood "amos"), כך שהמעבר ביניהם לא קוטע אותה
+  const TRACKS = { calm: GUITAR, amos: GUITAR };
   const tracks = {};
   let live = [], loopT = 0;
   function loadTrack(tr) {
@@ -252,7 +254,12 @@
   // במרוץ מנמיכים את המוזיקה כדי שישמעו את המנוע
   let ducked = false;
   function duck(d) { ducked = d; if (master && ctx) master.gain.setTargetAtTime(d ? 0.12 : 0.6, ctx.currentTime, 0.2); }
-  function setMood(m) { if (m === mood) return; mood = m; if (playing) begin(); }
+  function setMood(m) {
+    if (m === mood) return;
+    const same = TRACKS[m] && TRACKS[m] === TRACKS[mood] && !TRACKS[m].failed;
+    mood = m;
+    if (playing && !same) begin();
+  }
 
   document.addEventListener("pointerdown", e => { if (!e.target.closest("#musicBtn")) start(); });
   document.addEventListener("keydown", () => start());
