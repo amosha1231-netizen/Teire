@@ -128,7 +128,7 @@
 
   // הקלטות שלמות שמתנגנות בלופ במקום שיר מתווים. period = כל כמה שניות מתחילים שוב,
   // קצת לפני סוף הקובץ, כך שסוף ההקלטה (שדועך) נבלע בפריטה הראשונה של הסיבוב הבא.
-  const TRACKS = { calm: { url: "audio/guitar/amos.mp3", period: 25.3, vol: 0.9 } };
+  const TRACKS = { calm: { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9 } };
   const tracks = {};
   let live = [], loopT = 0;
   function loadTrack(tr) {
