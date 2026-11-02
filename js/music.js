@@ -149,11 +149,8 @@
     },
   };
   const GUITAR = { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9, inst: ["cello", "violin"], layers: AMOS };
-  // במפה: הגיטרה. בקראון הייטס ובהיכלות חב"ד (mood "amos"): קטע בסגנון בן צור.
-  // קטע בסגנון שי בן צור באותו סולם ואקורדים (הרמוניום, דולאק, כלי נשיפה, מחיאות כפיים), 16 תיבות ב-100 BPM.
-  // הקובץ נבנה כך שסופו מתחבר לתחילתו, אז הסיבוב הבא מתחיל בדיוק כשהקודם נגמר.
-  const BENTZUR = { url: "audio/guitar/ben-tzur-style.mp3", period: 38.4, vol: 0.85 };
-  const TRACKS = { calm: GUITAR, amos: BENTZUR };
+  // אותה גיטרה במפה ובקראון הייטס ובהיכלות חב"ד (mood "amos"), כך שהמעבר ביניהם לא קוטע אותה
+  const TRACKS = { calm: GUITAR, amos: GUITAR };
   const tracks = {};
   let live = [], loopT = 0;
   function loadTrack(tr) {
