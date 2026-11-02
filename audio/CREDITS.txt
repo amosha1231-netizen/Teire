@@ -1,3 +1,6 @@
 Instrument samples: FluidR3_GM soundfont by Frank Wen, rendered to mp3 by github.com/gleitz/midi-js-soundfonts.
 License: Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
 Changes: trimmed to 3.5 seconds, faded out, converted to mono 64 kbps.
+
+audio/guitar/amos.mp3: guitar recorded by the site's creator in GarageBand, for this game (all rights reserved).
+Changes: count-in and silent ending cut, rumble filtered, loudness evened, faded out so it loops smoothly, mono 64 kbps.

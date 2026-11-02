@@ -1,6 +1,7 @@
 // מוזיקת רקע מהקלטות של כלים אמיתיים (audio/<כלי>/<תו>.mp3, מתוך FluidR3_GM, רישיון CC BY 3.0).
 // לכל מקום מנגינה משלו: פסנתר רגוע במפה, ניגון לימוד בבית המדרש, שמחה בירושלים, ניגון חסידי בצפת ובמירון,
 // קצב מהיר באתגרים, וצלילים דרמטיים בהיכל הפלפולים. הכלים נטענים רק כשצריך אותם.
+// במפה ובמקומות הרגילים מתנגנת הקלטת גיטרה אמיתית (audio/guitar/amos.mp3) בלופ, ואם היא לא נטענת חוזרים לפסנתר.
 // הדפדפן מרשה להשמיע רק אחרי לחיצה, אז המוזיקה מתחילה בלחיצה הראשונה. כפתור 🎵 בסרגל העליון משתיק.
 (function () {
   const KEY = "teire.music";
@@ -125,6 +126,43 @@
     },
   };
 
+  // הקלטות שלמות שמתנגנות בלופ במקום שיר מתווים. period = כל כמה שניות מתחילים שוב,
+  // קצת לפני סוף הקובץ, כך שסוף ההקלטה (שדועך) נבלע בפריטה הראשונה של הסיבוב הבא.
+  const TRACKS = { calm: { url: "audio/guitar/amos.mp3", period: 25.3, vol: 0.9 } };
+  const tracks = {};
+  let live = [], loopT = 0;
+  function loadTrack(tr) {
+    if (!tracks[tr.url]) tracks[tr.url] = fetch(tr.url).then(r => { if (!r.ok) throw r; return r.arrayBuffer(); })
+      .then(b => ctx.decodeAudioData(b)).then(buf => {
+        // מדלגים על השקט שהמקודד מוסיף בתחילת קובץ mp3, כדי שהלופ לא יגמגם
+        const d = buf.getChannelData(0); let i = 0;
+        while (i < d.length && Math.abs(d[i]) < 1e-4) i++;
+        return { buf, skip: i / buf.sampleRate };
+      });
+    return tracks[tr.url];
+  }
+  function stopTrack(fade) {
+    clearTimeout(loopT);
+    const now = ctx ? ctx.currentTime : 0;
+    live.forEach(({ s, g }) => {
+      try { g.gain.setTargetAtTime(0, now, fade ? 0.25 : 0.01); s.stop(now + (fade ? 1.5 : 0.1)); } catch (e) { /* כבר נעצר */ }
+    });
+    live = [];
+  }
+  function loopTrack(tr, t) {
+    const sound = tracks[tr.url].value;
+    const s = ctx.createBufferSource(), g = ctx.createGain(), wet = ctx.createGain();
+    s.buffer = sound.buf; g.gain.value = tr.vol; wet.gain.value = 0.35;
+    s.connect(g); g.connect(master); g.connect(wet); wet.connect(verb);
+    s.start(t, sound.skip);
+    live.push({ s, g });
+    s.onended = () => { live = live.filter(x => x.s !== s); };
+    const next = t + tr.period;
+    // קובעים את הסיבוב הבא שנייה לפני הזמן, לפי השעון של הצליל (מדויק יותר מ-setTimeout)
+    loopT = setTimeout(() => { if (playing) loopTrack(tr, Math.max(next, ctx.currentTime + 0.05)); },
+      Math.max(0, (next - ctx.currentTime - 1) * 1000));
+  }
+
   function tick() {
     const song = SONGS[mood] || SONGS.calm;
     song.tick(step, ctx.currentTime + 0.05, song.bars[(step >> 3) % song.bars.length]);
@@ -133,7 +171,16 @@
   }
   function begin() {
     clearTimeout(timer); step = 0;
-    const song = SONGS[mood] || SONGS.calm, want = mood;
+    stopTrack(true);
+    const want = mood, tr = TRACKS[mood];
+    if (tr && !tr.failed) {
+      loadTrack(tr).then(sound => {
+        tracks[tr.url].value = sound;
+        if (playing && mood === want) { stopTrack(true); clearTimeout(timer); loopTrack(tr, ctx.currentTime + 0.1); }
+      }, () => { tr.failed = true; if (playing && mood === want) begin(); });
+      return;
+    }
+    const song = SONGS[mood] || SONGS.calm;
     // מחכים שהכלים של השיר ייטענו, ואז מתחילים
     Promise.all(song.inst.map(load)).then(() => { if (playing && mood === want) { clearTimeout(timer); step = 0; tick(); } });
   }
@@ -164,7 +211,7 @@
     } catch (e) { return; }
     playing = true; begin(); render();
   }
-  function stop() { clearTimeout(timer); playing = false; if (ctx) ctx.suspend(); render(); }
+  function stop() { clearTimeout(timer); stopTrack(false); playing = false; if (ctx) ctx.suspend(); render(); }
   function toggle() {
     const next = !on();
     try { localStorage.setItem(KEY, next ? "on" : "off"); } catch (e) { /* ignore */ }
