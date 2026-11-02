@@ -144,5 +144,13 @@
     free: true, bank: true, home: "#/town/torah",
     guide: { name: "בר מילי", emoji: "🦉", hello: "שלמא עלך! אני בר מילי. כאן לומדים את הארמית של הגמרא: מילים, מונחים ופתגמים. מה פירוש המילה?" } });
 
+  // אמריקה, קראון הייטס: היכל הרבי מליובאוויטש והיכל התניא של האדמו"ר הזקן (השאלות ב-content/chabad.js)
+  PLACES.push({ id: "rebbe-hall", name: "היכל הרבי מליובאוויטש", icon: "🕍", color: "#1e3a8a", desc: "חייו, תורתו ומבצעיו של הרבי, רבי מנחם מענדל שניאורסון",
+    free: true, bank: true, chabad: true, home: "#/town/crown-heights",
+    guide: { name: "יוני", emoji: "🕊️", hello: "שלום עליכם! אני יוני, והגעתם ל-770 בברוקלין. כאן נלמד על הרבי מליובאוויטש: מאיפה בא, מה לימד, ואיך שלח שלוחים לכל העולם." } });
+  PLACES.push({ id: "tanya-hall", name: "היכל התניא", icon: "📗", color: "#065f46", desc: "ספר התניא ותורתו של האדמו\"ר הזקן, מייסד חב\"ד",
+    free: true, bank: true, chabad: true, home: "#/town/crown-heights",
+    guide: { name: "אילי", emoji: "🦌", hello: "\"כי קרוב אליך הדבר מאד, בפיך ובלבבך לעשותו\". אני אילי, וכאן לומדים תניא ותורת האדמו\"ר הזקן, רבי שניאור זלמן מלאדי." } });
+
   window.TeireWorld = { PLACES, ITEMS, SKINS, HAIR, avatarSVG };
 })();

@@ -415,7 +415,7 @@
 
   // היכל הים: נמל עם רציף וספינות. מכאן מפליגים ליבשה אחרת (#/sail/<יעד>).
   // from = הנמל שבו נמצאים עכשיו (app.js קובע לפי מקום הדמות במפה), והוא לא מופיע ברשימת היעדים.
-  const SAIL_SEATS = [[250, 230], [500, 170], [750, 230]];
+  const SAIL_SEATS = [[250, 230], [500, 170], [750, 230]]; // יעד לכל רציף (תמיד שלושה: כל הנמלים חוץ מזה שבו נמצאים)
   const sea = {
     id: "sea", name: "היכל הים", W: 1000, H: 1000,
     start: { x: 500, y: 880 },
@@ -425,8 +425,8 @@
       const P = window.TeireCity.PORTS;
       const dests = Object.keys(P).filter(k => k !== this.from);
       return [
-        ...dests.map((k, i) => ({ id: "sail-" + k, name: `הפלגה ל${P[k].name}`, icon: P[k].icon, x: SAIL_SEATS[i * 2][0], y: SAIL_SEATS[i * 2][1], color: "#0369a1", href: "#/sail/" + k })),
-        { id: "yona", name: "הספינה של יונה", icon: "🐋", x: 500, y: 330, color: "#1e3a8a",
+        ...dests.map((k, i) => ({ id: "sail-" + k, name: `הפלגה ל${P[k].name}`, icon: P[k].icon, x: SAIL_SEATS[i][0], y: SAIL_SEATS[i][1], color: "#0369a1", href: "#/sail/" + k })),
+        { id: "yona", name: "הספינה של יונה", icon: "🐋", x: 380, y: 420, color: "#1e3a8a",
           info: {
             title: "🐋 הספינה של יונה",
             text: "\"ויקם יונה לברח תרשישה מלפני ה', וירד יפו, וימצא אניה באה תרשיש\" (יונה א, ג). בים קם סער גדול, המלחים הטילו את יונה למים, ודג גדול בלע אותו. בתוך הדג התפלל יונה, והדג הקיא אותו אל היבשה.",
@@ -462,8 +462,8 @@
         ${planks.join("")}
         <rect x="430" y="400" width="10" height="600" fill="#7c4f24"/><rect x="560" y="400" width="10" height="600" fill="#7c4f24"/>
         <!-- רציפים קטנים לכל ספינה -->
-        <path d="M250 300 V 700 M750 300 V 700" stroke="#b07a45" stroke-width="40"/>
-        <path d="M250 300 V 700 M750 300 V 700" stroke="#7c4f24" stroke-width="40" stroke-dasharray="3 23"/>
+        <path d="M250 300 V 700 M750 300 V 700 M500 240 V 400" stroke="#b07a45" stroke-width="40"/>
+        <path d="M250 300 V 700 M750 300 V 700 M500 240 V 400" stroke="#7c4f24" stroke-width="40" stroke-dasharray="3 23"/>
         <!-- מגדלור -->
         <rect x="900" y="620" width="40" height="120" fill="#f8fafc" stroke="#94a3b8" stroke-width="3"/>
         <rect x="900" y="650" width="40" height="18" fill="#dc2626"/><rect x="900" y="700" width="40" height="18" fill="#dc2626"/>
@@ -526,6 +526,64 @@
     decorations: [["🌴", 80, 120], ["🌴", 920, 140], ["🐟", 330, 380], ["🐟", 660, 560], ["🌿", 90, 520], ["🌿", 920, 520], ["⛰️", 500, 60], ["🕊️", 700, 120], ["🌾", 360, 900], ["🌾", 640, 900]],
   };
 
-  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron, torah, parasha, sea, miriam };
+
+  // קראון הייטס, ברוקלין (ניו יורק): 770 איסטרן פארקווי, בית המדרש של הרבי מליובאוויטש.
+  // כאן היכל הרבי והיכל התניא (השאלות ב-content/chabad.js), ובמוזיקה מתנגן הניגון שעמוס ניגן.
+  const crownHeights = {
+    id: "crown-heights", name: "קראון הייטס, ניו יורק", W: 1000, H: 1000,
+    start: { x: 500, y: 900 },
+    blocked: [{ x1: 330, y1: 60, x2: 670, y2: 300 }],
+    spots: [
+      { id: "770", name: "770 איסטרן פארקווי", icon: "🏛️", x: 500, y: 200, ax: 500, ay: 380, color: "#7f1d1d", area: true,
+        info: {
+          title: "🏛️ 770 איסטרן פארקווי",
+          text: "הבניין בברוקלין שבו ישב הרבי מליובאוויטש, רבי מנחם מענדל שניאורסון. את הבניין קנו בשנת ת\"ש (1940) בשביל הרבי הקודם, רבי יוסף יצחק שניאורסון, כשהגיע לאמריקה. מכאן יצאו שלוחים לכל העולם. 770 בגימטריה \"פרצת\", מהפסוק \"ופרצת ימה וקדמה וצפנה ונגבה\" (בראשית כח, יד).",
+          links: [["🕍 היכל הרבי", "#/place/rebbe-hall"], ["📗 היכל התניא", "#/place/tanya-hall"]],
+        } },
+      { id: "rebbe", name: "היכל הרבי מליובאוויטש", icon: "🕍", x: 270, y: 470, color: "#1e3a8a", href: "#/place/rebbe-hall" },
+      { id: "tanya", name: "היכל התניא והאדמו\"ר הזקן", icon: "📗", x: 730, y: 470, color: "#065f46", href: "#/place/tanya-hall" },
+      { id: "tefillin", name: "דוכן התפילין", icon: "🙌", x: 270, y: 760, color: "#b45309",
+        info: {
+          title: "🙌 מבצע תפילין",
+          text: "לפני מלחמת ששת הימים (תשכ\"ז, 1967) קרא הרבי ליהודים בכל העולם להניח תפילין, ושלוחי חב\"ד עומדים עם תפילין ברחובות עד היום. אחריו באו עוד מבצעים: מזוזה, נרות שבת, לימוד תורה, צדקה, בית מלא ספרים, כשרות, אהבת ישראל, חינוך וטהרת המשפחה.",
+          links: [],
+        } },
+      { id: "ohel", name: "האוהל", icon: "🕯️", x: 730, y: 760, color: "#4c1d95",
+        info: {
+          title: "🕯️ האוהל",
+          text: "מקום מנוחתם של הרבי ושל חותנו הרבי הקודם, בבית העלמין מונטיפיורי בקווינס, ניו יורק. הרבי נפטר בג' תמוז תשנ\"ד (1994). אנשים מכל העולם באים לשם להתפלל ולהשאיר מכתבים.",
+          links: [],
+        } },
+      { id: "exit", name: "למפה", icon: "🗺️", x: 120, y: 930, color: "#16a34a", href: "#/", exit: true },
+    ],
+    svg(W, H) {
+      // חלונות הבניין: שלוש קומות, וגג משולש כמו בחזית של 770
+      const wins = [];
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) wins.push(`<rect x="${365 + c * 48}" y="${135 + r * 46}" width="22" height="30" rx="${r === 2 ? 0 : 11}" fill="#fde68a" stroke="#7c2d12" stroke-width="2"/>`);
+      const trees = [110, 260, 740, 890].map(x => `<circle cx="${x}" cy="590" r="30" fill="#3f8f3a"/><rect x="${x - 4}" y="590" width="8" height="26" fill="#7a5230"/>`).join("");
+      return `<svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <rect width="${W}" height="${H}" fill="#cfe3a0"/>
+        <!-- איסטרן פארקווי: שדרה רחבה עם עצים באמצע -->
+        <rect x="0" y="540" width="${W}" height="110" fill="#9ca3af"/>
+        <rect x="0" y="588" width="${W}" height="14" fill="#86efac"/>
+        <path d="M0 560 H ${W} M0 630 H ${W}" stroke="#fff" stroke-width="3" stroke-dasharray="26 22"/>
+        ${trees}
+        <rect x="0" y="380" width="${W}" height="40" fill="#e5e7eb"/>
+        <path d="M500 420 V 540 M500 650 V 900" stroke="#e5e7eb" stroke-width="44"/>
+        <!-- 770 -->
+        <rect x="340" y="110" width="320" height="200" fill="#9a3412" stroke="#7c2d12" stroke-width="4"/>
+        <path d="M340 110 L 500 40 L 660 110 Z" fill="#7c2d12"/>
+        <path d="M410 110 L 410 70 L 440 70 L 440 110 M560 110 L 560 70 L 590 70 L 590 110" fill="#9a3412" stroke="#7c2d12" stroke-width="3"/>
+        ${wins.join("")}
+        <rect x="470" y="250" width="60" height="60" rx="30" fill="#451a03"/>
+        <text x="500" y="98" text-anchor="middle" font-size="30" font-weight="800" fill="#fde68a" font-family="Rubik, sans-serif">770</text>
+        <path d="M440 310 h120 l20 30 h-160 Z" fill="#d6d3d1"/>
+      </svg>`;
+    },
+    labels: [{ text: "איסטרן פארקווי", x: 500, y: 668, cls: "land small" }],
+    decorations: [["🚕", 120, 560], ["🚌", 860, 625], ["🇺🇸", 60, 60], ["🌳", 60, 420], ["🌳", 940, 420], ["🏢", 940, 120], ["🏢", 70, 220], ["🕊️", 700, 40], ["🗽", 930, 880], ["🌷", 360, 860], ["🌷", 640, 860]],
+  };
+
+  const TOWNS = { jerusalem, hebron, tzfat, tiberias, meron, torah, parasha, sea, miriam, "crown-heights": crownHeights };
   window.Towns = { TOWNS, byId: id => TOWNS[id] };
 })();
