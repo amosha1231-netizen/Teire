@@ -1,6 +1,7 @@
 // מוזיקת רקע מהקלטות של כלים אמיתיים (audio/<כלי>/<תו>.mp3, מתוך FluidR3_GM, רישיון CC BY 3.0).
 // לכל מקום מנגינה משלו: פסנתר רגוע במפה, ניגון לימוד בבית המדרש, שמחה בירושלים, ניגון חסידי בצפת ובמירון,
 // קצב מהיר באתגרים, וצלילים דרמטיים בהיכל הפלפולים. הכלים נטענים רק כשצריך אותם.
+// במפה ובמקומות הרגילים מתנגנת הקלטת גיטרה אמיתית (audio/guitar/amos.mp3) בלופ, ואם היא לא נטענת חוזרים לפסנתר.
 // הדפדפן מרשה להשמיע רק אחרי לחיצה, אז המוזיקה מתחילה בלחיצה הראשונה. כפתור 🎵 בסרגל העליון משתיק.
 (function () {
   const KEY = "teire.music";
@@ -13,6 +14,7 @@
     acoustic_guitar_nylon: [40, 72], pizzicato_strings: [43, 79], marimba: [55, 87],
   };
   const buffers = {}, loading = {};
+  let bus = null; // כשמוגדר, התווים עוברים דרכו (ליווי של הקלטה, כדי שאפשר יהיה להשתיק אותו יחד איתה)
   function load(inst) {
     if (loading[inst]) return loading[inst];
     const [lo, hi] = RANGES[inst], notes = [];
@@ -35,7 +37,8 @@
     s.playbackRate.value = Math.pow(2, (note - best) / 12);
     g.gain.setValueAtTime(vol, t);
     if (len) { g.gain.setValueAtTime(vol, t + len); g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.35); }
-    s.connect(g); g.connect(master); g.connect(verb);
+    s.connect(g);
+    if (bus) g.connect(bus); else { g.connect(master); g.connect(verb); }
     s.start(t); s.stop(t + (len ? len + 0.4 : 4));
   }
 
@@ -125,33 +128,68 @@
     },
   };
 
-  // ניגון מוקלט: מנגינה שעמוס ניגן (audio/amos-nigun.mp3), מתנגנת בקראון הייטס ובהיכלות חב"ד.
-  // מנגנים אותה שוב ושוב, עם נשימה קצרה בין סיבוב לסיבוב, ועם הד האולם של שאר המוזיקה.
-  const RECORDED = { amos: { src: "audio/amos-nigun.mp3", vol: 0.95, gap: 1.4 } };
-  const recBufs = {};
-  let recNode = null, recGain = null;
-  function stopRecorded() {
-    if (!recNode) return;
-    const n = recNode, g = recGain, t = ctx.currentTime;
-    recNode = recGain = null;
-    n.onended = null;
-    g.gain.setTargetAtTime(0, t, 0.25);
-    try { n.stop(t + 1.2); } catch (e) { /* כבר נעצר */ }
+  // הקלטות שלמות שמתנגנות בלופ במקום שיר מתווים. period = כל כמה שניות מתחילים שוב,
+  // קצת לפני סוף הקובץ, כך שסוף ההקלטה (שדועך) נבלע בפריטה הראשונה של הסיבוב הבא.
+  // את הגיטרה של עמוס ליוו כלים שנכנסים בהדרגה: סיבוב ראשון רק גיטרה, אחר כך צ'לו, ואז גם כינור.
+  // הגיטרה בדו מינור: Cm (עם בס סול) → Ab → Bb → Cm..., אז הליווי עוקב אחרי האקורדים לפי השניות בהקלטה.
+  const AMOS = {
+    // [התחלה, סוף, תו בס לצ'לו]
+    chords: [[0, 3.27, 48], [3.27, 6.46, 44], [6.46, 9.44, 46], [9.44, 16, 48], [16, 17.56, 44],
+             [17.56, 20.66, 48], [20.66, 23.91, 44], [23.91, 25.3, 46]],
+    // [זמן, תו, אורך] מנגינת כינור שקטה מעל
+    violin: [[0.2, 79, 1.5], [1.8, 75, 1.4], [3.3, 72, 1.6], [4.9, 75, 1.5], [6.5, 74, 1.5], [8, 77, 1.4],
+             [9.5, 79, 2], [11.6, 80, 0.8], [12.4, 79, 1.6], [14.1, 75, 1.8], [16, 72, 1.5],
+             [17.6, 74, 0.7], [18.3, 75, 2.2], [20.7, 72, 1.5], [22.3, 75, 1.5], [23.95, 74, 1.2]],
+    layer(t, round) {
+      const r = round % 4;
+      if (r === 0) return;
+      this.chords.forEach(([a, b, n]) => {
+        for (let x = a; x < b - 0.4; x += 3) play("cello", n, t + x, 0.9, Math.min(3, b - x) - 0.1);
+      });
+      if (r >= 2) this.violin.forEach(([x, n, len]) => play("violin", n, t + x, 1, len));
+    },
+  };
+  const GUITAR = { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9, inst: ["cello", "violin"], layers: AMOS };
+  // אותה גיטרה במפה ובקראון הייטס ובהיכלות חב"ד (mood "amos"), כך שהמעבר ביניהם לא קוטע אותה
+  const TRACKS = { calm: GUITAR, amos: GUITAR };
+  const tracks = {};
+  let live = [], loopT = 0;
+  function loadTrack(tr) {
+    if (!tracks[tr.url]) tracks[tr.url] = fetch(tr.url).then(r => { if (!r.ok) throw r; return r.arrayBuffer(); })
+      .then(b => ctx.decodeAudioData(b)).then(buf => {
+        // מדלגים על השקט שהמקודד מוסיף בתחילת קובץ mp3, כדי שהלופ לא יגמגם
+        const d = buf.getChannelData(0); let i = 0;
+        while (i < d.length && Math.abs(d[i]) < 1e-4) i++;
+        return { buf, skip: i / buf.sampleRate };
+      });
+    return tracks[tr.url];
   }
-  function playRecorded(name) {
-    const R = RECORDED[name], want = mood;
-    const go = buf => {
-      if (!playing || mood !== want) return;
-      stopRecorded();
-      const s = ctx.createBufferSource(), g = ctx.createGain();
-      s.buffer = buf; g.gain.value = R.vol;
-      s.connect(g); g.connect(master); g.connect(verb);
-      s.onended = () => { if (recNode === s) { recNode = null; timer = setTimeout(() => go(buf), R.gap * 1000); } };
-      recNode = s; recGain = g;
-      s.start(ctx.currentTime + 0.05);
-    };
-    if (!recBufs[name]) recBufs[name] = fetch(R.src).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b));
-    recBufs[name].then(go).catch(() => { /* אין קובץ: שקט */ });
+  function stopTrack(fade) {
+    clearTimeout(loopT);
+    const now = ctx ? ctx.currentTime : 0;
+    live.forEach(({ s, g }) => {
+      try { g.gain.setTargetAtTime(0, now, fade ? 0.25 : 0.01); s.stop(now + (fade ? 1.5 : 0.1)); } catch (e) { /* כבר נעצר */ }
+    });
+    live = [];
+  }
+  function loopTrack(tr, t, round = 0) {
+    const sound = tracks[tr.url].value;
+    const s = ctx.createBufferSource(), g = ctx.createGain(), wet = ctx.createGain();
+    s.buffer = sound.buf; g.gain.value = tr.vol; wet.gain.value = 0.35;
+    s.connect(g); g.connect(master); g.connect(wet); wet.connect(verb);
+    s.start(t, sound.skip);
+    live.push({ s, g });
+    if (tr.layers) {
+      // הליווי של כל סיבוב נקבע מראש, אז הוא עובר דרך עוצמה משלו שנעצרת יחד עם הגיטרה
+      const lg = ctx.createGain(); lg.connect(master); lg.connect(verb);
+      bus = lg; tr.layers.layer(t, round); bus = null;
+      live.push({ s: { stop() {} }, g: lg, of: s });
+    }
+    s.onended = () => { live = live.filter(x => x.s !== s && x.of !== s); };
+    const next = t + tr.period;
+    // קובעים את הסיבוב הבא שנייה לפני הזמן, לפי השעון של הצליל (מדויק יותר מ-setTimeout)
+    loopT = setTimeout(() => { if (playing) loopTrack(tr, Math.max(next, ctx.currentTime + 0.05), round + 1); },
+      Math.max(0, (next - ctx.currentTime - 1) * 1000));
   }
 
   function tick() {
@@ -162,9 +200,17 @@
   }
   function begin() {
     clearTimeout(timer); step = 0;
-    stopRecorded();
-    if (RECORDED[mood]) return playRecorded(mood);
-    const song = SONGS[mood] || SONGS.calm, want = mood;
+    stopTrack(true);
+    const want = mood, tr = TRACKS[mood];
+    if (tr && !tr.failed) {
+      (tr.inst || []).forEach(load); // כלי הליווי נטענים ברקע, עד שהם נכנסים בסיבוב השני
+      loadTrack(tr).then(sound => {
+        tracks[tr.url].value = sound;
+        if (playing && mood === want) { stopTrack(true); clearTimeout(timer); loopTrack(tr, ctx.currentTime + 0.1); }
+      }, () => { tr.failed = true; if (playing && mood === want) begin(); });
+      return;
+    }
+    const song = SONGS[mood] || SONGS.calm;
     // מחכים שהכלים של השיר ייטענו, ואז מתחילים
     Promise.all(song.inst.map(load)).then(() => { if (playing && mood === want) { clearTimeout(timer); step = 0; tick(); } });
   }
@@ -195,7 +241,7 @@
     } catch (e) { return; }
     playing = true; begin(); render();
   }
-  function stop() { clearTimeout(timer); playing = false; if (ctx) ctx.suspend(); render(); }
+  function stop() { clearTimeout(timer); stopTrack(false); playing = false; if (ctx) ctx.suspend(); render(); }
   function toggle() {
     const next = !on();
     try { localStorage.setItem(KEY, next ? "on" : "off"); } catch (e) { /* ignore */ }
@@ -208,7 +254,12 @@
   // במרוץ מנמיכים את המוזיקה כדי שישמעו את המנוע
   let ducked = false;
   function duck(d) { ducked = d; if (master && ctx) master.gain.setTargetAtTime(d ? 0.12 : 0.6, ctx.currentTime, 0.2); }
-  function setMood(m) { if (m === mood) return; mood = m; if (playing) begin(); }
+  function setMood(m) {
+    if (m === mood) return;
+    const same = TRACKS[m] && TRACKS[m] === TRACKS[mood] && !TRACKS[m].failed;
+    mood = m;
+    if (playing && !same) begin();
+  }
 
   document.addEventListener("pointerdown", e => { if (!e.target.closest("#musicBtn")) start(); });
   document.addEventListener("keydown", () => start());
