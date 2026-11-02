@@ -14,6 +14,7 @@
     acoustic_guitar_nylon: [40, 72], pizzicato_strings: [43, 79], marimba: [55, 87],
   };
   const buffers = {}, loading = {};
+  let bus = null; // כשמוגדר, התווים עוברים דרכו (ליווי של הקלטה, כדי שאפשר יהיה להשתיק אותו יחד איתה)
   function load(inst) {
     if (loading[inst]) return loading[inst];
     const [lo, hi] = RANGES[inst], notes = [];
@@ -36,7 +37,8 @@
     s.playbackRate.value = Math.pow(2, (note - best) / 12);
     g.gain.setValueAtTime(vol, t);
     if (len) { g.gain.setValueAtTime(vol, t + len); g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.35); }
-    s.connect(g); g.connect(master); g.connect(verb);
+    s.connect(g);
+    if (bus) g.connect(bus); else { g.connect(master); g.connect(verb); }
     s.start(t); s.stop(t + (len ? len + 0.4 : 4));
   }
 
@@ -128,7 +130,26 @@
 
   // הקלטות שלמות שמתנגנות בלופ במקום שיר מתווים. period = כל כמה שניות מתחילים שוב,
   // קצת לפני סוף הקובץ, כך שסוף ההקלטה (שדועך) נבלע בפריטה הראשונה של הסיבוב הבא.
-  const TRACKS = { calm: { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9 } };
+  // את הגיטרה של עמוס ליוו כלים שנכנסים בהדרגה: סיבוב ראשון רק גיטרה, אחר כך צ'לו, ואז גם כינור.
+  // הגיטרה בדו מינור: Cm (עם בס סול) → Ab → Bb → Cm..., אז הליווי עוקב אחרי האקורדים לפי השניות בהקלטה.
+  const AMOS = {
+    // [התחלה, סוף, תו בס לצ'לו]
+    chords: [[0, 3.27, 48], [3.27, 6.46, 44], [6.46, 9.44, 46], [9.44, 16, 48], [16, 17.56, 44],
+             [17.56, 20.66, 48], [20.66, 23.91, 44], [23.91, 25.3, 46]],
+    // [זמן, תו, אורך] מנגינת כינור שקטה מעל
+    violin: [[0.2, 79, 1.5], [1.8, 75, 1.4], [3.3, 72, 1.6], [4.9, 75, 1.5], [6.5, 74, 1.5], [8, 77, 1.4],
+             [9.5, 79, 2], [11.6, 80, 0.8], [12.4, 79, 1.6], [14.1, 75, 1.8], [16, 72, 1.5],
+             [17.6, 74, 0.7], [18.3, 75, 2.2], [20.7, 72, 1.5], [22.3, 75, 1.5], [23.95, 74, 1.2]],
+    layer(t, round) {
+      const r = round % 4;
+      if (r === 0) return;
+      this.chords.forEach(([a, b, n]) => {
+        for (let x = a; x < b - 0.4; x += 3) play("cello", n, t + x, 0.9, Math.min(3, b - x) - 0.1);
+      });
+      if (r >= 2) this.violin.forEach(([x, n, len]) => play("violin", n, t + x, 1, len));
+    },
+  };
+  const TRACKS = { calm: { url: "audio/guitar/amos.mp3", period: 25.2, vol: 0.9, inst: ["cello", "violin"], layers: AMOS } };
   const tracks = {};
   let live = [], loopT = 0;
   function loadTrack(tr) {
@@ -149,17 +170,23 @@
     });
     live = [];
   }
-  function loopTrack(tr, t) {
+  function loopTrack(tr, t, round = 0) {
     const sound = tracks[tr.url].value;
     const s = ctx.createBufferSource(), g = ctx.createGain(), wet = ctx.createGain();
     s.buffer = sound.buf; g.gain.value = tr.vol; wet.gain.value = 0.35;
     s.connect(g); g.connect(master); g.connect(wet); wet.connect(verb);
     s.start(t, sound.skip);
     live.push({ s, g });
-    s.onended = () => { live = live.filter(x => x.s !== s); };
+    if (tr.layers) {
+      // הליווי של כל סיבוב נקבע מראש, אז הוא עובר דרך עוצמה משלו שנעצרת יחד עם הגיטרה
+      const lg = ctx.createGain(); lg.connect(master); lg.connect(verb);
+      bus = lg; tr.layers.layer(t, round); bus = null;
+      live.push({ s: { stop() {} }, g: lg, of: s });
+    }
+    s.onended = () => { live = live.filter(x => x.s !== s && x.of !== s); };
     const next = t + tr.period;
     // קובעים את הסיבוב הבא שנייה לפני הזמן, לפי השעון של הצליל (מדויק יותר מ-setTimeout)
-    loopT = setTimeout(() => { if (playing) loopTrack(tr, Math.max(next, ctx.currentTime + 0.05)); },
+    loopT = setTimeout(() => { if (playing) loopTrack(tr, Math.max(next, ctx.currentTime + 0.05), round + 1); },
       Math.max(0, (next - ctx.currentTime - 1) * 1000));
   }
 
@@ -174,6 +201,7 @@
     stopTrack(true);
     const want = mood, tr = TRACKS[mood];
     if (tr && !tr.failed) {
+      (tr.inst || []).forEach(load); // כלי הליווי נטענים ברקע, עד שהם נכנסים בסיבוב השני
       loadTrack(tr).then(sound => {
         tracks[tr.url].value = sound;
         if (playing && mood === want) { stopTrack(true); clearTimeout(timer); loopTrack(tr, ctx.currentTime + 0.1); }
