@@ -977,3 +977,28 @@ body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
   .pack-card, .pack-ov.open .pack-card, .pack-ov.open .pack-rays, .pack-ov.open .pack-flash, .pack-ov.open .pc-shine { animation: none; }
   .pack-ov.open .pack-card { transform: none; }
 }
+
+/* ---- כלי רכב לפרס (js/rides.js): הדמות יושבת ברכב, והרכב מכסה את החצי התחתון שלה ---- */
+.rider { position: relative; display: inline-block; line-height: 0; padding-top: calc(30px * var(--rs, 1)); }
+.rider-me { position: absolute; left: var(--seat); top: 0; transform: translateX(-50%); z-index: 0; }
+.rider .ride-svg { position: relative; z-index: 1; display: block; }
+.ride-svg .rd-wheel { transform-box: fill-box; transform-origin: center; }
+.me.walking .rider svg { animation: none; }
+.me.walking .rider { animation: drive .3s ease-in-out infinite; }
+.me.walking .rd-wheel { animation: spin .5s linear infinite; }
+@keyframes drive { 50% { transform: translateY(-2px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.rd-flame { animation: flame .4s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: right bottom; }
+@keyframes flame { to { transform: scale(1.12, .9); opacity: .85; } }
+.pc-art .rider { align-self: center; }
+.pc-art .rider svg { height: auto; max-width: none; }
+.ride-pill { background: #fef3c7; color: #92400e; text-decoration: none; }
+.ride-stage { margin: 8px auto; min-height: 100px; display: flex; justify-content: center; align-items: flex-end; }
+.ride-bar { height: 12px; border-radius: 99px; background: rgba(0,0,0,.1); overflow: hidden; max-width: 320px; margin: 8px auto 2px; }
+.ride-bar i { display: block; height: 100%; background: linear-gradient(90deg, #f59e0b, #facc15); border-radius: 99px; }
+.rides-list { display: grid; gap: 10px; margin: 14px 0; }
+.ride-row { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 16px; padding: 10px 12px; box-shadow: 0 3px 0 rgba(0,0,0,.08); }
+.ride-row.locked .ride-pic { filter: grayscale(1) brightness(.6); opacity: .6; }
+.ride-row.on { outline: 3px solid #facc15; }
+.ride-pic { flex: 0 0 120px; display: flex; justify-content: center; }
+.ride-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: right; }
