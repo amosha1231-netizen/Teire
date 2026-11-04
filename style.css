@@ -1002,3 +1002,14 @@ body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
 .ride-row.on { outline: 3px solid #facc15; }
 .ride-pic { flex: 0 0 120px; display: flex; justify-content: center; }
 .ride-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: right; }
+
+/* ---------- שפות (js/i18n.js) ---------- */
+.lang-pick { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 6px 0 10px; }
+.lang-btn { font: inherit; font-size: .85rem; font-weight: 700; padding: 6px 10px; border-radius: 999px; border: 2px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+.lang-btn.on { border-color: var(--gold, #f59e0b); background: #fff7d6; }
+.menu-lang { padding: 6px 14px 0; text-align: center; }
+.i18n-note { font-size: .8rem; color: #1e3a5f; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 12px; padding: 6px 10px; margin: 0 0 10px; text-align: center; }
+/* בשפות משמאל לימין: טקסט מתורגם הולך משמאל לימין, וחצים מתהפכים */
+[dir=ltr] .arena-top, [dir=ltr] .race-banner, [dir=ltr] .swipe-hint, [dir=ltr] .voy-title, [dir=ltr] .joy-world { direction: ltr; }
+[dir=ltr] .ride-txt { text-align: left; }
+[dir=ltr] .menu-arrow, [dir=ltr] .player-go { display: inline-block; transform: scaleX(-1); }

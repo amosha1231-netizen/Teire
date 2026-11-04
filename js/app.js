@@ -222,6 +222,7 @@
     function draw() {
       app.innerHTML = `
         <div class="card center onb">
+          ${isNew && window.I18N ? I18N.pickerHTML() : ""}
           <h1>${isNew ? "ברוכים הבאים למסע!" : "שינוי שם ומראה"}</h1>
           ${isNew ? `<p class="muted">יוצרים דמות, ויוצאים לשחק</p>` : ""}
           <div class="avatar-stage">${avatarSVG(look, 110)}</div>
@@ -520,6 +521,7 @@
         <div class="card center players-card">
           <div class="players-logo">📜</div>
           <h1>מי משחק עכשיו?</h1>
+          ${window.I18N ? I18N.pickerHTML() : ""}
           <p class="muted">${all.length ? "בחרו את השחקן שלכם, או צרו שחקן חדש" : "עוד אין שחקנים במכשיר הזה"}</p>
           <div class="players-list">
             ${all.map(p => `
@@ -608,6 +610,7 @@
               <span class="menu-ic">${icon}</span><span class="menu-t">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="menu-arrow">‹</span>
             </a>`).join("")}
         </nav>
+        <div class="menu-lang"><div class="small muted">🌐 שפה · Language</div>${window.I18N ? I18N.pickerHTML() : ""}</div>
         <div class="menu-foot">
           <button class="btn ghost" id="m-out">🚪 התנתקות / החלפת שחקן</button>
         </div>
@@ -1348,6 +1351,7 @@
         ${exitHref ? `<a class="quit-link" href="${exitHref}">✕ יציאה</a>` : ""}
         <div class="dots">${items.map((_, i) => `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("")}</div>
         ${guideBubble(guide, q.prompt || `שאלה ${idx + 1} מתוך ${items.length}`)}
+        ${window.I18N ? I18N.contentNote() : ""}
         <div class="card">
           ${q.verse ? `<div class="verse"><div class="verse-text">${esc(q.verse)}</div><div class="verse-ref">${esc(q.ref || "")}</div></div>` : ""}
           <div class="qtext">${esc(q.question)}</div>
@@ -1654,6 +1658,7 @@
       const order = db.shuffle([0, 1, 2, 3]);
       app.innerHTML = `${header()}
         <div class="timer"><span id="tbar"></span></div>
+        ${window.I18N ? I18N.contentNote() : ""}
         <div class="card">
           ${q.verse ? `<div class="verse"><div class="verse-text">${esc(q.verse)}</div><div class="verse-ref">${esc(q.ref || "")}</div></div>` : ""}
           <div class="qtext">${esc(q.question)}</div>
@@ -2518,7 +2523,7 @@
     const del = document.getElementById("delacc");
     if (del) del.onclick = async ev => {
       ev.preventDefault();
-      if (!confirm("למחוק את החשבון בשרת? היהלומים והפריטים שנקנו ביהלומים יימחקו ולא יחזרו.")) return;
+      if (!confirm(T("למחוק את החשבון בשרת? היהלומים והפריטים שנקנו ביהלומים יימחקו ולא יחזרו."))) return;
       try { await db.gems.deleteAccount(); } catch (e) { toast("המחיקה נכשלה. בדקו את החיבור ונסו שוב"); return; }
       Object.assign(gemState, { gems: 0, owned: [] });
       if (ITEMS.shirt.some(x => x.gems && x.id === player.look.shirt)) { player.look.shirt = ITEMS.shirt[0].id; savePlayer(); }
@@ -2871,8 +2876,8 @@
   // ---------- ניתוב ----------
   // ---------- שבת וחג ----------
   let shabbatShown = false;
-  const hm = d => d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-  const dayName = d => d.toLocaleDateString("he-IL", { weekday: "long" });
+  const hm = d => d.toLocaleTimeString(window.I18N && I18N.lang !== "he" ? I18N.lang : "he-IL", { hour: "2-digit", minute: "2-digit" });
+  const dayName = d => d.toLocaleDateString(window.I18N && I18N.lang !== "he" ? I18N.lang : "he-IL", { weekday: "long" });
 
   function checkShabbat() {
     const st = TeireShabbat.status();

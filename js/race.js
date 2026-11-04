@@ -96,7 +96,7 @@
     // לוחית רישוי
     g.fillStyle = "#f4f4f0"; rr(g, -u * 0.22, -w * (jeep ? 0.22 : 0.25), u * 0.44, w * 0.075, w * 0.01); g.fill();
     g.fillStyle = "#1e3a8a"; g.font = `800 ${Math.max(6, w * 0.05)}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
-    g.fillText(look.plate || "תורה", 0, -w * (jeep ? 0.183 : 0.213));
+    g.fillText(look.plate || T("תורה"), 0, -w * (jeep ? 0.183 : 0.213));
     // אגזוזים ולהבות טורבו
     const ex = jeep ? [[-0.7, -0.12]] : [[-0.16, -0.09], [0.16, -0.09]];
     ex.forEach(([x, y]) => {
@@ -500,8 +500,8 @@
       const fs = sh * 0.55;
       if (fs > 5) {
         g.fillStyle = "#fff"; g.font = `800 ${fs}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
-        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
-        g.fillText("🛫 קפיצה!", p.x, top + sh / 2); g.direction = "ltr";
+        try { g.direction = window.I18N && !I18N.rtl ? "ltr" : "rtl"; } catch (e) { /* ignore */ }
+        g.fillText(T("🛫 קפיצה!"), p.x, top + sh / 2); g.direction = "ltr";
       }
     }
     // תא הנהג: הדמות עם קסדה, מבעד לשמשה, נוטה לצד שנבחר
@@ -709,9 +709,9 @@
         g.fillStyle = "rgba(0,0,0,.45)"; rr(g, W * 0.15, H * 0.05, W * 0.7, 12, 6); g.fill();
         g.fillStyle = left < 0.35 ? "#ef4444" : "#facc15"; rr(g, W * 0.15, H * 0.05, W * 0.7 * left, 12, 6); g.fill();
         g.fillStyle = "#fff"; g.font = `800 ${Math.max(14, Math.min(22, W / 22))}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "top";
-        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
+        try { g.direction = window.I18N && !I18N.rtl ? "ltr" : "rtl"; } catch (e) { /* ignore */ }
         g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 6;
-        g.fillText(chosen || laneName !== "mid" ? "אפשר עוד לשנות... ⏳" : "הטו את הגוף לצד המקור הנכון!", W / 2, H * 0.05 + 20);
+        g.fillText(T(chosen || laneName !== "mid" ? "אפשר עוד לשנות... ⏳" : "הטו את הגוף לצד המקור הנכון!"), W / 2, H * 0.05 + 20);
         g.shadowBlur = 0; g.direction = "ltr";
         const pulse = Math.max(0, Math.sin(phaseT * Math.PI * (1.6 + phaseT * 0.5)));
         const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
