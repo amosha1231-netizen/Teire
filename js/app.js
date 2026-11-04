@@ -177,6 +177,77 @@
     if (it.gems) return "special";
     return it.price >= 150 ? "gold" : it.price >= 50 ? "silver" : "bronze";
   }
+  // ---------- הופעה באור (לפני הקלף) ----------
+  // חמישה שלבים: המסך מחשיך, מעגל אור נפתח על הרצפה, קרן עולה, הדמות מופיעה עם ניצוצות, והאור נרגע להילה.
+  // נגיעה בזמן האנימציה קופצת ישר לסוף. הצבע לפי דרגה, כמו בקלף.
+  const RUNES = "אבגדהוזחטיכלמנסעפצקרשת";
+  function magicCircleSVG() {
+    const ring = (r, w, dash = "") => `<circle cx="100" cy="100" r="${r}" fill="none" stroke="currentColor" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+    const letters = [...RUNES].map((ch, i) => {
+      const a = i / RUNES.length * 360;
+      return `<text x="100" y="17" transform="rotate(${a} 100 100)" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">${ch}</text>`;
+    }).join("");
+    const tri = rot => `<polygon points="100,38 153.7,131 46.3,131" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(${rot} 100 100)"/>`;
+    return `<svg viewBox="0 0 200 200" aria-hidden="true">
+      ${ring(97, 2)}${ring(84, 1.2)}<g class="sum-runes">${letters}</g>${ring(70, 1, "3 4")}
+      <g class="sum-star">${tri(0)}${tri(180)}${ring(62, 1.4)}${ring(30, 1.2)}</g>
+      <circle cx="100" cy="100" r="12" fill="currentColor" opacity=".5"/></svg>`;
+  }
+  function summonGlow({ tier = "gold", art, caption, button = "המשך" }) {
+    return new Promise(resolve => {
+      const ov = document.createElement("div");
+      ov.className = "sum-ov tier-" + tier;
+      ov.innerHTML = `
+        <div class="sum-stage">
+          <div class="sum-circle">${magicCircleSVG()}</div>
+          <div class="sum-beam"></div>
+          <canvas class="sum-sparks"></canvas>
+          <div class="sum-halo"></div>
+          <div class="sum-hero">${art}</div>
+        </div>
+        <div class="sum-cap">${esc(caption)}</div>
+        <button class="btn gold big-btn sum-go">${esc(button)}</button>`;
+      document.body.appendChild(ov);
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let done = false, settled = false;
+      const settle = () => { if (settled) return; settled = true; ov.classList.add("settled"); };
+      const timer = setTimeout(settle, still ? 0 : 2900);
+      const stopSparks = still ? () => {} : sparks(ov.querySelector(".sum-sparks"));
+      const close = () => { if (done) return; done = true; clearTimeout(timer); stopSparks(); ov.remove(); resolve(); };
+      ov.onclick = e => {
+        if (!settled) { ov.classList.add("skip"); settle(); return; }
+        if (e.target.closest(".sum-go")) close();
+      };
+    });
+  }
+  // ניצוצות שעולים מהמעגל. בהתחלה הרבה, ואחרי שהאור נרגע רק מעט, כדי שהמסך לא יהיה עמוס.
+  function sparks(cv) {
+    const ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+    const W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
+    const color = getComputedStyle(cv).color, ps = [], t0 = performance.now();
+    let raf = 0;
+    const add = () => {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * W * .36;
+      ps.push({ x: W / 2 + Math.cos(a) * r, y: H * .86 + Math.sin(a) * r * .28, vy: -(0.6 + Math.random() * 1.6), vx: (Math.random() - .5) * .4, s: 1 + Math.random() * 2.2, life: 1 });
+    };
+    const tick = now => {
+      const t = now - t0;
+      if (t > 1300) for (let i = 0, n = t < 3000 ? 3 : (Math.random() < .25 ? 1 : 0); i < n; i++) add();
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8;
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const p = ps[i];
+        p.x += p.vx; p.y += p.vy; p.life -= .009;
+        if (p.life <= 0 || p.y < 0) { ps.splice(i, 1); continue; }
+        ctx.globalAlpha = p.life * (0.6 + 0.4 * Math.sin(now / 90 + i));
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }
   function cardReveal({ tier = "gold", rating, pos, art, name, stats = [], caption, button = "המשך" }) {
     return new Promise(resolve => {
       const ov = document.createElement("div");
@@ -280,13 +351,16 @@
         weeklyLater(); // שאלת השבוע תוצע רק מהכניסה הבאה
         savePlayer(); sendDevice();
         const girl = look.gender === "girl";
-        cardReveal({
+        summonGlow({
+          tier: "gold", art: avatarSVG(look, 170),
+          caption: `${name} ${girl ? "הופיעה" : "הופיע"}! ✨`, button: "לקלף שלי",
+        }).then(() => cardReveal({
           tier: "gold", rating: 60, pos: girl ? "תלמידה" : "תלמיד",
           art: avatarSVG(look, 150), name,
           stats: [["כוכבים", 0], ["מטבעות", player.coins], ["רמה", 1]],
           caption: `${girl ? "שחקנית חדשה הצטרפה" : "שחקן חדש הצטרף"} למסע! ✨`,
           button: `יוצאים לדרך: ${JOURNEY[pick].title}`,
-        }).then(() => startJourneyStop(pick));
+        })).then(() => startJourneyStop(pick));
       };
     }
     draw();
@@ -2505,13 +2579,16 @@
       savePlayer(); viewMe();
       if (bought) {
         const tier = itemTier(it);
-        cardReveal({
+        summonGlow({
+          tier, art: avatarSVG(player.look, 170),
+          caption: `${player.name} עם ${it.name}! ✨`, button: "לקלף הפריט",
+        }).then(() => cardReveal({
           tier, rating: it.gems ? it.gems : it.price, pos: it.gems ? "יהלומים" : "מטבעות",
           art: avatarSVG(player.look, 150), name: it.name,
           stats: [["השחקן", player.name]],
           caption: `פריט חדש ל${player.name}! ${TIERS[tier]}`,
           button: "ללבוש ✓",
-        });
+        }));
       }
     });
     document.getElementById("redo").onclick = viewOnboarding;
