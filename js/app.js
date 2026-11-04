@@ -616,7 +616,9 @@
     wrap.querySelectorAll(".menu-item").forEach(a => a.addEventListener("click", () => {
       const tour = a.dataset.tour;
       closeMenu();
-      if (tour) { player.tour = 0; savePlayer(); if ((location.hash || "#/") === "#/") setTimeout(startTour, 50); }
+      if (tour) {
+        if (player.tour === "done") player.tourGift = true; // מי שכבר סיים את ההדרכה בעבר כבר קיבל את המתנה
+        player.tour = 0; savePlayer(); if ((location.hash || "#/") === "#/") setTimeout(startTour, 50); }
     }));
     wrap.querySelector("#m-out").onclick = () => { closeMenu(); if (db.accounts) logoutPlayer(); else signOutLocal(); };
     document.body.appendChild(wrap);
@@ -627,9 +629,11 @@
   // ---------- הדרכה לשחקן חדש ----------
   // כמו במשחקים: אחרי המשחק הראשון, דמות מלווה מראה על המסך מה כל דבר עושה, צעד אחרי צעד.
   // player.tour = מספר הצעד (מתחיל ב-0 אצל שחקן חדש), ו-"done" כשסיימו. לשחקנים ותיקים אין הדרכה.
+  // player.tourGift = true אחרי שקיבלו את 20 המטבעות. מי שכבר קיבל, בצפייה חוזרת של ההדרכה אין לו את משבצת המתנה בסוף.
+  // המדריך הוא טעיא, הזקן ("ההוא סבא") מהגמרא, שיש אומרים שהוא אליהו הנביא.
   const TOUR_GIFT = 20;
   const TOUR = [
-    { sel: null, text: n => `שלום ${n}! אני ינשופי 🦉 ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.` },
+    { sel: null, text: n => `שלום ${n}! אני טעיא 👴, הזקן מהגמרא, ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.` },
     { sel: "#me", text: (n, girl) => `${girl ? "זאת את" : "זה אתה"}! הדמות שלך הולכת במפה של ארץ ישראל, מעיר לעיר.` },
     { sel: ".bld[data-b='jerusalem']", text: () => "כל בית במפה הוא מקום עם משימות. מקישים על מקום, הדמות הולכת אליו, ונכנסים לשחק." },
     { sel: "#hud", text: () => "כאן רואים מה אספת: 🕯️ נשמות של חכמים, ⭐ כוכבים על משימות, ו-🪙 מטבעות שקונים בהם בגדים לדמות." },
@@ -637,10 +641,14 @@
     { sel: "#menuBtn", text: () => "וכאן התפריט: טבלת האלופים, היכל עלמא, מסע הפתיחה, וגם החלפת שחקן או התנתקות." },
     { sel: null, text: (n, girl) => `זהו, ${girl ? "את מוכנה" : "אתה מוכן"}! הנה מתנה לדרך: ${TOUR_GIFT} מטבעות 🪙. בהצלחה במסע!`, last: true },
   ];
+  // מי שכבר קיבל את המתנה רואה את ההדרכה בלי המשבצת האחרונה של הכסף
+  const tourSteps = () => player.tourGift ? TOUR.filter(s => !s.last) : TOUR;
   function startTour() {
     document.querySelectorAll(".tour").forEach(e => e.remove());
     if (typeof player.tour !== "number" || !document.getElementById("city")) return;
-    const step = TOUR[player.tour];
+    const steps = tourSteps();
+    const step = steps[player.tour];
+    const end = player.tour === steps.length - 1; // הצעד האחרון שמוצג
     if (!step) { player.tour = "done"; savePlayer(); return; }
     const target = step.sel && document.querySelector(step.sel);
     const box = document.createElement("div");
@@ -648,13 +656,13 @@
     box.innerHTML = `
       <div class="tour-hole"></div>
       <div class="tour-card" role="dialog" aria-label="הדרכה">
-        <div class="tour-guide">🦉</div>
+        <div class="tour-guide" aria-label="טעיא">👴</div>
         <div class="tour-body">
           <p>${esc(step.text(player.name, player.look && player.look.gender === "girl"))}</p>
           <div class="tour-row">
-            <span class="tour-dots">${TOUR.map((_, i) => `<i class="${i === player.tour ? "on" : i < player.tour ? "done" : ""}"></i>`).join("")}</span>
-            ${step.last ? "" : `<button class="link-btn" id="tour-skip">דילוג</button>`}
-            <button class="btn gold small-btn" id="tour-next">${step.last ? "יוצאים לדרך! 🎁" : player.tour === 0 ? "בואו נתחיל" : "הבא ➜"}</button>
+            <span class="tour-dots">${steps.map((_, i) => `<i class="${i === player.tour ? "on" : i < player.tour ? "done" : ""}"></i>`).join("")}</span>
+            ${end ? "" : `<button class="link-btn" id="tour-skip">דילוג</button>`}
+            <button class="btn gold small-btn" id="tour-next">${step.last ? "יוצאים לדרך! 🎁" : end ? "סיום ✓" : player.tour === 0 ? "בואו נתחיל" : "הבא ➜"}</button>
           </div>
         </div>
       </div>`;
@@ -673,11 +681,11 @@
     const finish = gift => {
       box.remove();
       player.tour = "done";
-      if (gift) { player.coins += TOUR_GIFT; confetti(); toast(`🪙 +${TOUR_GIFT} מטבעות!`); }
+      if (gift && !player.tourGift) { player.tourGift = true; player.coins += TOUR_GIFT; confetti(); toast(`🪙 +${TOUR_GIFT} מטבעות!`); }
       savePlayer();
     };
     box.querySelector("#tour-next").onclick = () => {
-      if (step.last) return finish(true);
+      if (end) return finish(!!step.last);
       player.tour++; savePlayer(); startTour();
     };
     const sk = box.querySelector("#tour-skip");
