@@ -3,7 +3,7 @@
   const cfg = window.TEIRE_CONFIG;
   const { PLACES, ITEMS, SKINS, HAIR, avatarSVG } = window.TeireWorld;
   const Parasha = window.TEIRE_PARASHA, Parashot = window.TEIRE_PARASHOT;
-  const Sages = window.TeireSages, City = window.TeireCity, Rides = window.TeireRides;
+  const Sages = window.TeireSages, City = window.TeireCity, Rides = window.TeireRides, Food = window.TeireFood;
   const app = document.getElementById("app");
   const placeById = id => PLACES.find(p => p.id === id);
 
@@ -84,6 +84,7 @@
 
   function renderHud() {
     document.getElementById("hud").innerHTML = player.name ? `
+      ${energyPill()}
       <span class="pill">🕯️ ${player.souls.length}</span>
       <span class="pill">⭐ ${totalStars()}</span>
       <span class="pill">🪙 ${player.coins}</span>${ridePill()}${db.gems ? `
@@ -116,6 +117,120 @@
     const r = rideNow();
     return r ? `<a class="pill ride-pill" href="#/rides" title="${esc(r.name)}">${r.icon} ${Rides.left(r.until)}</a>` : "";
   }
+  // ---------- אנרגיה, עייפות ומאכלים בדרכים (js/food.js, content/brachot.js) ----------
+  function energyPill() {
+    const e = Food.energy(player), cls = Food.boosted(player) ? "boost" : Food.tired(player) ? "low" : "";
+    return `<button type="button" class="pill energy-pill ${cls}" data-energy title="אנרגיה">${Food.boosted(player) ? "💪" : e < Food.TIRED ? "😴" : "⚡"} ${e}</button>`;
+  }
+  document.getElementById("hud").addEventListener("click", ev => { if (ev.target.closest("[data-energy]")) showEnergy(); });
+  // הדמות במפה: זוהרת כשיש כוח, מנמנמת כשהיא עייפה
+  let meState = "";
+  function refreshMe() {
+    const me = document.getElementById("me");
+    if (!me || !player.name) return;
+    const st = Food.boosted(player) ? "powered" : Food.tired(player) ? "tired" : "";
+    if (st === meState && me.dataset.st === st) return;
+    meState = me.dataset.st = st;
+    me.classList.toggle("powered", st === "powered");
+    me.classList.toggle("tired", st === "tired");
+  }
+  // נקרא מהמנוע של ההליכה בכל פעם שהאנרגיה יורדת
+  function energyTick() {
+    const was = meState === "tired";
+    renderHud(); refreshMe();
+    if (!was && meState === "tired") toast("😴 הדמות עייפה ומתקדמת לאט. חפשו מאכל בדרך כדי לקבל כוח!");
+  }
+  const FOOD_NAMES = () => window.TEIRE_BRACHOT ? window.TEIRE_BRACHOT.FOODS : [];
+  function foodSpots() {
+    const left = Food.done(player);
+    const lands = [City.LAND, City.SINAI, City.BAVEL, City.EUROPE, City.MIZRACH, City.AMERICA].filter(Boolean);
+    const onLand = (x, y) => lands.some(poly => Food.inPoly(x, y, poly));
+    return Food.spots(City.LOCATIONS, FOOD_NAMES(), Date.now(), onLand).filter(s => !left.includes(s.slot));
+  }
+  function foodOverlay(html) {
+    document.querySelectorAll(".food-ov").forEach(e => e.remove());
+    const ov = document.createElement("div");
+    ov.className = "food-ov";
+    ov.innerHTML = `<div class="food-card card">${html}</div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener("click", ev => { if (ev.target === ov || ev.target.closest("[data-close]")) ov.remove(); });
+    return ov;
+  }
+  function energyBar() {
+    const e = Food.energy(player);
+    return `<div class="energy-bar ${e < Food.TIRED ? "low" : ""}"><i style="width:${e}%"></i><b>⚡ ${e} / ${Food.MAX}</b></div>`;
+  }
+  function showEnergy() {
+    const left = foodSpots().length, b = Food.boosted(player);
+    foodOverlay(`
+      <h2>⚡ האנרגיה של ${esc(player.name)}</h2>
+      ${energyBar()}
+      <p>${b ? "💪 יש לכם כוח עכשיו! הולכים מהר וזוהרים." : Food.tired(player) ? "😴 הדמות עייפה ומתקדמת לאט. אכלו משהו מהדרך!" : "הליכה במפה מעייפת. כשהאנרגיה יורדת מתחת ל-" + Food.TIRED + " הדמות הולכת לאט."}</p>
+      <p>✨ תיקנתם <b>${player.sparks || 0}</b> ניצוצות קדושה.</p>
+      <p class="small muted">${left ? `על המפה מחכים עוד ${left} מאכלים.` : "אכלתם את כל המאכלים שבמפה."} מאכלים חדשים בעוד ${Food.minutesToNext() >= 60 ? Math.floor(Food.minutesToNext() / 60) + " שעות ו-" : ""}${Food.minutesToNext() % 60} דקות. האנרגיה חוזרת גם לבד, לאט.</p>
+      <button class="btn big-btn" data-close>סגירה</button>`);
+  }
+  function foodIntro() {
+    player.foodIntro = true; savePlayer();
+    foodOverlay(`
+      <div class="food-big">🍎🍞🍇</div>
+      <h2>✨ ניצוצות קדושה בדרכים</h2>
+      <p>במפה מפוזרים מאכלים. כשאוכלים בברכה, מתקנים את ניצוצות הקדושה שבתוכם!</p>
+      <p>הקישו על מאכל, ענו <b>מה מברכים עליו</b>, ואם צדקתם הדמות אוכלת ומקבלת <b>⚡ אנרגיה</b> ו<b>💪 כוח</b> ללכת מהר.</p>
+      <p class="small muted">הליכה מעייפת: כשהאנרגיה נגמרת הדמות הולכת לאט 😴. לימוד בלבד, למעשה שואלים רב.</p>
+      <button class="btn gold big-btn" data-close>יוצאים לדרך 🚶</button>`);
+  }
+  function foodQuiz(spot, el) {
+    if (document.querySelector(".food-ov")) return;
+    const f = spot.food;
+    const finish = (gone) => {
+      const list = Food.done(player);
+      if (!list.includes(spot.slot)) list.push(spot.slot);
+      if (el) { el.classList.add(gone); setTimeout(() => el.remove(), 900); }
+    };
+    let ov;
+    function ask(q, title, onAnswer) {
+      ov = foodOverlay(`
+        <div class="food-big">${f.icon}</div>
+        <div class="food-title">${title}</div>
+        <div class="qtext">${esc(q.question)}</div>
+        <div class="answers">${q.answers.map((a, i) => `<button class="answer" data-i="${i}"><span class="letter">${LETTERS[i]}</span>${esc(a)}</button>`).join("")}</div>
+        <div class="food-fb"></div>`);
+      ov.querySelectorAll(".answer").forEach(btn => btn.onclick = () => {
+        const ok = +btn.dataset.i === q.correct;
+        ov.querySelectorAll(".answer").forEach(b => { b.disabled = true; if (+b.dataset.i === q.correct) b.classList.add("correct"); });
+        if (!ok) btn.classList.add("wrong");
+        onAnswer(ok, ov.querySelector(".food-fb"), q);
+      });
+    }
+    const why = q => `${q.note ? `<div class="note-box"><b>💡 למה?</b> ${esc(q.note)}</div>` : ""}
+      ${q.source ? `<div class="small muted" style="margin-top:8px">מקור: ${esc(q.source)}</div>` : ""}`;
+    const milestone = () => {
+      if (player.sparks && player.sparks % 10 === 0) { player.coins += 20; confetti(); toast(`🌟 ${player.sparks} ניצוצות קדושה! מתנה: 20🪙`); }
+    };
+    ask(Food.firstQ(f), "✨ ניצוץ קדושה מחכה לתיקון", (ok, fb, q) => {
+      const after = ok && Food.afterQ(f);
+      if (ok) {
+        Food.eat(player); player.coins += 3;
+        finish("eaten"); milestone(); savePlayer(); refreshMe();
+        setTimeout(refreshMe, Food.BOOST_MS + 100);
+      } else { finish("fled"); savePlayer(); }
+      fb.innerHTML = `
+        <div class="food-result ${ok ? "ok" : "no"}">${ok ? `😋 בתיאבון! תיקנתם ניצוץ קדושה ✨<br><b>+⚡${Food.MEAL} · 💪 כוח לדקה וחצי · +🪙3</b>` : "💨 הניצוץ ברח הפעם. התשובה הנכונה מסומנת בירוק."}</div>
+        ${why(q)}
+        ${after ? `<button class="btn gold big-btn" id="afterQ">🎁 בונוס: ומה מברכים אחרי?</button>` : ""}
+        <button class="btn ${after ? "ghost" : ""} big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+      const a = fb.querySelector("#afterQ");
+      if (a) a.onclick = () => ask(after, "🎁 ברכה אחרונה: בונוס", (ok2, fb2, q2) => {
+        if (ok2) { player.sparks = (player.sparks || 0) + 1; player.coins += 5; milestone(); savePlayer(); }
+        fb2.innerHTML = `
+          <div class="food-result ${ok2 ? "ok" : "no"}">${ok2 ? "🌟 נכון! עוד ניצוץ תוקן · <b>+🪙5</b>" : "לא נורא! התשובה הנכונה מסומנת בירוק."}</div>
+          ${why(q2)}
+          <button class="btn big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+      });
+    });
+  }
+
   // הדמות יושבת בתוך הרכב: הרכב מצויר מעליה ומסתיר את החצי התחתון שלה
   function riderHTML(look, rideId, scale = 1) {
     return `<span class="rider" style="--seat:${Rides.SEAT[rideId] || 55}%;--rs:${scale}">
@@ -888,6 +1003,7 @@
               <span class="bld-name">${info.name}${info.stars ? ` <span class="bld-stars">${"★".repeat(info.stars)}</span>` : ""}${L.duel ? " ⚔️" : ""}</span>
             </button>`;
           }).join("")}
+          ${foodSpots().map(sp => `<button class="food" data-slot="${sp.slot}" style="left:${sp.x}px;top:${sp.y}px;z-index:${sp.y}" aria-label="${esc(sp.food.name)}"><i class="food-glow"></i><span class="food-ico">${sp.food.icon}</span></button>`).join("")}
           ${meHtml(soul, pos)}
         </div>
         ${mapScenery.sky()}
@@ -896,10 +1012,16 @@
       </div>`;
 
     if (typeof player.tour === "number") setTimeout(startTour, 600);
+    else if (!player.foodIntro && FOOD_NAMES().length) setTimeout(foodIntro, 700);
     else Parasha.ready.then(() => setTimeout(offerWeekly, 700));
     startWalker({
       W, H, pos,
       savePos: p => { player.pos = p; savePlayer(); },
+      onFood(fEl, walkTo) {
+        const sp = foodSpots().find(s => s.slot === fEl.dataset.slot);
+        if (!sp) { fEl.remove(); return; }
+        walkTo(sp.x, sp.y + 6, () => foodQuiz(sp, fEl));
+      },
       onBuilding(bEl, walkTo) {
         const b = City.byId(bEl.dataset.b), info = locInfo(b);
         if (info.soon) { walkTo(b.x, b.y + 62, () => toast(`🔒 ${info.name}, ${b.desc}: השאלות יתווספו בקרוב`)); return; }
@@ -923,11 +1045,12 @@
   // מנוע ההליכה, משותף למפת הארץ ולעולמות שבתוך הערים.
   // onBuilding(el, walkTo) נקרא בלחיצה על מקום; blocked = מלבנים שהדמות עוקפת ולא נכנסת אליהם.
   // onMove(pos, target) מדווח על תזוזה (למשל לשחקנים אחרים באותה עיירה); target = null כשהדמות עומדת.
-  function startWalker({ W, H, pos, savePos, onBuilding, onGround, onMove, blocked = [] }) {
+  function startWalker({ W, H, pos, savePos, onBuilding, onFood, onGround, onMove, blocked = [] }) {
     const city = document.getElementById("city"), world = document.getElementById("world");
     const me = document.getElementById("me"), body = me.querySelector(".me-body"), tgt = document.getElementById("target");
     const sky = document.getElementById("sky");
-    const SPEED = 260 * rideSpeed(); // פיקסלים לשנייה. ברכב מהפרס נוסעים מהר יותר (js/rides.js)
+    // פיקסלים לשנייה. ברכב מהפרס נוסעים מהר יותר (js/rides.js); עייפות מאטה, וכוח מאכילה מאיץ (js/food.js)
+    const BASE_SPEED = 260 * rideSpeed();
     // בטלפון מקטינים את העולם כדי לראות יותר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
     const banner = document.getElementById("pre-shabbat");
@@ -1033,10 +1156,14 @@
       else if (path.length) { dx = path[0].x - pos.x; dy = path[0].y - pos.y; }
       const dist = Math.hypot(dx, dy);
       if (dist > 0) {
+        const SPEED = BASE_SPEED * Food.speed(player);
         const step = manual ? SPEED * dt : Math.min(SPEED * dt, dist);
         const nx = Math.min(Math.max(pos.x + dx / dist * step, 20), W - 20);
         const ny = Math.min(Math.max(pos.y + dy / dist * step, 40), H - 10);
-        if (!blocked.some(r => inside({ x: nx, y: ny }, r))) { pos.x = nx; pos.y = ny; }
+        if (!blocked.some(r => inside({ x: nx, y: ny }, r))) {
+          if (Food.walk(player, Math.hypot(nx - pos.x, ny - pos.y))) energyTick();
+          pos.x = nx; pos.y = ny;
+        }
         me.style.transform = `translate(${pos.x}px,${pos.y}px) translate(-50%,-100%)`;
         const nz = depth(Math.round(pos.y));
         if (nz !== z) { z = nz; me.style.zIndex = nz; }
@@ -1063,6 +1190,8 @@
 
     city.addEventListener("click", ev => {
       if (ev.target.closest(".soul-chip, .town-info, .town-sign")) return;
+      const fEl = ev.target.closest(".food");
+      if (fEl && onFood) { onFood(fEl, walkTo); return; }
       const bEl = ev.target.closest(".bld");
       if (bEl) { onBuilding(bEl, walkTo); return; }
       if (onGround) onGround();
@@ -1085,6 +1214,7 @@
     else { loop.onResize = onResize; window.addEventListener("resize", onResize); }
     world.querySelectorAll(":scope > *").forEach(el => { if (el !== me) cssZ.set(el, parseInt(getComputedStyle(el).zIndex, 10)); });
     me.style.zIndex = z = depth(Math.round(pos.y));
+    meState = ""; refreshMe();
     camera(true);
     wake();
   }
@@ -3022,6 +3152,12 @@
       text: m.question, answer: Object.entries(m.opinions).map(([id, i]) => `${Sages.byId(id) ? Sages.byId(id).school : id}: ${m.answers[i]}`).join(" | "), others: [], source: m.source }));
     (window.TEIRE_CHALLENGES || []).forEach(c => add("א", "משפטי האתגרים", "content/challenges.js", "אתגר ההחלקה", { text: c.text, answer: c.right, others: [`מקור מטעה: ${c.wrong}`], source: c.right }));
     (window.TEIRE_RACE_WORLDS || []).forEach(w => w.items.forEach(c => add("ק", "מרוץ המקורות", "content/challenges.js", `${w.name} (${w.tag})`, { text: c.text, answer: c.right, others: [`מקור מטעה: ${c.wrong}`], source: c.note })));
+    const BR = window.TEIRE_BRACHOT;
+    if (BR) BR.FOODS.forEach(f => {
+      const wrong = (map, k) => Object.entries(map).filter(([key]) => key !== k).map(([, v]) => v);
+      add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · לפי ${f.posek}`, { text: `מה מברכים על ${f.name}?`, answer: BR.FIRST[f.first], others: wrong(BR.FIRST, f.first), source: f.source });
+      if (f.after) add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · ברכה אחרונה`, { text: `מה מברכים אחרי ${f.name}?`, answer: BR.AFTER[f.after], others: wrong(BR.AFTER, f.after), source: f.afterSource });
+    });
     const D = window.TEIRE_DEBATES || { DEBATES: [], SPEAKERS: {} };
     D.DEBATES.forEach(d => add("ו", "פלפולים", "content/debates.js", d.pair.map(w => D.SPEAKERS[w].name).join(" נגד "), {
       text: d.title, answer: "", others: [], source: d.source,
@@ -3121,7 +3257,7 @@
     stopDuel();
     stopGame();
     window.TeireOlama.stop();
-    document.querySelectorAll(".weekly-pop, .tour").forEach(e => e.remove()); // ההצעה וההדרכה נסגרות כשעוברים לעמוד אחר
+    document.querySelectorAll(".weekly-pop, .tour, .food-ov").forEach(e => e.remove()); // ההצעה, ההדרכה ושאלת המאכל נסגרות כשעוברים לעמוד אחר
     closeMenu();
     document.body.classList.remove("no-player");
     Music.mood(moodFor(page, arg));
