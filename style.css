@@ -1002,3 +1002,59 @@ body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
 .ride-row.on { outline: 3px solid #facc15; }
 .ride-pic { flex: 0 0 120px; display: flex; justify-content: center; }
 .ride-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: right; }
+
+/* ---------- הופעה באור (לפני הקלף) ---------- */
+/* המצב הסופי הוא ברירת המחדל, והאנימציות (fill both) מתחילות מהמצב המוסתר. דילוג = ביטול האנימציות. */
+.sum-ov {
+  --g1: #fff6d2; --g2: #f5b82e;
+  position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: radial-gradient(circle at 50% 60%, rgba(30,41,59,.93) 0%, rgba(5,8,20,.98) 70%); overflow: hidden; padding: 16px;
+  animation: sumDim .6s ease both;
+}
+.sum-ov.tier-bronze { --g1: #ffe4c7; --g2: #d98a3e; }
+.sum-ov.tier-silver { --g1: #ffffff; --g2: #b9c6d8; }
+.sum-ov.tier-special { --g1: #fbe9ff; --g2: #b56cf7; }
+.sum-stage { position: relative; width: min(86vw, 340px); height: min(58vh, 420px); }
+.sum-circle {
+  position: absolute; left: 50%; bottom: 8%; width: 96%; aspect-ratio: 1; color: var(--g2);
+  transform: translate(-50%, 50%) scaleY(.32); filter: drop-shadow(0 0 6px var(--g2)) drop-shadow(0 0 14px var(--g2));
+  animation: sumOpen .7s .45s cubic-bezier(.2,1.3,.4,1) both;
+}
+.sum-circle svg { width: 100%; height: 100%; display: block; animation: packSpin 18s linear infinite; }
+.sum-circle .sum-star { transform-origin: 100px 100px; animation: packSpin 9s linear infinite reverse; }
+.sum-beam {
+  position: absolute; left: 50%; bottom: 8%; width: 50%; height: 108%; margin-left: -25%; transform-origin: 50% 100%;
+  background: linear-gradient(to top, var(--g1) 0%, var(--g2) 30%, transparent 100%);
+  -webkit-mask: linear-gradient(to right, transparent, #000 32%, #000 68%, transparent); mask: linear-gradient(to right, transparent, #000 32%, #000 68%, transparent);
+  filter: blur(4px); mix-blend-mode: screen; transition: opacity 1s;
+  animation: sumRise .6s 1s cubic-bezier(.3,.7,.3,1) both;
+}
+.sum-ov.settled .sum-beam { opacity: .32; }
+.sum-sparks { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--g1); pointer-events: none; }
+.sum-halo {
+  position: absolute; left: 50%; bottom: 24%; width: 78%; aspect-ratio: 1; transform: translate(-50%, 0);
+  background: radial-gradient(circle, var(--g2) 0%, transparent 65%); opacity: 0; transition: opacity 1s;
+}
+.sum-ov.settled .sum-halo { opacity: .55; animation: sumPulse 2.6s ease-in-out infinite; }
+.sum-hero {
+  position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); line-height: 0;
+  filter: drop-shadow(0 0 10px var(--g2));
+  animation: sumHero 1.1s 1.5s ease-out both;
+}
+.sum-hero svg { display: block; width: min(50vw, 170px); height: auto; }
+.sum-cap, .sum-go { opacity: 0; transform: translateY(14px); transition: opacity .4s, transform .4s; position: relative; pointer-events: none; }
+.sum-cap { color: #fff; font-size: 1.3rem; font-weight: 800; text-align: center; text-shadow: 0 2px 12px var(--g2); }
+.sum-go { max-width: 92vw; }
+.sum-ov.settled .sum-cap, .sum-ov.settled .sum-go { opacity: 1; transform: none; pointer-events: auto; }
+.sum-ov.skip, .sum-ov.skip .sum-circle, .sum-ov.skip .sum-beam, .sum-ov.skip .sum-hero { animation: none; }
+@keyframes sumDim { from { background-color: transparent; opacity: 0; } }
+@keyframes sumOpen { from { transform: translate(-50%, 50%) scaleY(.32) scale(0) rotate(-90deg); opacity: 0; } }
+@keyframes sumRise { from { transform: scaleY(0); } }
+@keyframes sumHero {
+  0% { opacity: 0; filter: brightness(4) blur(10px) drop-shadow(0 0 10px var(--g2)); transform: translate(-50%, 14px) scale(.9); }
+  60% { opacity: 1; filter: brightness(2) blur(2px) drop-shadow(0 0 18px var(--g2)); }
+}
+@keyframes sumPulse { 50% { opacity: .8; transform: translate(-50%, 0) scale(1.06); } }
+@media (prefers-reduced-motion: reduce) {
+  .sum-ov, .sum-circle, .sum-circle svg, .sum-circle .sum-star, .sum-beam, .sum-hero, .sum-ov.settled .sum-halo { animation: none; }
+}
