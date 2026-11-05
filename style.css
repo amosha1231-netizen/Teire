@@ -1058,3 +1058,10 @@ body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
 @media (prefers-reduced-motion: reduce) {
   .sum-ov, .sum-circle, .sum-circle svg, .sum-circle .sum-star, .sum-beam, .sum-hero, .sum-ov.settled .sum-halo { animation: none; }
 }
+
+/* ---------- הדמות: מצמוץ ונשימה ---------- */
+.av-eyes { transform-box: fill-box; transform-origin: center; animation: avBlink 4.6s infinite; }
+.avatar-stage > svg, .sum-hero > svg, .pc-art > svg { transform-origin: 50% 95%; animation: avBreathe 3.4s ease-in-out infinite; }
+@keyframes avBlink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+@keyframes avBreathe { 50% { transform: scaleY(1.02); } }
+@media (prefers-reduced-motion: reduce) { .av-eyes, .avatar-stage > svg, .sum-hero > svg, .pc-art > svg { animation: none; } }

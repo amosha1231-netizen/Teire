@@ -9,11 +9,19 @@
 
   // ---------- מצב השחקן (נשמר בדפדפן) ----------
   const PKEY = "teire.player.v2";
-  const DEFAULT_LOOK = { gender: "boy", skin: SKINS[0], hair: HAIR[0], hat: "kippah", shirt: "#3b82f6", extra: "none" };
+  const DEFAULT_LOOK = { skin: SKINS[0], hair: HAIR[0], hat: "kippah", shirt: "#3b82f6", extra: "none" };
   function loadPlayer() {
     try { return JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) { return {}; }
   }
   let player = Object.assign({ name: "", look: { ...DEFAULT_LOOK }, owned: [], coins: 0, stars: {}, souls: [], activeSoul: null, pos: null }, loadPlayer());
+  fixLook(player.look);
+  // במשחק יש רק דמות של בן. שחקנים ישנים שבחרו בת או סרט לשיער עוברים לדמות בן עם כיפה.
+  function fixLook(look) {
+    if (!look) return look;
+    if (look.gender === "girl" || look.hat === "bow") look.hat = "kippah";
+    delete look.gender;
+    return look;
+  }
   // חשבון שחקן: ההתקדמות נשמרת בשרת, ורק אחרי שנטענה בהצלחה (כדי לא לדרוס אותה בטעות)
   const accountState = { user: null, loaded: false };
   let progressTimer = 0;
@@ -296,10 +304,6 @@
           <h1>${isNew ? "ברוכים הבאים למסע!" : "שינוי שם ומראה"}</h1>
           ${isNew ? `<p class="muted">יוצרים דמות, ויוצאים לשחק</p>` : ""}
           <div class="avatar-stage">${avatarSVG(look, 110)}</div>
-          <div class="seg">
-            <button class="${look.gender === "boy" ? "on" : ""}" data-g="boy">בן</button>
-            <button class="${look.gender === "girl" ? "on" : ""}" data-g="girl">בת</button>
-          </div>
           <div class="swatches">${SKINS.map(c => `<button class="sw ${look.skin === c ? "on" : ""}" data-skin="${c}" style="background:${c}" aria-label="צבע עור"></button>`).join("")}</div>
           <div class="swatches">${HAIR.map(c => `<button class="sw ${look.hair === c ? "on" : ""}" data-hair="${c}" style="background:${c}" aria-label="צבע שיער"></button>`).join("")}</div>
           <h3 class="onb-q">1. איך קוראים לך?</h3>
@@ -324,11 +328,6 @@
       if (tp) tp.onclick = () => { creatingNew = false; };
       const nameEl = document.getElementById("pname");
       nameEl.oninput = () => { typed = nameEl.value; };
-      app.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
-        look.gender = b.dataset.g;
-        look.hat = look.gender === "girl" ? "none" : "kippah";
-        draw();
-      });
       app.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { look.skin = b.dataset.skin; draw(); });
       app.querySelectorAll("[data-hair]").forEach(b => b.onclick = () => { look.hair = b.dataset.hair; draw(); });
       app.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => { dev = b.dataset.dev; draw(); });
@@ -350,15 +349,14 @@
         player.journey = { step: pick, start: pick }; // המסע מתחיל מהמשחק שבחרו וממשיך משם לקשה יותר
         weeklyLater(); // שאלת השבוע תוצע רק מהכניסה הבאה
         savePlayer(); sendDevice();
-        const girl = look.gender === "girl";
         summonGlow({
           tier: "gold", art: avatarSVG(look, 170),
-          caption: `${name} ${girl ? "הופיעה" : "הופיע"}! ✨`, button: "לקלף שלי",
+          caption: `${name} הופיע! ✨`, button: "לקלף שלי",
         }).then(() => cardReveal({
-          tier: "gold", rating: 60, pos: girl ? "תלמידה" : "תלמיד",
+          tier: "gold", rating: 60, pos: "תלמיד",
           art: avatarSVG(look, 150), name,
           stats: [["כוכבים", 0], ["מטבעות", player.coins], ["רמה", 1]],
-          caption: `${girl ? "שחקנית חדשה הצטרפה" : "שחקן חדש הצטרף"} למסע! ✨`,
+          caption: `שחקן חדש הצטרף למסע! ✨`,
           button: `יוצאים לדרך: ${JOURNEY[pick].title}`,
         })).then(() => startJourneyStop(pick));
       };
@@ -521,6 +519,7 @@
   async function loadAccountProgress() {
     const data = await db.loadProgress();
     player = data ? Object.assign(freshPlayer(), data) : freshPlayer();
+    fixLook(player.look);
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     accountState.loaded = true;
     if (!data) await db.saveProgress(player);
@@ -572,6 +571,7 @@
   let creatingNew = false; // לחצו "שחקן חדש": מראים את יצירת הדמות ולא את בחירת השחקן
   function setPlayer(p) {
     player = Object.assign(freshPlayer(), p);
+    fixLook(player.look);
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     renderHud();
   }
@@ -704,12 +704,12 @@
   const TOUR_GIFT = 20;
   const TOUR = [
     { sel: null, text: n => `שלום ${n}! אני ינשופי 🦉 ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.` },
-    { sel: "#me", text: (n, girl) => `${girl ? "זאת את" : "זה אתה"}! הדמות שלך הולכת במפה של ארץ ישראל, מעיר לעיר.` },
+    { sel: "#me", text: () => `זה אתה! הדמות שלך הולכת במפה של ארץ ישראל, מעיר לעיר.` },
     { sel: ".bld[data-b='jerusalem']", text: () => "כל בית במפה הוא מקום עם משימות. מקישים על מקום, הדמות הולכת אליו, ונכנסים לשחק." },
     { sel: "#hud", text: () => "כאן רואים מה אספת: 🕯️ נשמות של חכמים, ⭐ כוכבים על משימות, ו-🪙 מטבעות שקונים בהם בגדים לדמות." },
     { sel: ".bottomnav", text: () => "בתפריט התחתון: המפה, הנשמות שאספת, הדמות והחנות, ותיבה להציע שאלה משלך." },
     { sel: "#menuBtn", text: () => "וכאן התפריט: טבלת האלופים, היכל עלמא, מסע הפתיחה, וגם החלפת שחקן או התנתקות." },
-    { sel: null, text: (n, girl) => `זהו, ${girl ? "את מוכנה" : "אתה מוכן"}! הנה מתנה לדרך: ${TOUR_GIFT} מטבעות 🪙. בהצלחה במסע!`, last: true },
+    { sel: null, text: () => `זהו, אתה מוכן! הנה מתנה לדרך: ${TOUR_GIFT} מטבעות 🪙. בהצלחה במסע!`, last: true },
   ];
   function startTour() {
     document.querySelectorAll(".tour").forEach(e => e.remove());
@@ -724,7 +724,7 @@
       <div class="tour-card" role="dialog" aria-label="הדרכה">
         <div class="tour-guide">🦉</div>
         <div class="tour-body">
-          <p>${esc(step.text(player.name, player.look && player.look.gender === "girl"))}</p>
+          <p>${esc(step.text(player.name))}</p>
           <div class="tour-row">
             <span class="tour-dots">${TOUR.map((_, i) => `<i class="${i === player.tour ? "on" : i < player.tour ? "done" : ""}"></i>`).join("")}</span>
             ${step.last ? "" : `<button class="link-btn" id="tour-skip">דילוג</button>`}
