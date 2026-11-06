@@ -2079,7 +2079,7 @@
     setTab("map");
     const best = (player.best || {})[key] || 0;
     app.innerHTML = `
-      <div class="place-hero" style="--c:${key === "race" ? "#dc2626" : "#db2777"}">
+      <div class="place-hero" style="--c:${key === "race" ? "#dc2626" : key === "piano" ? "#7c3aed" : "#db2777"}">
         <div class="place-icon">${icon}</div><h1>${title}</h1>
         <p>השיא שלכם: ${best}</p>
       </div>
@@ -2106,7 +2106,7 @@
       <div class="row center-row"><button class="btn gold" id="again">שוב</button><a class="btn ghost" href="${gameExitHash()}">חזרה</a></div>
     </div>`;
   }
-  const GAME_TITLES = { swipe: "אתגר המקורות", race: "מרוץ המקורות", duel: "דו-קרב" };
+  const GAME_TITLES = { swipe: "אתגר המקורות", race: "מרוץ המקורות", duel: "דו-קרב", "piano-q": "היכל הנגינה · שאלות", "piano-p": "היכל הנגינה · נגינה" };
   async function loadTop10(key, score) {
     const box = document.getElementById("top10");
     if (!box) return;
@@ -2124,6 +2124,61 @@
       const el = document.getElementById("top10");
       if (el) el.innerHTML = `<p class="muted small">הטופ 10 לא זמין כרגע.</p>`;
     }
+  }
+
+
+  // ---- היכל הנגינה: מקלדת עם התווים של הניגון. שאלות שהתשובה שלהן היא כמה קלידים לזוז, או נגינה לפי קליד מואר ----
+  const PIANO_MODES = [
+    { id: "q", icon: "❓", name: "שאלות", text: "שאלה שהתשובה שלה מספר: כמה קלידים לזוז מה-📍" },
+    { id: "p", icon: "🎹", name: "נגינה", text: "הקליד הבא מאיר, ולוחצים עליו" },
+  ];
+  function viewPiano() {
+    if (!player.name) return viewOnboarding();
+    const P = window.TeirePiano;
+    let songId = player.pianoSong || P.SONGS[0].id, mode = player.pianoMode || "q", prev = null;
+    if (!P.SONGS.some(x => x.id === songId)) songId = P.SONGS[0].id;
+    const extra = `
+      <h3 style="margin:14px 0 6px">איך משחקים?</h3>
+      <div class="piano-pick" id="pmodes">${PIANO_MODES.map(m => `<button class="piano-opt" data-mode="${m.id}"><span>${m.icon}</span><b>${m.name}</b><small>${m.text}</small></button>`).join("")}</div>
+      <h3 style="margin:14px 0 6px">איזה ניגון?</h3>
+      <div class="piano-pick" id="psongs">${P.SONGS.map(x => `<button class="piano-opt" data-song="${x.id}"><span>${x.icon}</span><b>${esc(x.name)}</b><small>${esc(x.level)} · ${esc(x.about)}</small></button>`).join("")}</div>
+      <button class="btn ghost" id="plisten" style="margin:10px 0">🎧 שמעו את הניגון</button>
+      <p class="tiny muted">כל הניגונים כאן מקוריים של האתר. צלילי פסנתר: FluidR3 GM (CC BY 3.0).</p>`;
+    gameIntro("piano", "היכל הנגינה", "🎹", "מקלדת עם התווים של הניגון בלבד: נמוך משמאל, גבוה מימין, כמו בפסנתר. <b>במצב שאלות</b> אתם עומדים על קליד 📍 ומקבלים שאלה, למשל \"כמה אבות היו?\". התשובה היא כמה קלידים לזוז: ➡️ עולים ימינה, ⬅️ יורדים שמאלה, ו-🔁 לוחצים שוב על אותו קליד. <b>במצב נגינה</b> לוחצים על הקליד שמאיר. בסוף הניגון מתנגן במלואו!", () => { if (prev) prev.stop(); playPiano(songId, mode); }, extra);
+    const sync = () => {
+      app.querySelectorAll("[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+      app.querySelectorAll("[data-song]").forEach(b => b.classList.toggle("on", b.dataset.song === songId));
+      const best = (player.best || {})["piano-" + mode] || 0;
+      const hero = app.querySelector(".place-hero p"); if (hero) hero.textContent = `השיא שלכם ב${PIANO_MODES.find(m => m.id === mode).name}: ${best}`;
+    };
+    app.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { mode = b.dataset.mode; player.pianoMode = mode; savePlayer(); sync(); });
+    app.querySelectorAll("[data-song]").forEach(b => b.onclick = () => { songId = b.dataset.song; player.pianoSong = songId; savePlayer(); sync(); });
+    const listen = document.getElementById("plisten");
+    listen.onclick = () => {
+      if (prev) { prev.stop(); prev = null; listen.textContent = "🎧 שמעו את הניגון"; return; }
+      if (window.Music && Music.duck) Music.duck(true);
+      listen.textContent = "⏹️ עצירה";
+      prev = P.preview(P.SONGS.find(x => x.id === songId), null, () => { prev = null; listen.textContent = "🎧 שמעו את הניגון"; if (window.Music && Music.duck) Music.duck(false); });
+    };
+    game = { stop() { if (prev) prev.stop(); if (window.Music && Music.duck) Music.duck(false); } };
+    sync();
+  }
+  function playPiano(songId, mode) {
+    stopGame();
+    const P = window.TeirePiano, song = P.SONGS.find(x => x.id === songId) || P.SONGS[0];
+    if (window.Music && Music.duck) Music.duck(true);
+    app.innerHTML = `<div id="pgame"></div>${backToTorah}`;
+    const g = P.start(document.getElementById("pgame"), {
+      song, mode,
+      onEnd(score, total) {
+        stopGame();
+        const key = "piano-" + mode;
+        app.innerHTML = gameOver(key, score, mode === "q" ? 2 : 1) + backToTorah;
+        document.querySelector(".result .big").insertAdjacentHTML("afterend", `<p class="muted">${song.icon} ${esc(song.name)} · ${score} מתוך ${total} בניסיון הראשון</p>`);
+        document.getElementById("again").onclick = () => playPiano(songId, mode);
+      },
+    });
+    game = { stop() { g.stop(); if (window.Music && Music.duck) Music.duck(false); } };
   }
 
   // ---- אתגר המקורות: משפט רץ אליכם, 5 שניות להחליק לצד של המקור הנכון ----
@@ -3158,6 +3213,9 @@
       add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · לפי ${f.posek}`, { text: `מה מברכים על ${f.name}?`, answer: BR.FIRST[f.first], others: wrong(BR.FIRST, f.first), source: f.source });
       if (f.after) add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · ברכה אחרונה`, { text: `מה מברכים אחרי ${f.name}?`, answer: BR.AFTER[f.after], others: wrong(BR.AFTER, f.after), source: f.afterSource });
     });
+    const SG = window.TEIRE_SONGS;
+    if (SG) Object.entries(SG.NUMBER_Q).forEach(([n, list]) => list.forEach(x =>
+      add("ג", "היכל הנגינה", "content/songs.js", `שאלת מספר · התשובה ${n}`, { text: x.q, answer: `${n} (${x.note})`, others: [], source: x.source })));
     const D = window.TEIRE_DEBATES || { DEBATES: [], SPEAKERS: {} };
     D.DEBATES.forEach(d => add("ו", "פלפולים", "content/debates.js", d.pair.map(w => D.SPEAKERS[w].name).join(" נגד "), {
       text: d.title, answer: "", others: [], source: d.source,
@@ -3252,7 +3310,7 @@
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
     // משחקים (מירוץ, החלפה, ויכוח): שומרים את המקום שממנו נכנסו, כדי לחזור אליו
-    if (!["swipe", "race", "debate"].includes(page)) { try { sessionStorage.setItem("teire.returnTo", location.hash || "#/"); } catch (e) { /* ignore */ } }
+    if (!["swipe", "race", "debate", "piano"].includes(page)) { try { sessionStorage.setItem("teire.returnTo", location.hash || "#/"); } catch (e) { /* ignore */ } }
     stopCity();
     stopDuel();
     stopGame();
@@ -3280,6 +3338,7 @@
     if (page === "leaders") return viewLeaders();
     if (page === "swipe") return viewSwipe();
     if (page === "race") return viewRace();
+    if (page === "piano") return viewPiano();
     if (page === "debate") return viewDebate(arg);
     if (page === "learn") return viewLearn(arg);
     if (page === "review") return viewReview();
