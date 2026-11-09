@@ -232,6 +232,8 @@
     desert: { sky: ["#5aa9e6", "#f3d9a4", "#fbe7c0"], ridges: ["#e0b07a", "#c98a50", "#a9683a"], grass: ["#d6ae6a", "#e0bb78"], fog: "251,231,192", rock: "#a8774a", side: ["cactus", "rock"], extra: "cactus" },
     sea: { sky: ["#2f8fe0", "#8fd0f5", "#e6f7ff"], ridges: ["#a7c9dd", "#2b8fc9", "#e6d39c"], grass: ["#e1cc92", "#ead8a6"], fog: "230,247,255", rock: "#9a8f7a", side: ["palm", "palm"], extra: "umbrella", water: true },
     jerusalem: { sky: ["#f97316", "#fbbf77", "#fde7c8"], ridges: ["#caa47f", "#b38d69", "#97734f"], grass: ["#988a58", "#a69866"], fog: "253,231,200", rock: "#cdbb98", side: ["house", "cypress"], extra: "house" },
+    // עיר הלילה: שדרה רחבה בלילה, מגדלים עם שלטי ניאון, פנסי רחוב, עצי סתיו ושער אור מעל הכביש
+    city: { sky: ["#04020c", "#140b2e", "#3a1a5c"], ridges: ["#1a1430", "#100c22", "#0a0818"], grass: ["#24222f", "#2a2836"], fog: "26,14,48", rock: "#3a3a46", side: ["tower", "tower"], extra: "lamp", night: true },
   };
   function buildTrack(theme) {
     // קטעים: ישר, פנייה רכה, ופנייה חדה עם שלטי חץ. גבעות בגלים שנסגרים בסוף המסלול
@@ -256,6 +258,17 @@
     segs.forEach(s => {
       s.y1 = hill(s.i); s.y2 = hill(s.i + 1);
       s.dark = Math.floor(s.i / 3) % 2;
+      if (theme.night) {
+        // רחוב עירוני: מגדלים מאחור, עצים ופנסים על המדרכה, ומדי פעם שער ניאון מעל הכביש
+        const v = () => Math.random();
+        if (s.i % 3 === 0) s.sprites.push({ kind: "tower", x: -(1.75 + v() * 1.5), s: 0.8 + v() * 0.7, v: v() });
+        if (s.i % 3 === 1) s.sprites.push({ kind: "tower", x: 1.75 + v() * 1.5, s: 0.8 + v() * 0.7, v: v() });
+        if (s.i % 10 === 2 || s.i % 10 === 7) s.sprites.push({ kind: "ftree", x: (s.i % 10 === 2 ? -1 : 1) * 1.45, s: 0.85 + v() * 0.3, v: v() });
+        if (s.i % 8 === 4) { s.sprites.push({ kind: "lamp", x: -1.3, s: 1, dir: 1 }); s.sprites.push({ kind: "lamp", x: 1.3, s: 1, dir: -1 }); }
+        if (s.i % 160 === 90) s.sprites.push({ kind: "arch", x: 0, s: 1 });
+        if (s.sharp && s.i % 4 === 0) s.sprites.push({ kind: "chevron", x: s.curve > 0 ? 1.28 : -1.28, dir: s.curve > 0 ? 1 : -1 });
+        return;
+      }
       // עצים, סלעים ושלטי חץ לפניות החדות
       const pick = () => theme.side[Math.random() < 0.7 ? 0 : 1];
       if (s.i % 3 === 0) s.sprites.push({ kind: pick(), x: -(1.55 + Math.random() * 1.8), s: 0.8 + Math.random() * 0.6 });
@@ -443,7 +456,73 @@
       g.fillStyle = "#fbbf24"; g.beginPath(); g.arc(p.x - bw / 2, p.y - bh, Math.max(2, bh * 0.12), 0, 7); g.arc(p.x + bw / 2, p.y - bh, Math.max(2, bh * 0.12), 0, 7); g.fill();
     }
 
-    function drawSprite(kind, x, y, h, sc) {
+    // צבעי הניאון ומילים קצרות לשלטים של עיר הלילה
+    const NEON = ["#ff2bd6", "#22e6ff", "#ffd60a", "#7cff4f", "#ff5a36", "#a78bfa"];
+    const NEON_WORDS = ["תורה", "שבת", "חסד", "שמחה", "אמונה", "מצוה", "ברכה", "שלום", "אור", "חכמה"];
+    function drawTower(x, y, h, v) {
+      const w = h * (0.42 + v * 0.3), left = x - w / 2, top = y - h;
+      g.fillStyle = ["#1b1830", "#211f36", "#17202e", "#26203a"][(v * 4) | 0]; g.fillRect(left, top, w, h);
+      g.fillStyle = "rgba(255,255,255,.05)"; g.fillRect(left, top, w * 0.12, h);
+      // חלונות דולקים
+      if (h > 26) {
+        const cols = 4, rows = Math.min(12, Math.max(3, (h / (w / cols) * 0.8) | 0)), cw = w / cols, rh = h * 0.92 / rows;
+        const seed = (v * 9973) | 0;
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+          const hsh = (seed + r * 31 + c * 17) % 7;
+          if (hsh > 3) continue;
+          g.fillStyle = hsh === 0 ? "#ffe9a8" : hsh === 1 ? "#9fd8ff" : "rgba(255,214,140,.55)";
+          g.fillRect(left + c * cw + cw * 0.25, top + h * 0.05 + r * rh + rh * 0.25, cw * 0.5, rh * 0.45);
+        }
+      }
+      // שלט ניאון: הילה רכה, מסגרת זוהרת ומילה
+      const col = NEON[(v * 97 | 0) % NEON.length], sw = w * 0.86, sh = Math.max(3, h * 0.11), sx = x - sw / 2, sy = top + h * (0.18 + (v * 13 % 1) * 0.3);
+      g.fillStyle = col; g.globalAlpha = 0.22; g.fillRect(sx - sh * 0.4, sy - sh * 0.4, sw + sh * 0.8, sh * 1.8); g.globalAlpha = 1;
+      g.fillStyle = "#0b0716"; g.fillRect(sx, sy, sw, sh);
+      g.strokeStyle = col; g.lineWidth = Math.max(1, sh * 0.12); g.strokeRect(sx, sy, sw, sh);
+      const fs = sh * 0.66;
+      if (fs > 6) {
+        g.fillStyle = col; g.font = `800 ${fs}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
+        g.fillText(NEON_WORDS[(v * 1000 | 0) % NEON_WORDS.length], x, sy + sh / 2); g.direction = "ltr";
+      }
+      // פס ניאון אנכי בפינה
+      const col2 = NEON[((v * 53) | 0) % NEON.length];
+      g.fillStyle = col2; g.fillRect(v < 0.5 ? left + w - w * 0.06 : left, top + h * 0.5, w * 0.06, h * 0.35);
+    }
+    function drawLamp(x, y, h, dir) {
+      g.fillStyle = "#4b5563"; g.fillRect(x - h * 0.02, y - h, h * 0.04, h);
+      g.fillRect(x, y - h, dir * h * 0.28, h * 0.03);
+      const lx = x + dir * h * 0.28, ly = y - h + h * 0.04;
+      g.fillStyle = "rgba(255,220,150,.18)"; g.beginPath(); g.arc(lx, ly, h * 0.16, 0, 7); g.fill();
+      g.fillStyle = "#fff4cf"; g.beginPath(); g.ellipse(lx, ly, h * 0.06, h * 0.025, 0, 0, 7); g.fill();
+    }
+    function drawFallTree(x, y, h, v) {
+      g.fillStyle = "#3b2a20"; g.fillRect(x - h * 0.03, y - h * 0.4, h * 0.06, h * 0.4);
+      const cs = ["#c2410c", "#ea580c", "#9a3412", "#d97706"];
+      [[0, -0.62, 0.3], [-0.16, -0.5, 0.22], [0.17, -0.52, 0.22], [0.04, -0.8, 0.2]].forEach(([dx, dy, r], i) => {
+        g.fillStyle = cs[(i + (v * 4 | 0)) % 4]; g.beginPath(); g.arc(x + dx * h, y + dy * h, r * h, 0, 7); g.fill();
+      });
+    }
+    function drawArch(p) {
+      // שער אור מעל השדרה, כמו בכניסה לעיר
+      const top = p.y - p.sc * 2300 * H / 2, post = Math.max(2, p.w * 0.04), xl = p.x - p.w * 1.22, xr = p.x + p.w * 1.22;
+      g.fillStyle = "#374151"; g.fillRect(xl - post / 2, top, post, p.y - top); g.fillRect(xr - post / 2, top, post, p.y - top);
+      const bh = p.sc * 420 * H / 2;
+      g.fillStyle = "#0b0716"; g.fillRect(xl, top, xr - xl, bh);
+      g.strokeStyle = "#ff2bd6"; g.lineWidth = Math.max(1, bh * 0.08); g.strokeRect(xl, top, xr - xl, bh);
+      g.fillStyle = "rgba(255,43,214,.18)"; g.fillRect(xl - bh * 0.2, top - bh * 0.2, xr - xl + bh * 0.4, bh * 1.4);
+      for (let q = 0; q <= 12; q++) { g.fillStyle = q % 2 ? "#ffd60a" : "#22e6ff"; g.fillRect(xl + (xr - xl) * q / 12 - bh * 0.05, top + bh + bh * 0.1, bh * 0.1, bh * 0.1); }
+      const fs = bh * 0.6;
+      if (fs > 5) {
+        g.fillStyle = "#22e6ff"; g.font = `800 ${fs}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
+        g.fillText("✦ עיר הלילה ✦", p.x, top + bh / 2); g.direction = "ltr";
+      }
+    }
+    function drawSprite(kind, x, y, h, sc, sp) {
+      if (kind === "tower") return drawTower(x, y, h, sp.v);
+      if (kind === "lamp") return drawLamp(x, y, h, sp.dir);
+      if (kind === "ftree") return drawFallTree(x, y, h, sp.v);
       if (kind === "tree") return drawTree(x, y, h, sc);
       if (kind === "rock") { g.fillStyle = theme.rock; g.beginPath(); g.ellipse(x, y - h * 0.35, h * 0.8, h * 0.45, 0, 0, 7); g.fill(); return; }
       if (kind === "cactus") {
@@ -585,21 +664,47 @@
       const sky = g.createLinearGradient(0, 0, 0, H * 0.6);
       sky.addColorStop(0, theme.sky[0]); sky.addColorStop(0.6, theme.sky[1]); sky.addColorStop(1, theme.sky[2]);
       g.fillStyle = sky; g.fillRect(0, 0, W, H);
+      const hz = H * 0.5;
+      if (theme.night) {
+        // כוכבים, ירח וקו רקיע של מגדלים עם חלונות
+        g.fillStyle = "rgba(255,255,255,.7)";
+        for (let q = 0; q < 40; q++) g.fillRect(((q * 173.3 + bgX * 0.03) % W + W) % W, (q * 61.7 % 1) * H * 0.3 + (q % 7) * 6, 1.5, 1.5);
+        g.fillStyle = "#fef3c7"; g.beginPath(); g.arc(((W * 0.78 + bgX * 0.05) % (W * 1.2) + W * 1.2) % (W * 1.2) - W * 0.1, H * 0.1, Math.min(W, H) * 0.035, 0, 7); g.fill();
+        const skyline = (cw, hmin, hmax, par, color, lit) => {
+          const off = bgX * par, i0 = Math.floor(-off / cw) - 1;
+          for (let i = i0; (i * cw + off) < W + cw; i++) {
+            const hs = Math.abs(Math.sin(i * 12.9898 + cw) * 43758.5453) % 1, bx = i * cw + off, bh = H * (hmin + hs * (hmax - hmin));
+            g.fillStyle = color; g.fillRect(bx, hz - bh, cw * 0.92, bh + 2);
+            if (lit) for (let r = 0; r < bh / 9 - 1; r++) for (let c = 0; c < 3; c++) {
+              if ((i * 7 + r * 3 + c * 5) % 4) continue;
+              g.fillStyle = (i + r) % 5 ? "rgba(255,214,140,.7)" : "rgba(34,230,255,.7)";
+              g.fillRect(bx + 4 + c * (cw - 10) / 3, hz - bh + 5 + r * 9, 3, 3);
+            }
+            if (hs > 0.82) { g.fillStyle = NEON[i % NEON.length]; g.fillRect(bx + cw * 0.1, hz - bh + bh * 0.2, cw * 0.72, 3); }
+          }
+        };
+        skyline(38, 0.12, 0.3, 0.15, theme.ridges[0], false);
+        skyline(30, 0.06, 0.2, 0.35, theme.ridges[1], true);
+        const glow = g.createLinearGradient(0, hz - H * 0.08, 0, hz);
+        glow.addColorStop(0, "rgba(255,43,214,0)"); glow.addColorStop(1, "rgba(255,90,180,.25)");
+        g.fillStyle = glow; g.fillRect(0, hz - H * 0.08, W, H * 0.08);
+        g.fillStyle = theme.ridges[2]; g.fillRect(0, hz, W, H);
+      }
       g.fillStyle = "rgba(255,255,255,.85)";
-      [[0.15, 0.12, 1], [0.5, 0.07, 1.4], [0.82, 0.15, 0.9]].forEach(([cx2, cy2, s]) => {
+      if (!theme.night) [[0.15, 0.12, 1], [0.5, 0.07, 1.4], [0.82, 0.15, 0.9]].forEach(([cx2, cy2, s]) => {
         const x = ((cx2 * W + bgX * 0.1) % (W * 1.3) + W * 1.3) % (W * 1.3) - W * 0.15;
         g.beginPath(); g.ellipse(x, cy2 * H, 50 * s, 14 * s, 0, 0, 7); g.ellipse(x + 30 * s, cy2 * H - 8 * s, 30 * s, 14 * s, 0, 0, 7); g.fill();
       });
-      const hz = H * 0.5;
       const ridge = (amp, freq, off, color, par) => {
         g.fillStyle = color; g.beginPath(); g.moveTo(0, H);
         for (let x = 0; x <= W + 10; x += 10) g.lineTo(x, hz - amp * (0.6 + 0.4 * Math.sin((x + bgX * par) * freq + off)) - amp * 0.3 * Math.sin((x + bgX * par) * freq * 2.7));
         g.lineTo(W, H); g.closePath(); g.fill();
       };
-      ridge(H * 0.16, 0.006, 1, theme.ridges[0], 0.2);
+      if (theme.night) { /* קו הרקיע כבר צויר */ }
+      else { ridge(H * 0.16, 0.006, 1, theme.ridges[0], 0.2);
       if (theme.water) { g.fillStyle = theme.ridges[1]; g.fillRect(0, hz - H * 0.04, W, H); g.fillStyle = "rgba(255,255,255,.35)"; for (let q = 0; q < 8; q++) g.fillRect(((q * 131 + bgX * 0.5) % W + W) % W, hz - H * 0.02 + q % 3 * 6, 30, 2); }
       else ridge(H * 0.1, 0.013, 3, theme.ridges[1], 0.45);
-      ridge(H * 0.05, 0.03, 0, theme.ridges[2], 0.8);
+      ridge(H * 0.05, 0.03, 0, theme.ridges[2], 0.8); }
 
       // הכביש: מהקרוב לרחוק, וזוכרים איפה נגמר כל קטע כדי לחתוך את מה שמאחורי גבעה
       let maxy = H, x = 0, dx = -(base.curve * basePct);
@@ -614,18 +719,24 @@
         const fog = Math.min(1, n / DRAW);
         g.fillStyle = theme.grass[s.dark ? 0 : 1]; g.fillRect(0, p2.y, W, p1.y - p2.y + 1);
         // שולי הכביש, גדר בטיחות, אספלט וקווים
-        poly(p1.x, p1.y, p1.w * 1.18, p2.x, p2.y, p2.w * 1.18, s.dark ? "#9aa0a6" : "#7d838a");
-        poly(p1.x, p1.y, p1.w * 1.08, p2.x, p2.y, p2.w * 1.08, s.dark ? "#d62828" : "#f5f5f5");
-        poly(p1.x, p1.y, p1.w, p2.x, p2.y, p2.w, s.dark ? "#5b5f66" : "#61656c");
+        const nt = theme.night;
+        poly(p1.x, p1.y, p1.w * 1.18, p2.x, p2.y, p2.w * 1.18, nt ? (s.dark ? "#3a3846" : "#34323f") : s.dark ? "#9aa0a6" : "#7d838a");
+        poly(p1.x, p1.y, p1.w * 1.08, p2.x, p2.y, p2.w * 1.08, nt ? "#4b4a58" : s.dark ? "#d62828" : "#f5f5f5");
+        poly(p1.x, p1.y, p1.w, p2.x, p2.y, p2.w, nt ? (s.dark ? "#2b2c34" : "#2f3038") : s.dark ? "#5b5f66" : "#61656c");
+        if (nt && s.i % 6 < 2) {
+          // השתקפויות ניאון על האספלט הרטוב
+          poly(p1.x - p1.w * 0.62, p1.y, p1.w * 0.05, p2.x - p2.w * 0.62, p2.y, p2.w * 0.05, "rgba(255,43,214,.16)");
+          poly(p1.x + p1.w * 0.66, p1.y, p1.w * 0.05, p2.x + p2.w * 0.66, p2.y, p2.w * 0.05, "rgba(255,90,54,.18)");
+        }
         if (s.dark) {
-          for (let l = 1; l < LANES; l++) { const lx1 = p1.x - p1.w + 2 * p1.w * l / LANES, lx2 = p2.x - p2.w + 2 * p2.w * l / LANES; poly(lx1, p1.y, p1.w * 0.025, lx2, p2.y, p2.w * 0.025, "#facc15"); }
+          for (let l = 1; l < LANES; l++) { const lx1 = p1.x - p1.w + 2 * p1.w * l / LANES, lx2 = p2.x - p2.w + 2 * p2.w * l / LANES; poly(lx1, p1.y, p1.w * 0.025, lx2, p2.y, p2.w * 0.025, nt ? "#e5e7eb" : "#facc15"); }
         }
         poly(p1.x - p1.w * 0.93, p1.y, p1.w * 0.018, p2.x - p2.w * 0.93, p2.y, p2.w * 0.018, "#eee");
         poly(p1.x + p1.w * 0.93, p1.y, p1.w * 0.018, p2.x + p2.w * 0.93, p2.y, p2.w * 0.018, "#eee");
         // מעקה: פס מוגבה בשני הצדדים
         const rh1 = p1.sc * 150 * H / 2, rh2 = p2.sc * 150 * H / 2;
         [-1, 1].forEach(sd => {
-          g.fillStyle = s.dark ? "#c7ccd1" : "#aeb4ba";
+          g.fillStyle = theme.night ? (s.dark ? "#22e6ff" : "#1a1a26") : s.dark ? "#c7ccd1" : "#aeb4ba";
           g.beginPath(); g.moveTo(p1.x + sd * p1.w * 1.2, p1.y - rh1 * 0.4); g.lineTo(p2.x + sd * p2.w * 1.2, p2.y - rh2 * 0.4);
           g.lineTo(p2.x + sd * p2.w * 1.2, p2.y - rh2); g.lineTo(p1.x + sd * p1.w * 1.2, p1.y - rh1); g.closePath(); g.fill();
         });
@@ -647,10 +758,12 @@
         if (th.sp) {
           const p = th.s.p1, sx = p.x + p.w * th.sp.x, sy = p.y;
           if (sy > th.s.clip + 2) return;
-          const k3 = th.sp.kind, h = p.sc * ({ tree: 1700, palm: 1900, cypress: 1800, cactus: 1000, house: 1300, umbrella: 750 }[k3] * th.sp.s || (k3 === "rock" ? 380 : 520)) * H / 2;
+          const k3 = th.sp.kind;
+          if (k3 === "arch") { g.save(); g.beginPath(); g.rect(0, 0, W, th.s.clip); g.clip(); drawArch(p); g.restore(); return; }
+          const h = p.sc * ({ tree: 1700, palm: 1900, cypress: 1800, cactus: 1000, house: 1300, umbrella: 750, tower: 3600, lamp: 1500, ftree: 1100 }[k3] * th.sp.s || (k3 === "rock" ? 380 : 520)) * H / 2;
           g.save(); g.beginPath(); g.rect(0, 0, W, th.s.clip); g.clip();
           if (k3 === "chevron") drawChevron(sx, sy, h, th.sp.dir);
-          else drawSprite(k3, sx, sy, h, th.sp.s);
+          else drawSprite(k3, sx, sy, h, th.sp.s, th.sp);
           g.restore();
           return;
         }
