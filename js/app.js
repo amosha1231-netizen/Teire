@@ -2268,6 +2268,7 @@
     { n: 2, theme: "desert", name: "מדבר יהודה", icon: "🏜️", speed: 1.08, coins: 5 },
     { n: 3, theme: "sea", name: "חוף הים", icon: "🌊", speed: 1.16, coins: 6 },
     { n: 4, theme: "jerusalem", name: "ירושלים", icon: "🏛️", speed: 1.24, coins: 7 },
+    { n: 5, theme: "city", name: "עיר הלילה", icon: "🌃", speed: 1.32, coins: 8 },
   ];
   const raceStages = () => X.RACE_WORLDS.length ? X.RACE_WORLDS : [{ n: 3, name: "פסוקים", icon: "💎", items: X.RACE }];
   const raceBest = n => ((player.raceBest || {})["t" + n]) || 0;
@@ -2395,6 +2396,8 @@
       </div>${backToTorah}`;
     const $ = id => document.getElementById(id), track = $("track"), ban = $("hban");
     let joySync = null;
+    // בעיר הלילה מד המהירות העגול מצויר על הכביש עצמו
+    track.classList.toggle("night", world.theme === "city");
     // מגללים כך שהשאלה בראש המסך (אחרי לחיצה על "מתחילים" הדף נשאר גלול למטה)
     $("race").scrollIntoView({ block: "start" });
     let banT = 0, lastHud = "", hudLast = {};
