@@ -290,12 +290,13 @@
     const canvas = root.querySelector("canvas"), g = canvas.getContext("2d");
     const segs = buildTrack(theme), trackLen = N * SEG;
     const snd = makeSound(); snd.start();
-    let W = 0, H = 0, dpr = 1;
+    let W = 0, H = 0, dpr = 1, vign = null;
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = root.clientWidth; H = root.clientHeight;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       canvas.style.width = W + "px"; canvas.style.height = H + "px";
+      vign = null;
     }
     resize();
     window.addEventListener("resize", resize);
@@ -307,6 +308,15 @@
     // רמפה: gates = מספר השער, ramp = השער הנוכחי הוא רמפה, lift/zoom = גובה הקפיצה והזום לתא הנהג
     let gates = 0, ramp = false, lift = 0, zoom = 0, airTilt = 0, chosen = null, choseT = 0, beatT = 0, slow = 1, shake = 0, bodyLean = 0, stage = -1;
     const sparks = [];
+    // עיר הלילה: עשן צמיגים, נקודות סטייל וזמן דריפט
+    const smoke = [], pops = [];
+    let styleSum = 0, combo = 1, lastStyleT = -9, driftT = 0, fxT = 0;
+    function style(text, pts) {
+      if (!theme.night) return;
+      combo = raceT - lastStyleT < 4 ? Math.min(3, combo + 0.5) : 1; lastStyleT = raceT;
+      const got = Math.round(pts * combo); styleSum += got;
+      pops.length = 0; pops.push({ text, pts, mul: combo, life: 1.8 });
+    }
     // המתחרים: מתחילים לפנינו, כל אחד במהירות קבועה. השחקן מאיץ עם כל תשובה נכונה ועוקף אותם
     const RIVALS = [
       { color: "#1d4ed8", stripe: "#e5e7eb", plate: "רש״י" },
@@ -728,6 +738,10 @@
           poly(p1.x - p1.w * 0.62, p1.y, p1.w * 0.05, p2.x - p2.w * 0.62, p2.y, p2.w * 0.05, "rgba(255,43,214,.16)");
           poly(p1.x + p1.w * 0.66, p1.y, p1.w * 0.05, p2.x + p2.w * 0.66, p2.y, p2.w * 0.05, "rgba(255,90,54,.18)");
         }
+        if (nt && s.i % 140 < 2) {
+          // מעבר חציה
+          for (let q = 0; q < 9; q++) { const f = -0.8 + q * 0.2; poly(p1.x + p1.w * f, p1.y, p1.w * 0.05, p2.x + p2.w * f, p2.y, p2.w * 0.05, "rgba(235,235,240,.75)"); }
+        }
         if (s.dark) {
           for (let l = 1; l < LANES; l++) { const lx1 = p1.x - p1.w + 2 * p1.w * l / LANES, lx2 = p2.x - p2.w + 2 * p2.w * l / LANES; poly(lx1, p1.y, p1.w * 0.025, lx2, p2.y, p2.w * 0.025, nt ? "#e5e7eb" : "#facc15"); }
         }
@@ -777,7 +791,15 @@
         if (p.y > s.clip + 2) return;
         g.save(); g.beginPath(); g.rect(0, 0, W, s.clip); g.clip();
         if (th.gate) { if (ramp) drawRamp(p); else drawGate(p, sides || {}); }
-        else drawCar(g, p.x + p.w * th.rival.x, p.y, p.w * 0.55, th.rival.look, { t, lean: s.curve * 0.3 });
+        else {
+          const rx = p.x + p.w * th.rival.x;
+          if (theme.night) {
+            // אורות אחוריים משתקפים בכביש הרטוב
+            const rw = p.w * 0.55 / 2;
+            g.fillStyle = "rgba(255,40,70,.28)"; g.fillRect(rx - rw * 0.85, p.y, rw * 0.3, rw * 0.7); g.fillRect(rx + rw * 0.55, p.y, rw * 0.3, rw * 0.7);
+          }
+          drawCar(g, rx, p.y, p.w * 0.55, th.rival.look, { t, lean: s.curve * 0.3 });
+        }
         g.restore();
       });
 
@@ -792,6 +814,26 @@
       }
       const speed01 = Math.min(1, speed / (baseV * 2.4));
       const skid = Math.min(1, Math.abs(pSeg.curve) / 7) * speed01 * (pSeg.sharp ? 1 : 0.35);
+      if (theme.night) {
+        // עשן צמיגים מואר בניאון: בהחלקה, בהחלפת נתיב, ובחריקה לפני הזינוק
+        const dtf = Math.min(0.05, Math.max(0, t - fxT)); fxT = t;
+        const laneMove = Math.abs(LANE_X[laneName] - px);
+        const emit = lift > 0 ? 0 : phase === "count" ? 2 : skid > 0.25 ? 3 : laneMove > 0.12 ? 2 : 0;
+        for (let q = 0; q < emit && smoke.length < 70; q++) {
+          const sd = Math.random() < 0.5 ? -1 : 1;
+          smoke.push({ x: carX + sd * carW * 0.42, y: carY - carW * 0.08, vx: sd * (40 + Math.random() * 90) - lean * 60, vy: -(20 + Math.random() * 50), r: carW * 0.08, life: 1, c: Math.random() < 0.5 ? "190,150,255" : "255,170,220" });
+        }
+        for (let q = smoke.length - 1; q >= 0; q--) {
+          const m = smoke[q]; m.life -= dtf * 0.9; m.x += m.vx * dtf; m.y += m.vy * dtf; m.r += carW * 0.35 * dtf;
+          if (m.life <= 0) { smoke.splice(q, 1); continue; }
+          g.fillStyle = `rgba(${m.c},${0.28 * m.life})`; g.beginPath(); g.arc(m.x, m.y, m.r, 0, 7); g.fill();
+        }
+        // דריפט: פנייה חדה במהירות. כשהוא נגמר מקבלים נקודות סטייל
+        if (skid > 0.25 && phase !== "crash") driftT += dtf;
+        else if (driftT > 0) { if (driftT > 0.5 && phase !== "crash") style(driftT > 1.5 ? "דריפט מושלם!" : "דריפט!", Math.round(driftT * 120 / 10) * 10); driftT = 0; }
+        // השתקפות האורות האחוריים של המכונית שלנו
+        g.fillStyle = "rgba(255,40,70,.22)"; g.fillRect(carX - carW * 0.42, carY, carW * 0.16, H - carY); g.fillRect(carX + carW * 0.26, carY, carW * 0.16, H - carY);
+      }
       g.save();
       if (airTilt) { g.translate(carX, carY - carW * 0.25); g.rotate(airTilt); g.translate(-carX, -(carY - carW * 0.25)); }
       if (phase === "crash") { g.translate(carX, carY - carW * 0.25); g.rotate(Math.sin(crashT * 9) * 0.25 * Math.max(0, 1 - crashT)); g.translate(-carX, -(carY - carW * 0.25)); }
@@ -804,6 +846,49 @@
         for (let q = 0; q < 26; q++) {
           const a = (q / 26) * Math.PI * 2 + t * 0.7, r1 = Math.min(W, H) * (0.35 + ((t * 3 + q * 0.13) % 1) * 0.5);
           g.beginPath(); g.moveTo(W / 2 + Math.cos(a) * r1, H * 0.45 + Math.sin(a) * r1 * 0.6); g.lineTo(W / 2 + Math.cos(a) * (r1 + 60), H * 0.45 + Math.sin(a) * (r1 + 60) * 0.6); g.stroke();
+        }
+      }
+      if (theme.night && zoom === 0) {
+        // קווי אור במהירות גבוהה, ושוליים כהים שנותנים תחושת מהירות
+        if (speed01 > 0.55) {
+          const a0 = (speed01 - 0.55) * 1.6;
+          for (let q = 0; q < 16; q++) {
+            const sd = q % 2 ? 1 : -1, ph = (t * (1.6 + q % 3 * 0.4) + q * 0.29) % 1, yy = H * (0.18 + (q * 0.137 % 1) * 0.55);
+            const x1 = W / 2 + sd * W * (0.3 + ph * 0.7), len = W * 0.12 * ph;
+            g.strokeStyle = q % 4 === 0 ? `rgba(255,43,214,${0.5 * a0 * ph})` : q % 4 === 1 ? `rgba(34,230,255,${0.5 * a0 * ph})` : `rgba(255,255,255,${0.35 * a0 * ph})`;
+            g.lineWidth = 1.5 + ph * 2; g.beginPath(); g.moveTo(x1, yy + (yy - H * 0.5) * ph * 0.2); g.lineTo(x1 + sd * len, yy + (yy - H * 0.5) * (ph * 0.2 + 0.08)); g.stroke();
+          }
+        }
+        if (!vign) { vign = g.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.hypot(W, H) * 0.6); vign.addColorStop(0, "rgba(0,0,0,0)"); vign.addColorStop(1, "rgba(8,0,24,.55)"); }
+        g.fillStyle = vign; g.fillRect(0, 0, W, H);
+        // מד מהירות עגול עם הילוך
+        const R = Math.min(W, H) * 0.12, dcx = W - R - 12, dcy = H * 0.66, kmhNow = Math.round(kmhOf(speed));
+        const frac = Math.min(1, kmhNow / 320), a1 = Math.PI * 0.75, a2 = Math.PI * 2.25;
+        g.fillStyle = "rgba(10,6,24,.55)"; g.beginPath(); g.arc(dcx, dcy, R, 0, 7); g.fill();
+        g.lineCap = "round"; g.lineWidth = Math.max(3, R * 0.1);
+        g.strokeStyle = "rgba(255,255,255,.18)"; g.beginPath(); g.arc(dcx, dcy, R * 0.82, a1, a2); g.stroke();
+        g.strokeStyle = frac > 0.8 ? "#ff2bd6" : "#22e6ff"; g.beginPath(); g.arc(dcx, dcy, R * 0.82, a1, a1 + (a2 - a1) * frac); g.stroke();
+        const gear = Math.min(6, 1 + Math.floor(frac * 6));
+        g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.font = `italic 900 ${R * 0.55}px Rubik, sans-serif`; g.fillText(String(kmhNow), dcx, dcy + R * 0.05);
+        g.font = `800 ${R * 0.22}px Rubik, sans-serif`; g.fillStyle = "#ff2bd6"; g.fillText("הילוך " + gear, dcx, dcy + R * 0.55);
+        g.fillStyle = "rgba(255,255,255,.7)"; g.fillText("קמ״ש", dcx, dcy - R * 0.42);
+        // נקודות סטייל: מספר גדול נטוי והכפלה, ומתחת מה עשיתם
+        const pp = pops[0];
+        if (pp) {
+          pp.life -= 1 / 60;
+          if (pp.life <= 0) pops.length = 0;
+          else {
+            const al = Math.min(1, pp.life * 2), sc2 = 1 + Math.max(0, pp.life - 1.6) * 2, fs = Math.min(W, H) * 0.075 * sc2, py = H * 0.2;
+            g.globalAlpha = al; g.textAlign = "center"; g.textBaseline = "middle";
+            g.font = `italic 900 ${fs}px Rubik, sans-serif`;
+            g.fillStyle = "rgba(0,0,0,.5)"; g.fillText((pp.mul > 1 ? `+${pp.pts} ×${pp.mul}` : `+${pp.pts}`), W / 2 + 2, py + 2);
+            g.fillStyle = "#ffd60a"; g.fillText((pp.mul > 1 ? `+${pp.pts} ×${pp.mul}` : `+${pp.pts}`), W / 2, py);
+            g.font = `800 ${fs * 0.42}px Rubik, sans-serif`; g.fillStyle = "#fff";
+            try { g.direction = "rtl"; } catch (e) { /* ignore */ }
+            g.fillText(`${pp.text}  ·  סטייל ${styleSum}`, W / 2, py + fs * 0.75); g.direction = "ltr";
+            g.globalAlpha = 1;
+          }
         }
       }
       // ניצוצות הנחיתה
@@ -897,7 +982,7 @@
         if (r.z > PLAYER_Z && r.z < PLAYER_Z + 3500 && Math.abs(r.x - px) < 0.45) r.tx = px > 0 ? -0.5 : 0.5;
         r.x += (r.tx - r.x) * Math.min(1, dt * 2.5);
         const ahead = r.z > PLAYER_Z;
-        if (r.ahead && !ahead && phase !== "count") snd.whoosh();
+        if (r.ahead && !ahead && phase !== "count") { snd.whoosh(); style("עקיפה!", 50); }
         r.ahead = ahead;
       });
       // הגענו לשער?

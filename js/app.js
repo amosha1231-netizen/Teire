@@ -2396,6 +2396,8 @@
       </div>${backToTorah}`;
     const $ = id => document.getElementById(id), track = $("track"), ban = $("hban");
     let joySync = null;
+    // בעיר הלילה מד המהירות העגול מצויר על הכביש עצמו
+    track.classList.toggle("night", world.theme === "city");
     // מגללים כך שהשאלה בראש המסך (אחרי לחיצה על "מתחילים" הדף נשאר גלול למטה)
     $("race").scrollIntoView({ block: "start" });
     let banT = 0, lastHud = "", hudLast = {};
