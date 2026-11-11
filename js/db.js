@@ -129,7 +129,8 @@
     async approved(place) {
       let query = sb.from("questions").select("*").eq("status", "approved");
       if (place) query = query.eq("place", place);
-      const { data, error } = await query;
+      // אם השרת לא עונה (רשת איטית או סינון), לא משאירים את השחקן על "טוען...": אחרי 6 שניות משחקים עם השאלות המובנות
+      const { data, error } = await Promise.race([query, new Promise(r => setTimeout(() => r({ error: new Error("timeout") }), 6000))]);
       if (error) {
         // מסד הנתונים עוד לא הוקם או לא זמין: משחקים עם השאלות המובנות
         console.warn("Supabase לא זמין, משתמשים בשאלות המובנות", error);
