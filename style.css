@@ -340,6 +340,8 @@ body.shabbat { background: linear-gradient(180deg, #1e2a52, #3b2f6b); }
 .level-card { display: flex; gap: 12px; align-items: center; }
 .level-card h3 { margin: 0 0 2px; }
 .level-card.locked { opacity: .6; }
+.level-card > .small { flex: 0 0 auto; max-width: 42%; text-align: center; }
+.nowrap { white-space: nowrap; }
 
 /* ---------- עולם בתוך עיר ---------- */
 .town { background: #cfe3a0; }
