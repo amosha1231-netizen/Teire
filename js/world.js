@@ -49,7 +49,6 @@
       { id: "kippah-sruga", name: "כיפה סרוגה", price: 30 },
       { id: "cap", name: "כובע מצחייה", price: 50 },
       { id: "black-hat", name: "כובע שחור", price: 80 },
-      { id: "bow", name: "סרט לשיער", price: 30 },
       { id: "crown", name: "כתר תורה", price: 250 },
     ],
     shirt: [
@@ -77,46 +76,78 @@
   const SKINS = ["#f6d3b3", "#e9b98f", "#c68a5e", "#8d5a3b"];
   const HAIR = ["#3b2a1e", "#7a4a24", "#d9a441", "#111111"];
 
-  // ציור הדמות כ-SVG. look = { gender, skin, hair, hat, shirt, extra }
+  // ציור הדמות כ-SVG בסגנון צ'יבי: ראש גדול, ידיים, רגליים ונעליים. look = { skin, hair, hat, shirt, extra }
+  // העיניים בקבוצה av-eyes, כדי שה-CSS יוכל למצמץ.
   function avatarSVG(look, size) {
-    const L = Object.assign({ gender: "boy", skin: SKINS[0], hair: HAIR[0], hat: "kippah", shirt: "#3b82f6", extra: "none" }, look);
-    const s = size || 120;
-    const girl = L.gender === "girl";
-    const shirtStroke = L.shirt === "#ffffff" ? "#cbd5e1" : "rgba(0,0,0,.15)";
-    let back = "", front = "", hat = "";
+    const L = Object.assign({ skin: SKINS[0], hair: HAIR[0], hat: "kippah", shirt: "#3b82f6", extra: "none" }, look);
+  if (L.hat === "bow") L.hat = "kippah"; // פריט ישן שהוסר מהחנות
+  const s = size || 120;
+  const ink = "rgba(40,24,12,.55)";             // קו מתאר רך
+  const white = L.shirt === "#ffffff";
+  const shirtLine = white ? "#cbd5e1" : "rgba(0,0,0,.22)";
+  const shade = "rgba(0,0,0,.12)";
+  const pants = "#334155", shoe = "#1f2937";
+  let back = "", mid = "", front = "", hat = "";
 
-    if (L.extra === "backpack") back += `<rect x="22" y="98" width="76" height="46" rx="14" fill="#8b5a2b"/>`;
-    if (girl) back += `<path d="M30 58 Q26 100 36 112 L84 112 Q94 100 90 58 Z" fill="${L.hair}"/>`;
+  // מאחורי הגוף: תיק, שיער ארוך
+  if (L.extra === "backpack") back += `<rect x="30" y="88" width="60" height="40" rx="12" fill="#8b5a2b" stroke="${ink}" stroke-width="1.5"/>`;
 
-    if (L.extra === "tzitzit") front += `<g stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M40 138 v16 M44 138 v14 M76 138 v14 M80 138 v16"/></g>`;
-    if (L.extra === "glasses") front += `<g fill="none" stroke="#1f2937" stroke-width="2.5"><circle cx="50" cy="64" r="8"/><circle cx="70" cy="64" r="8"/><path d="M58 64 h4"/></g>`;
-    if (L.extra === "book") front += `<g transform="rotate(-8 88 124)"><rect x="76" y="110" width="26" height="30" rx="3" fill="#1e3a5f"/><rect x="79" y="113" width="20" height="24" rx="2" fill="#c99a2e" opacity=".35"/><text x="89" y="130" font-size="11" text-anchor="middle" fill="#ffd67a" font-family="serif">ת</text></g>`;
-    if (L.extra === "medal") front += `<path d="M54 96 L60 112 L66 96" fill="none" stroke="#2563eb" stroke-width="4"/><circle cx="60" cy="118" r="8" fill="#f5c542" stroke="#b7791f" stroke-width="2"/>`;
+  // רגליים ונעליים 
+  const legs = `<rect x="46" y="120" width="12" height="27" rx="6" fill="${pants}" stroke="${ink}" stroke-width="1.2"/>
+       <rect x="62" y="120" width="12" height="27" rx="6" fill="${pants}" stroke="${ink}" stroke-width="1.2"/>`;
+  const shoes = `<path d="M42 146 q0 -6 9 -6 h6 v10 h-12 q-3 0 -3 -4 Z" fill="${shoe}"/><path d="M78 146 q0 -6 -9 -6 h-6 v10 h12 q3 0 3 -4 Z" fill="${shoe}"/>`;
 
-    const hairTop = girl
-      ? `<path d="M34 56 Q36 30 60 30 Q84 30 86 56 Q74 44 60 46 Q46 44 34 56 Z" fill="${L.hair}"/>`
-      : `<path d="M35 54 Q36 32 60 32 Q84 32 85 54 Q78 42 60 43 Q42 42 35 54 Z" fill="${L.hair}"/>`;
+  // גוף: חולצה 
+  const body = `<path d="M41 88 Q60 82 79 88 Q83 104 81 124 Q60 128 39 124 Q37 104 41 88 Z" fill="${L.shirt}" stroke="${shirtLine}" stroke-width="2"/>
+       <path d="M52 87 L60 95 L68 87" fill="none" stroke="${shirtLine}" stroke-width="2" stroke-linejoin="round"/>`;
 
-    if (L.hat === "kippah") hat = `<path d="M44 38 Q60 22 76 38 Z" fill="#1d4ed8"/>`;
-    if (L.hat === "kippah-sruga") hat = `<path d="M44 38 Q60 22 76 38 Z" fill="#f8fafc" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="3 2"/>`;
-    if (L.hat === "cap") hat = `<path d="M36 44 Q38 24 60 24 Q82 24 84 44 Z" fill="#ef4444"/><path d="M80 42 h20 q2 4 -4 6 h-18 Z" fill="#b91c1c"/>`;
-    if (L.hat === "black-hat") hat = `<rect x="40" y="18" width="40" height="22" rx="6" fill="#111827"/><rect x="28" y="36" width="64" height="7" rx="3.5" fill="#111827"/><rect x="40" y="31" width="40" height="4" fill="#374151"/>`;
-    if (L.hat === "bow") hat = `<g fill="#ec4899"><path d="M62 34 l12 -8 v16 Z"/><path d="M62 34 l-12 -8 v16 Z"/><circle cx="62" cy="34" r="4"/></g>`;
-    if (L.hat === "crown") hat = `<path d="M40 40 L42 20 L51 30 L60 16 L69 30 L78 20 L80 40 Z" fill="#f5c542" stroke="#b7791f" stroke-width="2"/><circle cx="60" cy="30" r="3" fill="#ef4444"/>`;
+  // ידיים: שרוול בצבע החולצה ויד בצבע העור. עם ספר, היד הימנית (בצד שמאל של המסך) מחזיקה אותו מקדימה.
+  const holdBook = L.extra === "book";
+  const armL = `<path d="M42 90 Q32 96 31 114" fill="none" stroke="${L.shirt}" stroke-width="10" stroke-linecap="round"/>
+                <path d="M42 90 Q32 96 31 114" fill="none" stroke="${shirtLine}" stroke-width="1" stroke-linecap="round" opacity=".6"/>
+                <circle cx="31" cy="117" r="5" fill="${L.skin}" stroke="${ink}" stroke-width="1.2"/>`;
+  const armR = holdBook
+    ? `<path d="M78 90 Q90 98 82 110" fill="none" stroke="${L.shirt}" stroke-width="10" stroke-linecap="round"/>
+       <circle cx="80" cy="112" r="5" fill="${L.skin}" stroke="${ink}" stroke-width="1.2"/>`
+    : `<path d="M78 90 Q88 96 89 114" fill="none" stroke="${L.shirt}" stroke-width="10" stroke-linecap="round"/>
+       <path d="M78 90 Q88 96 89 114" fill="none" stroke="${shirtLine}" stroke-width="1" stroke-linecap="round" opacity=".6"/>
+       <circle cx="89" cy="117" r="5" fill="${L.skin}" stroke="${ink}" stroke-width="1.2"/>`;
 
-    return `<svg viewBox="0 0 120 160" width="${s}" height="${s * 160 / 120}" role="img" aria-label="הדמות שלי">
-      ${back}
-      <path d="M28 160 Q28 104 60 100 Q92 104 92 160 Z" fill="${L.shirt}" stroke="${shirtStroke}" stroke-width="2"/>
-      <rect x="53" y="88" width="14" height="14" rx="5" fill="${L.skin}"/>
-      <circle cx="60" cy="62" r="27" fill="${L.skin}"/>
-      <circle cx="33" cy="64" r="5" fill="${L.skin}"/><circle cx="87" cy="64" r="5" fill="${L.skin}"/>
-      ${hairTop}
-      <circle cx="50" cy="64" r="3.6" fill="#1f2937"/><circle cx="70" cy="64" r="3.6" fill="#1f2937"/>
-      <circle cx="51.2" cy="62.8" r="1.2" fill="#fff"/><circle cx="71.2" cy="62.8" r="1.2" fill="#fff"/>
-      <circle cx="44" cy="73" r="4.5" fill="#f87171" opacity=".35"/><circle cx="76" cy="73" r="4.5" fill="#f87171" opacity=".35"/>
-      <path d="M52 76 Q60 83 68 76" fill="none" stroke="#7c2d12" stroke-width="2.6" stroke-linecap="round"/>
-      ${hat}${front}
-    </svg>`;
+  // פריטים על הגוף
+  if (L.extra === "backpack") mid += `<path d="M46 88 L44 118 M74 88 L76 118" stroke="#6b4423" stroke-width="4" stroke-linecap="round"/>`;
+  if (L.extra === "tzitzit") mid += `<g stroke="#94a3b8" stroke-width="3" stroke-linecap="round"><path d="M48 122 v16 M52 122 v13 M68 122 v13 M72 122 v16"/></g><g stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M48 122 v16 M52 122 v13 M68 122 v13 M72 122 v16"/></g>`;
+  if (L.extra === "medal") mid += `<path d="M53 88 L60 104 L67 88" fill="none" stroke="#2563eb" stroke-width="4"/><circle cx="60" cy="108" r="7.5" fill="#f5c542" stroke="#b7791f" stroke-width="2"/><path d="M60 104 l1.3 2.7 3 .4 -2.2 2 .6 3 -2.7 -1.5 -2.7 1.5 .6 -3 -2.2 -2 3 -.4 Z" fill="#fff6c8"/>`;
+  if (holdBook) front += `<g transform="rotate(-10 74 110)"><rect x="62" y="98" width="24" height="28" rx="3" fill="#1e3a5f" stroke="${ink}" stroke-width="1.2"/><rect x="65" y="101" width="18" height="22" rx="2" fill="#c99a2e" opacity=".35"/><text x="74" y="117" font-size="11" text-anchor="middle" fill="#ffd67a" font-family="serif">ת</text></g>
+    <circle cx="78" cy="110" r="5" fill="${L.skin}" stroke="${ink}" stroke-width="1.2"/>`;
+
+  // ראש גדול
+  const head = `<rect x="54" y="78" width="12" height="10" rx="4" fill="${L.skin}"/>
+    <circle cx="29" cy="56" r="6" fill="${L.skin}" stroke="${ink}" stroke-width="1.2"/><circle cx="91" cy="56" r="6" fill="${L.skin}" stroke="${ink}" stroke-width="1.2"/>
+    <ellipse cx="60" cy="52" rx="31" ry="30" fill="${L.skin}" stroke="${ink}" stroke-width="1.5"/>`;
+  const hairTop = `<path d="M30 50 Q30 22 60 22 Q90 22 90 50 Q86 36 72 33 Q66 39 58 34 Q50 39 44 34 Q34 38 30 50 Z" fill="${L.hair}" stroke="${ink}" stroke-width="1.2"/>`;
+  // פנים: עיניים גדולות עם ברק, גבות, לחיים וחיוך. העיניים בקבוצה av-eyes כדי שיוכלו למצמץ.
+  const face = `
+    <path d="M42 44 q6 -4 11 -1 M67 43 q5 -3 11 1" fill="none" stroke="${L.hair === "#d9a441" ? "#a0702a" : L.hair}" stroke-width="2.4" stroke-linecap="round"/>
+    <g class="av-eyes">
+      <ellipse cx="48" cy="55" rx="5.2" ry="6.4" fill="#1f2937"/><ellipse cx="72" cy="55" rx="5.2" ry="6.4" fill="#1f2937"/>
+      <circle cx="49.8" cy="52.6" r="2" fill="#fff"/><circle cx="73.8" cy="52.6" r="2" fill="#fff"/>
+      <circle cx="46.6" cy="57.8" r=".9" fill="#fff" opacity=".8"/><circle cx="70.6" cy="57.8" r=".9" fill="#fff" opacity=".8"/>
+    </g>
+    <ellipse cx="39" cy="65" rx="5" ry="3.2" fill="#f87171" opacity=".35"/><ellipse cx="81" cy="65" rx="5" ry="3.2" fill="#f87171" opacity=".35"/>
+    <path d="M53 67 Q60 74 67 67" fill="#fff" stroke="#7c2d12" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+  if (L.hat === "kippah") hat = `<path d="M44 28 Q60 14 76 28 Q60 24 44 28 Z" fill="#1d4ed8" stroke="#1e3a8a" stroke-width="1"/>`;
+  if (L.hat === "kippah-sruga") hat = `<path d="M44 28 Q60 14 76 28 Q60 24 44 28 Z" fill="#f8fafc" stroke="#16a34a" stroke-width="2.2" stroke-dasharray="3 2"/>`;
+  if (L.hat === "cap") hat = `<path d="M30 40 Q30 14 60 14 Q90 14 90 40 Q60 32 30 40 Z" fill="#ef4444" stroke="${ink}" stroke-width="1.2"/><path d="M84 37 h20 q3 5 -4 7 h-19 Z" fill="#b91c1c"/><circle cx="60" cy="15" r="2.5" fill="#b91c1c"/>`;
+  if (L.hat === "black-hat") hat = `<rect x="38" y="6" width="44" height="24" rx="7" fill="#111827"/><rect x="24" y="26" width="72" height="8" rx="4" fill="#111827"/><rect x="38" y="21" width="44" height="4" fill="#374151"/>`;
+  if (L.hat === "crown") hat = `<path d="M38 30 L40 8 L50 19 L60 4 L70 19 L80 8 L82 30 Z" fill="#f5c542" stroke="#b7791f" stroke-width="2"/><circle cx="60" cy="20" r="3" fill="#ef4444"/><circle cx="46" cy="25" r="2" fill="#3b82f6"/><circle cx="74" cy="25" r="2" fill="#22c55e"/>`;
+
+  const glasses = L.extra === "glasses" ? `<g fill="rgba(255,255,255,.15)" stroke="#1f2937" stroke-width="2.2"><circle cx="48" cy="55" r="9"/><circle cx="72" cy="55" r="9"/><path d="M57 55 h6" fill="none"/></g>` : "";
+
+  return `<svg viewBox="0 0 120 160" width="${s}" height="${s * 160 / 120}" role="img" aria-label="הדמות שלי">
+    <ellipse cx="60" cy="152" rx="26" ry="4" fill="rgba(0,0,0,.15)"/>
+    ${back}${legs}${shoes}${armL}${body}${mid}${armR}${head}${hairTop}${face}${glasses}${hat}${front}
+  </svg>`;
   }
 
   // גדולי ישראל בגולה: המקומות כבר במפה, והשאלות יתווספו בהמשך (soon = נעול עד אז)
