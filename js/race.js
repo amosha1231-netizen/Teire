@@ -525,8 +525,8 @@
       const fs = bh * 0.6;
       if (fs > 5) {
         g.fillStyle = "#22e6ff"; g.font = `800 ${fs}px Rubik, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
-        try { g.direction = "rtl"; } catch (e) { /* ignore */ }
-        g.fillText("✦ עיר הלילה ✦", p.x, top + bh / 2); g.direction = "ltr";
+        try { g.direction = window.I18N && !I18N.rtl ? "ltr" : "rtl"; } catch (e) { /* ignore */ }
+        g.fillText(T("✦ עיר הלילה ✦"), p.x, top + bh / 2); g.direction = "ltr";
       }
     }
     function drawSprite(kind, x, y, h, sc, sp) {
@@ -871,8 +871,8 @@
         const gear = Math.min(6, 1 + Math.floor(frac * 6));
         g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
         g.font = `italic 900 ${R * 0.55}px Rubik, sans-serif`; g.fillText(String(kmhNow), dcx, dcy + R * 0.05);
-        g.font = `800 ${R * 0.22}px Rubik, sans-serif`; g.fillStyle = "#ff2bd6"; g.fillText("הילוך " + gear, dcx, dcy + R * 0.55);
-        g.fillStyle = "rgba(255,255,255,.7)"; g.fillText("קמ״ש", dcx, dcy - R * 0.42);
+        g.font = `800 ${R * 0.22}px Rubik, sans-serif`; g.fillStyle = "#ff2bd6"; g.fillText(T("הילוך") + " " + gear, dcx, dcy + R * 0.55);
+        g.fillStyle = "rgba(255,255,255,.7)"; g.fillText(T("קמ״ש"), dcx, dcy - R * 0.42);
         // נקודות סטייל: מספר גדול נטוי והכפלה, ומתחת מה עשיתם
         const pp = pops[0];
         if (pp) {
@@ -885,8 +885,8 @@
             g.fillStyle = "rgba(0,0,0,.5)"; g.fillText((pp.mul > 1 ? `+${pp.pts} ×${pp.mul}` : `+${pp.pts}`), W / 2 + 2, py + 2);
             g.fillStyle = "#ffd60a"; g.fillText((pp.mul > 1 ? `+${pp.pts} ×${pp.mul}` : `+${pp.pts}`), W / 2, py);
             g.font = `800 ${fs * 0.42}px Rubik, sans-serif`; g.fillStyle = "#fff";
-            try { g.direction = "rtl"; } catch (e) { /* ignore */ }
-            g.fillText(`${pp.text}  ·  סטייל ${styleSum}`, W / 2, py + fs * 0.75); g.direction = "ltr";
+            try { g.direction = window.I18N && !I18N.rtl ? "ltr" : "rtl"; } catch (e) { /* ignore */ }
+            g.fillText(`${T(pp.text)}  ·  ${T("סטייל")} ${styleSum}`, W / 2, py + fs * 0.75); g.direction = "ltr";
             g.globalAlpha = 1;
           }
         }
