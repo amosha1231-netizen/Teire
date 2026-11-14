@@ -3,17 +3,25 @@
   const cfg = window.TEIRE_CONFIG;
   const { PLACES, ITEMS, SKINS, HAIR, avatarSVG } = window.TeireWorld;
   const Parasha = window.TEIRE_PARASHA, Parashot = window.TEIRE_PARASHOT;
-  const Sages = window.TeireSages, City = window.TeireCity, Rides = window.TeireRides;
+  const Sages = window.TeireSages, City = window.TeireCity, Rides = window.TeireRides, Food = window.TeireFood;
   const app = document.getElementById("app");
   const placeById = id => PLACES.find(p => p.id === id);
 
   // ---------- מצב השחקן (נשמר בדפדפן) ----------
   const PKEY = "teire.player.v2";
-  const DEFAULT_LOOK = { gender: "boy", skin: SKINS[0], hair: HAIR[0], hat: "kippah", shirt: "#3b82f6", extra: "none" };
+  const DEFAULT_LOOK = { skin: SKINS[0], hair: HAIR[0], hat: "kippah", shirt: "#3b82f6", extra: "none" };
   function loadPlayer() {
     try { return JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) { return {}; }
   }
   let player = Object.assign({ name: "", look: { ...DEFAULT_LOOK }, owned: [], coins: 0, stars: {}, souls: [], activeSoul: null, pos: null }, loadPlayer());
+  fixLook(player.look);
+  // במשחק יש רק דמות של בן. שחקנים ישנים שבחרו בת או סרט לשיער עוברים לדמות בן עם כיפה.
+  function fixLook(look) {
+    if (!look) return look;
+    if (look.gender === "girl" || look.hat === "bow") look.hat = "kippah";
+    delete look.gender;
+    return look;
+  }
   // חשבון שחקן: ההתקדמות נשמרת בשרת, ורק אחרי שנטענה בהצלחה (כדי לא לדרוס אותה בטעות)
   const accountState = { user: null, loaded: false };
   let progressTimer = 0;
@@ -76,6 +84,7 @@
 
   function renderHud() {
     document.getElementById("hud").innerHTML = player.name ? `
+      ${energyPill()}
       <span class="pill">🕯️ ${player.souls.length}</span>
       <span class="pill">⭐ ${totalStars()}</span>
       <span class="pill">🪙 ${player.coins}</span>${ridePill()}${db.gems ? `
@@ -108,6 +117,124 @@
     const r = rideNow();
     return r ? `<a class="pill ride-pill" href="#/rides" title="${esc(r.name)}">${r.icon} ${Rides.left(r.until)}</a>` : "";
   }
+  // ---------- אנרגיה, עייפות ומאכלים בדרכים (js/food.js, content/brachot.js) ----------
+  function energyPill() {
+    const e = Food.energy(player), cls = Food.boosted(player) ? "boost" : Food.tired(player) ? "low" : "";
+    return `<button type="button" class="pill energy-pill ${cls}" data-energy title="אנרגיה">${Food.boosted(player) ? "💪" : e < Food.TIRED ? "😴" : "⚡"} ${e}</button>`;
+  }
+  document.getElementById("hud").addEventListener("click", ev => { if (ev.target.closest("[data-energy]")) showEnergy(); });
+  // הדמות במפה: זוהרת כשיש כוח, מנמנמת כשהיא עייפה
+  let meState = "";
+  function refreshMe() {
+    const me = document.getElementById("me");
+    if (!me || !player.name) return;
+    const st = Food.boosted(player) ? "powered" : Food.tired(player) ? "tired" : "";
+    if (st === meState && me.dataset.st === st) return;
+    meState = me.dataset.st = st;
+    me.classList.toggle("powered", st === "powered");
+    me.classList.toggle("tired", st === "tired");
+  }
+  // נקרא מהמנוע של ההליכה בכל פעם שהאנרגיה יורדת
+  function energyTick() {
+    const was = meState === "tired";
+    renderHud(); refreshMe();
+    if (!was && meState === "tired") toast("😴 הדמות עייפה ומתקדמת לאט. חפשו מאכל בדרך כדי לקבל כוח!");
+  }
+  const FOOD_NAMES = () => window.TEIRE_BRACHOT ? window.TEIRE_BRACHOT.FOODS : [];
+  function foodSpots() {
+    const left = Food.done(player);
+    const lands = [City.LAND, City.SINAI, City.BAVEL, City.EUROPE, City.MIZRACH, City.AMERICA].filter(Boolean);
+    const onLand = (x, y) => lands.some(poly => Food.inPoly(x, y, poly));
+    return Food.spots(City.LOCATIONS, FOOD_NAMES(), Date.now(), onLand).filter(s => !left.includes(s.slot));
+  }
+  function foodOverlay(html) {
+    document.querySelectorAll(".food-ov").forEach(e => e.remove());
+    const ov = document.createElement("div");
+    ov.className = "food-ov";
+    ov.innerHTML = `<div class="food-card card">${html}</div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener("click", ev => { if (ev.target === ov || ev.target.closest("[data-close]")) ov.remove(); });
+    return ov;
+  }
+  function energyBar() {
+    const e = Food.energy(player);
+    return `<div class="energy-bar ${e < Food.TIRED ? "low" : ""}"><i style="width:${e}%"></i><b>⚡ ${e} / ${Food.MAX}</b></div>`;
+  }
+  function showEnergy() {
+    const left = foodSpots().length, b = Food.boosted(player);
+    foodOverlay(`
+      <h2>⚡ האנרגיה של ${esc(player.name)}</h2>
+      ${energyBar()}
+      <p>${b ? "💪 יש לכם כוח עכשיו! הולכים מהר וזוהרים." : Food.tired(player) ? "😴 הדמות עייפה ומתקדמת לאט. אכלו משהו מהדרך!" : "הליכה במפה מעייפת. כשהאנרגיה יורדת מתחת ל-" + Food.TIRED + " הדמות הולכת לאט."}</p>
+      <p>✨ תיקנתם <b>${player.sparks || 0}</b> ניצוצות קדושה.</p>
+      <p class="small muted">${left ? `על המפה מחכים עוד ${left} מאכלים.` : "אכלתם את כל המאכלים שבמפה."} מאכלים חדשים בעוד ${Food.minutesToNext() >= 60 ? Math.floor(Food.minutesToNext() / 60) + " שעות ו-" : ""}${Food.minutesToNext() % 60} דקות. האנרגיה חוזרת גם לבד, לאט.</p>
+      <button class="btn big-btn" data-close>סגירה</button>`);
+  }
+  function foodIntro() {
+    player.foodIntro = true; savePlayer();
+    foodOverlay(`
+      <div class="food-big">🍎🍞🍇</div>
+      <h2>✨ ניצוצות קדושה בדרכים</h2>
+      <p>במפה מפוזרים מאכלים. כשאוכלים בברכה, מתקנים את ניצוצות הקדושה שבתוכם!</p>
+      <p>הקישו על מאכל, ענו <b>מה מברכים עליו</b>, ואם צדקתם הדמות אוכלת ומקבלת <b>⚡ אנרגיה</b> ו<b>💪 כוח</b> ללכת מהר.</p>
+      <p class="small muted">הליכה מעייפת: כשהאנרגיה נגמרת הדמות הולכת לאט 😴. לימוד בלבד, למעשה שואלים רב.</p>
+      <button class="btn gold big-btn" data-close>יוצאים לדרך 🚶</button>`);
+  }
+  function foodQuiz(spot, el) {
+    if (document.querySelector(".food-ov")) return;
+    const f = spot.food;
+    const finish = (gone) => {
+      const list = Food.done(player);
+      if (!list.includes(spot.slot)) list.push(spot.slot);
+      if (el) { el.classList.add(gone); setTimeout(() => el.remove(), 900); }
+    };
+    let ov;
+    function ask(q, title, onAnswer) {
+      ov = foodOverlay(`
+        <div class="food-big">${f.icon}</div>
+        <div class="food-title">${title}</div>
+        <div class="qtext">${esc(q.question)}</div>
+        <div class="answers">${q.answers.map((a, i) => `<button class="answer" data-i="${i}"><span class="letter">${LETTERS[i]}</span>${esc(a)}</button>`).join("")}</div>
+        <div class="food-fb"></div>`);
+      ov.querySelectorAll(".answer").forEach(btn => btn.onclick = () => {
+        const ok = +btn.dataset.i === q.correct;
+        ov.querySelectorAll(".answer").forEach(b => { b.disabled = true; if (+b.dataset.i === q.correct) b.classList.add("correct"); });
+        if (!ok) btn.classList.add("wrong");
+        onAnswer(ok, ov.querySelector(".food-fb"), q);
+      });
+    }
+    const why = q => `${q.note ? `<div class="note-box"><b>💡 למה?</b> ${esc(q.note)}</div>` : ""}
+      ${q.source ? `<div class="small muted" style="margin-top:8px">מקור: ${esc(q.source)}</div>` : ""}`;
+    // בטלפון התוצאה והכפתורים יורדים מתחת למסך: גוללים אליהם
+    const showEnd = fb => { const b = fb.querySelector(".btn:last-of-type"); if (b) b.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
+    const milestone = () => {
+      if (player.sparks && player.sparks % 10 === 0) { player.coins += 20; confetti(); toast(`🌟 ${player.sparks} ניצוצות קדושה! מתנה: 20🪙`); }
+    };
+    ask(Food.firstQ(f), "✨ ניצוץ קדושה מחכה לתיקון", (ok, fb, q) => {
+      const after = ok && Food.afterQ(f);
+      if (ok) {
+        Food.eat(player); player.coins += 3;
+        finish("eaten"); milestone(); savePlayer(); refreshMe();
+        setTimeout(refreshMe, Food.BOOST_MS + 100);
+      } else { finish("fled"); savePlayer(); }
+      fb.innerHTML = `
+        <div class="food-result ${ok ? "ok" : "no"}">${ok ? `😋 בתיאבון! תיקנתם ניצוץ קדושה ✨<br><b>+⚡${Food.MEAL} · 💪 כוח לדקה וחצי · +🪙3</b>` : "💨 הניצוץ ברח הפעם. התשובה הנכונה מסומנת בירוק."}</div>
+        ${why(q)}
+        ${after ? `<button class="btn gold big-btn" id="afterQ">🎁 בונוס: ומה מברכים אחרי?</button>` : ""}
+        <button class="btn ${after ? "ghost" : ""} big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+      showEnd(fb);
+      const a = fb.querySelector("#afterQ");
+      if (a) a.onclick = () => ask(after, "🎁 ברכה אחרונה: בונוס", (ok2, fb2, q2) => {
+        if (ok2) { player.sparks = (player.sparks || 0) + 1; player.coins += 5; milestone(); savePlayer(); }
+        fb2.innerHTML = `
+          <div class="food-result ${ok2 ? "ok" : "no"}">${ok2 ? "🌟 נכון! עוד ניצוץ תוקן · <b>+🪙5</b>" : "לא נורא! התשובה הנכונה מסומנת בירוק."}</div>
+          ${why(q2)}
+          <button class="btn big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+        showEnd(fb2);
+      });
+    });
+  }
+
   // הדמות יושבת בתוך הרכב: הרכב מצויר מעליה ומסתיר את החצי התחתון שלה
   function riderHTML(look, rideId, scale = 1) {
     return `<span class="rider" style="--seat:${Rides.SEAT[rideId] || 55}%;--rs:${scale}">
@@ -177,6 +304,77 @@
     if (it.gems) return "special";
     return it.price >= 150 ? "gold" : it.price >= 50 ? "silver" : "bronze";
   }
+  // ---------- הופעה באור (לפני הקלף) ----------
+  // חמישה שלבים: המסך מחשיך, מעגל אור נפתח על הרצפה, קרן עולה, הדמות מופיעה עם ניצוצות, והאור נרגע להילה.
+  // נגיעה בזמן האנימציה קופצת ישר לסוף. הצבע לפי דרגה, כמו בקלף.
+  const RUNES = "אבגדהוזחטיכלמנסעפצקרשת";
+  function magicCircleSVG() {
+    const ring = (r, w, dash = "") => `<circle cx="100" cy="100" r="${r}" fill="none" stroke="currentColor" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+    const letters = [...RUNES].map((ch, i) => {
+      const a = i / RUNES.length * 360;
+      return `<text x="100" y="17" transform="rotate(${a} 100 100)" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">${ch}</text>`;
+    }).join("");
+    const tri = rot => `<polygon points="100,38 153.7,131 46.3,131" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(${rot} 100 100)"/>`;
+    return `<svg viewBox="0 0 200 200" aria-hidden="true">
+      ${ring(97, 2)}${ring(84, 1.2)}<g class="sum-runes">${letters}</g>${ring(70, 1, "3 4")}
+      <g class="sum-star">${tri(0)}${tri(180)}${ring(62, 1.4)}${ring(30, 1.2)}</g>
+      <circle cx="100" cy="100" r="12" fill="currentColor" opacity=".5"/></svg>`;
+  }
+  function summonGlow({ tier = "gold", art, caption, button = "המשך" }) {
+    return new Promise(resolve => {
+      const ov = document.createElement("div");
+      ov.className = "sum-ov tier-" + tier;
+      ov.innerHTML = `
+        <div class="sum-stage">
+          <div class="sum-circle">${magicCircleSVG()}</div>
+          <div class="sum-beam"></div>
+          <canvas class="sum-sparks"></canvas>
+          <div class="sum-halo"></div>
+          <div class="sum-hero">${art}</div>
+        </div>
+        <div class="sum-cap">${esc(caption)}</div>
+        <button class="btn gold big-btn sum-go">${esc(button)}</button>`;
+      document.body.appendChild(ov);
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let done = false, settled = false;
+      const settle = () => { if (settled) return; settled = true; ov.classList.add("settled"); };
+      const timer = setTimeout(settle, still ? 0 : 2900);
+      const stopSparks = still ? () => {} : sparks(ov.querySelector(".sum-sparks"));
+      const close = () => { if (done) return; done = true; clearTimeout(timer); stopSparks(); ov.remove(); resolve(); };
+      ov.onclick = e => {
+        if (!settled) { ov.classList.add("skip"); settle(); return; }
+        if (e.target.closest(".sum-go")) close();
+      };
+    });
+  }
+  // ניצוצות שעולים מהמעגל. בהתחלה הרבה, ואחרי שהאור נרגע רק מעט, כדי שהמסך לא יהיה עמוס.
+  function sparks(cv) {
+    const ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+    const W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
+    const color = getComputedStyle(cv).color, ps = [], t0 = performance.now();
+    let raf = 0;
+    const add = () => {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * W * .36;
+      ps.push({ x: W / 2 + Math.cos(a) * r, y: H * .86 + Math.sin(a) * r * .28, vy: -(0.6 + Math.random() * 1.6), vx: (Math.random() - .5) * .4, s: 1 + Math.random() * 2.2, life: 1 });
+    };
+    const tick = now => {
+      const t = now - t0;
+      if (t > 1300) for (let i = 0, n = t < 3000 ? 3 : (Math.random() < .25 ? 1 : 0); i < n; i++) add();
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8;
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const p = ps[i];
+        p.x += p.vx; p.y += p.vy; p.life -= .009;
+        if (p.life <= 0 || p.y < 0) { ps.splice(i, 1); continue; }
+        ctx.globalAlpha = p.life * (0.6 + 0.4 * Math.sin(now / 90 + i));
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }
   function cardReveal({ tier = "gold", rating, pos, art, name, stats = [], caption, button = "המשך" }) {
     return new Promise(resolve => {
       const ov = document.createElement("div");
@@ -226,10 +424,6 @@
           <h1>${isNew ? "ברוכים הבאים למסע!" : "שינוי שם ומראה"}</h1>
           ${isNew ? `<p class="muted">יוצרים דמות, ויוצאים לשחק</p>` : ""}
           <div class="avatar-stage">${avatarSVG(look, 110)}</div>
-          <div class="seg">
-            <button class="${look.gender === "boy" ? "on" : ""}" data-g="boy">בן</button>
-            <button class="${look.gender === "girl" ? "on" : ""}" data-g="girl">בת</button>
-          </div>
           <div class="swatches">${SKINS.map(c => `<button class="sw ${look.skin === c ? "on" : ""}" data-skin="${c}" style="background:${c}" aria-label="צבע עור"></button>`).join("")}</div>
           <div class="swatches">${HAIR.map(c => `<button class="sw ${look.hair === c ? "on" : ""}" data-hair="${c}" style="background:${c}" aria-label="צבע שיער"></button>`).join("")}</div>
           <h3 class="onb-q">1. איך קוראים לך?</h3>
@@ -254,11 +448,6 @@
       if (tp) tp.onclick = () => { creatingNew = false; };
       const nameEl = document.getElementById("pname");
       nameEl.oninput = () => { typed = nameEl.value; };
-      app.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
-        look.gender = b.dataset.g;
-        look.hat = look.gender === "girl" ? "none" : "kippah";
-        draw();
-      });
       app.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { look.skin = b.dataset.skin; draw(); });
       app.querySelectorAll("[data-hair]").forEach(b => b.onclick = () => { look.hair = b.dataset.hair; draw(); });
       app.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => { dev = b.dataset.dev; draw(); });
@@ -280,14 +469,16 @@
         player.journey = { step: pick, start: pick }; // המסע מתחיל מהמשחק שבחרו וממשיך משם לקשה יותר
         weeklyLater(); // שאלת השבוע תוצע רק מהכניסה הבאה
         savePlayer(); sendDevice();
-        const girl = look.gender === "girl";
-        cardReveal({
-          tier: "gold", rating: 60, pos: girl ? "תלמידה" : "תלמיד",
+        summonGlow({
+          tier: "gold", art: avatarSVG(look, 170),
+          caption: `${name} הופיע! ✨`, button: "לקלף שלי",
+        }).then(() => cardReveal({
+          tier: "gold", rating: 60, pos: "תלמיד",
           art: avatarSVG(look, 150), name,
           stats: [["כוכבים", 0], ["מטבעות", player.coins], ["רמה", 1]],
-          caption: `${girl ? "שחקנית חדשה הצטרפה" : "שחקן חדש הצטרף"} למסע! ✨`,
+          caption: `שחקן חדש הצטרף למסע! ✨`,
           button: `יוצאים לדרך: ${JOURNEY[pick].title}`,
-        }).then(() => startJourneyStop(pick));
+        })).then(() => startJourneyStop(pick));
       };
     }
     draw();
@@ -448,6 +639,7 @@
   async function loadAccountProgress() {
     const data = await db.loadProgress();
     player = data ? Object.assign(freshPlayer(), data) : freshPlayer();
+    fixLook(player.look);
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     accountState.loaded = true;
     if (!data) await db.saveProgress(player);
@@ -499,6 +691,7 @@
   let creatingNew = false; // לחצו "שחקן חדש": מראים את יצירת הדמות ולא את בחירת השחקן
   function setPlayer(p) {
     player = Object.assign(freshPlayer(), p);
+    fixLook(player.look);
     try { localStorage.setItem(PKEY, JSON.stringify(player)); } catch (e) { /* ignore */ }
     renderHud();
   }
@@ -633,12 +826,12 @@
   const TOUR_GIFT = 20;
   const TOUR = [
     { sel: null, text: n => `שלום ${n}! אני ינשופי 🦉 ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.` },
-    { sel: "#me", text: (n, girl) => `${girl ? "זאת את" : "זה אתה"}! הדמות שלך הולכת במפה של ארץ ישראל, מעיר לעיר.` },
+    { sel: "#me", text: () => `זה אתה! הדמות שלך הולכת במפה של ארץ ישראל, מעיר לעיר.` },
     { sel: ".bld[data-b='jerusalem']", text: () => "כל בית במפה הוא מקום עם משימות. מקישים על מקום, הדמות הולכת אליו, ונכנסים לשחק." },
     { sel: "#hud", text: () => "כאן רואים מה אספת: 🕯️ נשמות של חכמים, ⭐ כוכבים על משימות, ו-🪙 מטבעות שקונים בהם בגדים לדמות." },
     { sel: ".bottomnav", text: () => "בתפריט התחתון: המפה, הנשמות שאספת, הדמות והחנות, ותיבה להציע שאלה משלך." },
     { sel: "#menuBtn", text: () => "וכאן התפריט: טבלת האלופים, היכל עלמא, מסע הפתיחה, וגם החלפת שחקן או התנתקות." },
-    { sel: null, text: (n, girl) => `זהו, ${girl ? "את מוכנה" : "אתה מוכן"}! הנה מתנה לדרך: ${TOUR_GIFT} מטבעות 🪙. בהצלחה במסע!`, last: true },
+    { sel: null, text: () => `זהו, אתה מוכן! הנה מתנה לדרך: ${TOUR_GIFT} מטבעות 🪙. בהצלחה במסע!`, last: true },
   ];
   function startTour() {
     document.querySelectorAll(".tour").forEach(e => e.remove());
@@ -653,7 +846,7 @@
       <div class="tour-card" role="dialog" aria-label="הדרכה">
         <div class="tour-guide">🦉</div>
         <div class="tour-body">
-          <p>${esc(step.text(player.name, player.look && player.look.gender === "girl"))}</p>
+          <p>${esc(step.text(player.name))}</p>
           <div class="tour-row">
             <span class="tour-dots">${TOUR.map((_, i) => `<i class="${i === player.tour ? "on" : i < player.tour ? "done" : ""}"></i>`).join("")}</span>
             ${step.last ? "" : `<button class="link-btn" id="tour-skip">דילוג</button>`}
@@ -817,6 +1010,7 @@
               <span class="bld-name">${info.name}${info.stars ? ` <span class="bld-stars">${"★".repeat(info.stars)}</span>` : ""}${L.duel ? " ⚔️" : ""}</span>
             </button>`;
           }).join("")}
+          ${foodSpots().map(sp => `<button class="food" data-slot="${sp.slot}" style="left:${sp.x}px;top:${sp.y}px;z-index:${sp.y}" aria-label="${esc(sp.food.name)}"><i class="food-glow"></i><span class="food-ico">${sp.food.icon}</span></button>`).join("")}
           ${meHtml(soul, pos)}
         </div>
         ${mapScenery.sky()}
@@ -825,10 +1019,16 @@
       </div>`;
 
     if (typeof player.tour === "number") setTimeout(startTour, 600);
+    else if (!player.foodIntro && FOOD_NAMES().length) setTimeout(foodIntro, 700);
     else Parasha.ready.then(() => setTimeout(offerWeekly, 700));
     startWalker({
       W, H, pos,
       savePos: p => { player.pos = p; savePlayer(); },
+      onFood(fEl, walkTo) {
+        const sp = foodSpots().find(s => s.slot === fEl.dataset.slot);
+        if (!sp) { fEl.remove(); return; }
+        walkTo(sp.x, sp.y + 6, () => foodQuiz(sp, fEl));
+      },
       onBuilding(bEl, walkTo) {
         const b = City.byId(bEl.dataset.b), info = locInfo(b);
         if (info.soon) { walkTo(b.x, b.y + 62, () => toast(`🔒 ${info.name}, ${b.desc}: השאלות יתווספו בקרוב`)); return; }
@@ -852,11 +1052,12 @@
   // מנוע ההליכה, משותף למפת הארץ ולעולמות שבתוך הערים.
   // onBuilding(el, walkTo) נקרא בלחיצה על מקום; blocked = מלבנים שהדמות עוקפת ולא נכנסת אליהם.
   // onMove(pos, target) מדווח על תזוזה (למשל לשחקנים אחרים באותה עיירה); target = null כשהדמות עומדת.
-  function startWalker({ W, H, pos, savePos, onBuilding, onGround, onMove, blocked = [] }) {
+  function startWalker({ W, H, pos, savePos, onBuilding, onFood, onGround, onMove, blocked = [] }) {
     const city = document.getElementById("city"), world = document.getElementById("world");
     const me = document.getElementById("me"), body = me.querySelector(".me-body"), tgt = document.getElementById("target");
     const sky = document.getElementById("sky");
-    const SPEED = 260 * rideSpeed(); // פיקסלים לשנייה. ברכב מהפרס נוסעים מהר יותר (js/rides.js)
+    // פיקסלים לשנייה. ברכב מהפרס נוסעים מהר יותר (js/rides.js); עייפות מאטה, וכוח מאכילה מאיץ (js/food.js)
+    const BASE_SPEED = 260 * rideSpeed();
     // בטלפון מקטינים את העולם כדי לראות יותר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
     const banner = document.getElementById("pre-shabbat");
@@ -962,10 +1163,14 @@
       else if (path.length) { dx = path[0].x - pos.x; dy = path[0].y - pos.y; }
       const dist = Math.hypot(dx, dy);
       if (dist > 0) {
+        const SPEED = BASE_SPEED * Food.speed(player);
         const step = manual ? SPEED * dt : Math.min(SPEED * dt, dist);
         const nx = Math.min(Math.max(pos.x + dx / dist * step, 20), W - 20);
         const ny = Math.min(Math.max(pos.y + dy / dist * step, 40), H - 10);
-        if (!blocked.some(r => inside({ x: nx, y: ny }, r))) { pos.x = nx; pos.y = ny; }
+        if (!blocked.some(r => inside({ x: nx, y: ny }, r))) {
+          if (Food.walk(player, Math.hypot(nx - pos.x, ny - pos.y))) energyTick();
+          pos.x = nx; pos.y = ny;
+        }
         me.style.transform = `translate(${pos.x}px,${pos.y}px) translate(-50%,-100%)`;
         const nz = depth(Math.round(pos.y));
         if (nz !== z) { z = nz; me.style.zIndex = nz; }
@@ -992,6 +1197,8 @@
 
     city.addEventListener("click", ev => {
       if (ev.target.closest(".soul-chip, .town-info, .town-sign")) return;
+      const fEl = ev.target.closest(".food");
+      if (fEl && onFood) { onFood(fEl, walkTo); return; }
       const bEl = ev.target.closest(".bld");
       if (bEl) { onBuilding(bEl, walkTo); return; }
       if (onGround) onGround();
@@ -1014,6 +1221,7 @@
     else { loop.onResize = onResize; window.addEventListener("resize", onResize); }
     world.querySelectorAll(":scope > *").forEach(el => { if (el !== me) cssZ.set(el, parseInt(getComputedStyle(el).zIndex, 10)); });
     me.style.zIndex = z = depth(Math.round(pos.y));
+    meState = ""; refreshMe();
     camera(true);
     wake();
   }
@@ -1347,6 +1555,7 @@
     function show() {
       const q = items[idx];
       const order = db.shuffle([0, 1, 2, 3]);
+      if (idx) window.scrollTo(0, 0); // שאלה חדשה מתחילה מלמעלה, גם אם גללנו למטה כדי ללחוץ "לשאלה הבאה"
       app.innerHTML = `
         ${exitHref ? `<a class="quit-link" href="${exitHref}">✕ יציאה</a>` : ""}
         <div class="dots">${items.map((_, i) => `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("")}</div>
@@ -1383,7 +1592,8 @@
           <button class="btn big-btn" id="next">${last ? "לסיום" : "לשאלה הבאה"}</button>
           <div class="report-row"><button class="report-link" id="rep">🚩 לדווח שהתשובה לא נכונה</button></div>
           <div id="repbox"></div>`;
-        document.getElementById("next").onclick = () => { if (last) onDone(score, items.length, coins); else { idx++; show(); } };
+        document.getElementById("next").onclick = () => { if (last) { window.scrollTo(0, 0); onDone(score, items.length, coins); } else { idx++; show(); } };
+        revealNext(document.getElementById("next"));
         document.getElementById("rep").onclick = () => {
           document.getElementById("repbox").innerHTML = `
             <div class="report-box">
@@ -1408,6 +1618,15 @@
     show();
   }
 
+  // בטלפון ההסבר והכפתור "לשאלה הבאה" נמצאים מתחת לתשובות, מחוץ למסך. גוללים אליהם בעדינות.
+  function revealNext(btn) {
+    if (!btn) return;
+    const r = btn.getBoundingClientRect(), nav = document.querySelector(".bottomnav");
+    const bottom = innerHeight - (nav ? nav.offsetHeight : 0) - 12;
+    if (r.bottom <= bottom) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollBy({ top: r.bottom - bottom, behavior: still ? "auto" : "smooth" });
+  }
   function guideBubble(guide, text, mood) {
     return `<div class="guide ${mood || ""}">
       <div class="guide-face ${guide.svg ? "svg" : ""}" style="background:${guide.color}">${guide.face}</div>
@@ -1454,7 +1673,7 @@
         return `<div class="card level-card ${open ? "" : "locked"}">
           <div style="flex:1">
             <h3>${LEVEL_NAMES[l]}</h3>
-            <div class="small muted">${Math.min(pools[l].length, cfg.QUESTIONS_PER_MISSION)} שאלות · כל תשובה נכונה = 🪙 ${LEVEL_REWARD[l]}</div>
+            <div class="small muted">${Math.min(pools[l].length, cfg.QUESTIONS_PER_MISSION)} שאלות · <span class="nowrap">כל תשובה נכונה = 🪙 ${LEVEL_REWARD[l]}</span></div>
             <div class="station-stars">${"★".repeat(ls)}<span class="dim">${"★".repeat(3 - ls)}</span></div>
           </div>
           ${open ? `<button class="btn ${l > 1 ? "gold" : ""}" data-level="${l}">מתחילים!</button>`
@@ -1880,7 +2099,7 @@
     setTab("map");
     const best = (player.best || {})[key] || 0;
     app.innerHTML = `
-      <div class="place-hero" style="--c:${key === "race" ? "#dc2626" : "#db2777"}">
+      <div class="place-hero" style="--c:${key === "race" ? "#dc2626" : key === "piano" ? "#7c3aed" : "#db2777"}">
         <div class="place-icon">${icon}</div><h1>${title}</h1>
         <p>השיא שלכם: ${best}</p>
       </div>
@@ -1907,7 +2126,7 @@
       <div class="row center-row"><button class="btn gold" id="again">שוב</button><a class="btn ghost" href="${gameExitHash()}">חזרה</a></div>
     </div>`;
   }
-  const GAME_TITLES = { swipe: "אתגר המקורות", race: "מרוץ המקורות", duel: "דו-קרב" };
+  const GAME_TITLES = { swipe: "אתגר המקורות", race: "מרוץ המקורות", duel: "דו-קרב", "piano-q": "היכל הנגינה · שאלות", "piano-p": "היכל הנגינה · נגינה" };
   async function loadTop10(key, score) {
     const box = document.getElementById("top10");
     if (!box) return;
@@ -1925,6 +2144,61 @@
       const el = document.getElementById("top10");
       if (el) el.innerHTML = `<p class="muted small">הטופ 10 לא זמין כרגע.</p>`;
     }
+  }
+
+
+  // ---- היכל הנגינה: מקלדת עם התווים של הניגון. שאלות שהתשובה שלהן היא כמה קלידים לזוז, או נגינה לפי קליד מואר ----
+  const PIANO_MODES = [
+    { id: "q", icon: "❓", name: "שאלות", text: "שאלה שהתשובה שלה מספר: כמה קלידים לזוז מה-📍" },
+    { id: "p", icon: "🎹", name: "נגינה", text: "הקליד הבא מאיר, ולוחצים עליו" },
+  ];
+  function viewPiano() {
+    if (!player.name) return viewOnboarding();
+    const P = window.TeirePiano;
+    let songId = player.pianoSong || P.SONGS[0].id, mode = player.pianoMode || "q", prev = null;
+    if (!P.SONGS.some(x => x.id === songId)) songId = P.SONGS[0].id;
+    const extra = `
+      <h3 style="margin:14px 0 6px">איך משחקים?</h3>
+      <div class="piano-pick" id="pmodes">${PIANO_MODES.map(m => `<button class="piano-opt" data-mode="${m.id}"><span>${m.icon}</span><b>${m.name}</b><small>${m.text}</small></button>`).join("")}</div>
+      <h3 style="margin:14px 0 6px">איזה ניגון?</h3>
+      <div class="piano-pick" id="psongs">${P.SONGS.map(x => `<button class="piano-opt" data-song="${x.id}"><span>${x.icon}</span><b>${esc(x.name)}</b><small>${esc(x.level)} · ${esc(x.about)}</small></button>`).join("")}</div>
+      <button class="btn ghost" id="plisten" style="margin:10px 0">🎧 שמעו את הניגון</button>
+      <p class="tiny muted">כל הניגונים כאן מקוריים של האתר. צלילי פסנתר: FluidR3 GM (CC BY 3.0).</p>`;
+    gameIntro("piano", "היכל הנגינה", "🎹", "מקלדת עם התווים של הניגון בלבד: נמוך משמאל, גבוה מימין, כמו בפסנתר. <b>במצב שאלות</b> אתם עומדים על קליד 📍 ומקבלים שאלה, למשל \"כמה אבות היו?\". התשובה היא כמה קלידים לזוז: ➡️ עולים ימינה, ⬅️ יורדים שמאלה, ו-🔁 לוחצים שוב על אותו קליד. <b>במצב נגינה</b> לוחצים על הקליד שמאיר. בסוף הניגון מתנגן במלואו!", () => { if (prev) prev.stop(); playPiano(songId, mode); }, extra);
+    const sync = () => {
+      app.querySelectorAll("[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+      app.querySelectorAll("[data-song]").forEach(b => b.classList.toggle("on", b.dataset.song === songId));
+      const best = (player.best || {})["piano-" + mode] || 0;
+      const hero = app.querySelector(".place-hero p"); if (hero) hero.textContent = `השיא שלכם ב${PIANO_MODES.find(m => m.id === mode).name}: ${best}`;
+    };
+    app.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { mode = b.dataset.mode; player.pianoMode = mode; savePlayer(); sync(); });
+    app.querySelectorAll("[data-song]").forEach(b => b.onclick = () => { songId = b.dataset.song; player.pianoSong = songId; savePlayer(); sync(); });
+    const listen = document.getElementById("plisten");
+    listen.onclick = () => {
+      if (prev) { prev.stop(); prev = null; listen.textContent = "🎧 שמעו את הניגון"; return; }
+      if (window.Music && Music.duck) Music.duck(true);
+      listen.textContent = "⏹️ עצירה";
+      prev = P.preview(P.SONGS.find(x => x.id === songId), null, () => { prev = null; listen.textContent = "🎧 שמעו את הניגון"; if (window.Music && Music.duck) Music.duck(false); });
+    };
+    game = { stop() { if (prev) prev.stop(); if (window.Music && Music.duck) Music.duck(false); } };
+    sync();
+  }
+  function playPiano(songId, mode) {
+    stopGame();
+    const P = window.TeirePiano, song = P.SONGS.find(x => x.id === songId) || P.SONGS[0];
+    if (window.Music && Music.duck) Music.duck(true);
+    app.innerHTML = `<div id="pgame"></div>${backToTorah}`;
+    const g = P.start(document.getElementById("pgame"), {
+      song, mode,
+      onEnd(score, total) {
+        stopGame();
+        const key = "piano-" + mode;
+        app.innerHTML = gameOver(key, score, mode === "q" ? 2 : 1) + backToTorah;
+        document.querySelector(".result .big").insertAdjacentHTML("afterend", `<p class="muted">${song.icon} ${esc(song.name)} · ${score} מתוך ${total} בניסיון הראשון</p>`);
+        document.getElementById("again").onclick = () => playPiano(songId, mode);
+      },
+    });
+    game = { stop() { g.stop(); if (window.Music && Music.duck) Music.duck(false); } };
   }
 
   // ---- אתגר המקורות: משפט רץ אליכם, 5 שניות להחליק לצד של המקור הנכון ----
@@ -2014,6 +2288,7 @@
     { n: 2, theme: "desert", name: "מדבר יהודה", icon: "🏜️", speed: 1.08, coins: 5 },
     { n: 3, theme: "sea", name: "חוף הים", icon: "🌊", speed: 1.16, coins: 6 },
     { n: 4, theme: "jerusalem", name: "ירושלים", icon: "🏛️", speed: 1.24, coins: 7 },
+    { n: 5, theme: "city", name: "עיר הלילה", icon: "🌃", speed: 1.32, coins: 8 },
   ];
   const raceStages = () => X.RACE_WORLDS.length ? X.RACE_WORLDS : [{ n: 3, name: "פסוקים", icon: "💎", items: X.RACE }];
   const raceBest = n => ((player.raceBest || {})["t" + n]) || 0;
@@ -2141,6 +2416,8 @@
       </div>${backToTorah}`;
     const $ = id => document.getElementById(id), track = $("track"), ban = $("hban");
     let joySync = null;
+    // בעיר הלילה מד המהירות העגול מצויר על הכביש עצמו
+    track.classList.toggle("night", world.theme === "city");
     // מגללים כך שהשאלה בראש המסך (אחרי לחיצה על "מתחילים" הדף נשאר גלול למטה)
     $("race").scrollIntoView({ block: "start" });
     let banT = 0, lastHud = "", hudLast = {};
@@ -2510,13 +2787,16 @@
       savePlayer(); viewMe();
       if (bought) {
         const tier = itemTier(it);
-        cardReveal({
+        summonGlow({
+          tier, art: avatarSVG(player.look, 170),
+          caption: `${player.name} עם ${it.name}! ✨`, button: "לקלף הפריט",
+        }).then(() => cardReveal({
           tier, rating: it.gems ? it.gems : it.price, pos: it.gems ? "יהלומים" : "מטבעות",
           art: avatarSVG(player.look, 150), name: it.name,
           stats: [["השחקן", player.name]],
           caption: `פריט חדש ל${player.name}! ${TIERS[tier]}`,
           button: "ללבוש ✓",
-        });
+        }));
       }
     });
     document.getElementById("redo").onclick = viewOnboarding;
@@ -2950,6 +3230,15 @@
       text: m.question, answer: Object.entries(m.opinions).map(([id, i]) => `${Sages.byId(id) ? Sages.byId(id).school : id}: ${m.answers[i]}`).join(" | "), others: [], source: m.source }));
     (window.TEIRE_CHALLENGES || []).forEach(c => add("א", "משפטי האתגרים", "content/challenges.js", "אתגר ההחלקה", { text: c.text, answer: c.right, others: [`מקור מטעה: ${c.wrong}`], source: c.right }));
     (window.TEIRE_RACE_WORLDS || []).forEach(w => w.items.forEach(c => add("ק", "מרוץ המקורות", "content/challenges.js", `${w.name} (${w.tag})`, { text: c.text, answer: c.right, others: [`מקור מטעה: ${c.wrong}`], source: c.note })));
+    const BR = window.TEIRE_BRACHOT;
+    if (BR) BR.FOODS.forEach(f => {
+      const wrong = (map, k) => Object.entries(map).filter(([key]) => key !== k).map(([, v]) => v);
+      add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · לפי ${f.posek}`, { text: `מה מברכים על ${f.name}?`, answer: BR.FIRST[f.first], others: wrong(BR.FIRST, f.first), source: f.source });
+      if (f.after) add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · ברכה אחרונה`, { text: `מה מברכים אחרי ${f.name}?`, answer: BR.AFTER[f.after], others: wrong(BR.AFTER, f.after), source: f.afterSource });
+    });
+    const SG = window.TEIRE_SONGS;
+    if (SG) Object.entries(SG.NUMBER_Q).forEach(([n, list]) => list.forEach(x =>
+      add("ג", "היכל הנגינה", "content/songs.js", `שאלת מספר · התשובה ${n}`, { text: x.q, answer: `${n} (${x.note})`, others: [], source: x.source })));
     const D = window.TEIRE_DEBATES || { DEBATES: [], SPEAKERS: {} };
     D.DEBATES.forEach(d => add("ו", "פלפולים", "content/debates.js", d.pair.map(w => D.SPEAKERS[w].name).join(" נגד "), {
       text: d.title, answer: "", others: [], source: d.source,
@@ -3044,12 +3333,12 @@
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
     // משחקים (מירוץ, החלפה, ויכוח): שומרים את המקום שממנו נכנסו, כדי לחזור אליו
-    if (!["swipe", "race", "debate"].includes(page)) { try { sessionStorage.setItem("teire.returnTo", location.hash || "#/"); } catch (e) { /* ignore */ } }
+    if (!["swipe", "race", "debate", "piano"].includes(page)) { try { sessionStorage.setItem("teire.returnTo", location.hash || "#/"); } catch (e) { /* ignore */ } }
     stopCity();
     stopDuel();
     stopGame();
     window.TeireOlama.stop();
-    document.querySelectorAll(".weekly-pop, .tour").forEach(e => e.remove()); // ההצעה וההדרכה נסגרות כשעוברים לעמוד אחר
+    document.querySelectorAll(".weekly-pop, .tour, .food-ov").forEach(e => e.remove()); // ההצעה, ההדרכה ושאלת המאכל נסגרות כשעוברים לעמוד אחר
     closeMenu();
     document.body.classList.remove("no-player");
     Music.mood(moodFor(page, arg));
@@ -3072,6 +3361,7 @@
     if (page === "leaders") return viewLeaders();
     if (page === "swipe") return viewSwipe();
     if (page === "race") return viewRace();
+    if (page === "piano") return viewPiano();
     if (page === "debate") return viewDebate(arg);
     if (page === "learn") return viewLearn(arg);
     if (page === "review") return viewReview();

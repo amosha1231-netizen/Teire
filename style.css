@@ -340,6 +340,8 @@ body.shabbat { background: linear-gradient(180deg, #1e2a52, #3b2f6b); }
 .level-card { display: flex; gap: 12px; align-items: center; }
 .level-card h3 { margin: 0 0 2px; }
 .level-card.locked { opacity: .6; }
+.level-card > .small { flex: 0 0 auto; max-width: 42%; text-align: center; }
+.nowrap { white-space: nowrap; }
 
 /* ---------- עולם בתוך עיר ---------- */
 .town { background: #cfe3a0; }
@@ -474,8 +476,12 @@ body.shabbat .music-btn { display: none; }
 /* עולמות המרוץ */
 .race-worlds { margin: 12px 0; }
 .race-worlds h3 { margin: 0 0 8px; }
-.rw-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-@media (max-width: 640px) { .rw-list { grid-template-columns: repeat(2, 1fr); } }
+.rw-list { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+@media (max-width: 640px) { .rw-list { grid-template-columns: repeat(2, 1fr); } .rw-list .rw:last-child:nth-child(odd) { grid-column: span 2; } }
+.rw[data-world="5"]:not(.locked) { background: linear-gradient(160deg, #140b2e, #3a1a5c); color: #f5f3ff; border-color: #ff2bd6; }
+.track.night .hud-spd { display: none; }
+.rw[data-world="5"]:not(.locked) .small { color: #c4b5fd; }
+.rw[data-world="5"].on { box-shadow: 0 3px 0 #ff2bd6, 0 0 14px rgba(255,43,214,.5); }
 .rw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; border: 2px solid #e5e7eb; background: #fff; cursor: pointer; font: inherit; color: #1f2937; }
 .rw b { font-size: .95rem; }
 .rw-icon { font-size: 1.7rem; line-height: 1.1; }
@@ -1013,3 +1019,137 @@ body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
 [dir=ltr] .arena-top, [dir=ltr] .race-banner, [dir=ltr] .swipe-hint, [dir=ltr] .voy-title, [dir=ltr] .joy-world { direction: ltr; }
 [dir=ltr] .ride-txt { text-align: left; }
 [dir=ltr] .menu-arrow, [dir=ltr] .player-go { display: inline-block; transform: scaleX(-1); }
+
+/* ---------- הופעה באור (לפני הקלף) ---------- */
+/* המצב הסופי הוא ברירת המחדל, והאנימציות (fill both) מתחילות מהמצב המוסתר. דילוג = ביטול האנימציות. */
+.sum-ov {
+  --g1: #fff6d2; --g2: #f5b82e;
+  position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: radial-gradient(circle at 50% 60%, rgba(30,41,59,.93) 0%, rgba(5,8,20,.98) 70%); overflow: hidden; padding: 16px;
+  animation: sumDim .6s ease both;
+}
+.sum-ov.tier-bronze { --g1: #ffe4c7; --g2: #d98a3e; }
+.sum-ov.tier-silver { --g1: #ffffff; --g2: #b9c6d8; }
+.sum-ov.tier-special { --g1: #fbe9ff; --g2: #b56cf7; }
+.sum-stage { position: relative; width: min(86vw, 340px); height: min(58vh, 420px); }
+.sum-circle {
+  position: absolute; left: 50%; bottom: 8%; width: 96%; aspect-ratio: 1; color: var(--g2);
+  transform: translate(-50%, 50%) scaleY(.32); filter: drop-shadow(0 0 6px var(--g2)) drop-shadow(0 0 14px var(--g2));
+  animation: sumOpen .7s .45s cubic-bezier(.2,1.3,.4,1) both;
+}
+.sum-circle svg { width: 100%; height: 100%; display: block; animation: packSpin 18s linear infinite; }
+.sum-circle .sum-star { transform-origin: 100px 100px; animation: packSpin 9s linear infinite reverse; }
+.sum-beam {
+  position: absolute; left: 50%; bottom: 8%; width: 50%; height: 108%; margin-left: -25%; transform-origin: 50% 100%;
+  background: linear-gradient(to top, var(--g1) 0%, var(--g2) 30%, transparent 100%);
+  -webkit-mask: linear-gradient(to right, transparent, #000 32%, #000 68%, transparent); mask: linear-gradient(to right, transparent, #000 32%, #000 68%, transparent);
+  filter: blur(4px); mix-blend-mode: screen; transition: opacity 1s;
+  animation: sumRise .6s 1s cubic-bezier(.3,.7,.3,1) both;
+}
+.sum-ov.settled .sum-beam { opacity: .32; }
+.sum-sparks { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--g1); pointer-events: none; }
+.sum-halo {
+  position: absolute; left: 50%; bottom: 24%; width: 78%; aspect-ratio: 1; transform: translate(-50%, 0);
+  background: radial-gradient(circle, var(--g2) 0%, transparent 65%); opacity: 0; transition: opacity 1s;
+}
+.sum-ov.settled .sum-halo { opacity: .55; animation: sumPulse 2.6s ease-in-out infinite; }
+.sum-hero {
+  position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); line-height: 0;
+  filter: drop-shadow(0 0 10px var(--g2));
+  animation: sumHero 1.1s 1.5s ease-out both;
+}
+.sum-hero svg { display: block; width: min(50vw, 170px); height: auto; }
+.sum-cap, .sum-go { opacity: 0; transform: translateY(14px); transition: opacity .4s, transform .4s; position: relative; pointer-events: none; }
+.sum-cap { color: #fff; font-size: 1.3rem; font-weight: 800; text-align: center; text-shadow: 0 2px 12px var(--g2); }
+.sum-go { max-width: 92vw; }
+.sum-ov.settled .sum-cap, .sum-ov.settled .sum-go { opacity: 1; transform: none; pointer-events: auto; }
+.sum-ov.skip, .sum-ov.skip .sum-circle, .sum-ov.skip .sum-beam, .sum-ov.skip .sum-hero { animation: none; }
+@keyframes sumDim { from { background-color: transparent; opacity: 0; } }
+@keyframes sumOpen { from { transform: translate(-50%, 50%) scaleY(.32) scale(0) rotate(-90deg); opacity: 0; } }
+@keyframes sumRise { from { transform: scaleY(0); } }
+@keyframes sumHero {
+  0% { opacity: 0; filter: brightness(4) blur(10px) drop-shadow(0 0 10px var(--g2)); transform: translate(-50%, 14px) scale(.9); }
+  60% { opacity: 1; filter: brightness(2) blur(2px) drop-shadow(0 0 18px var(--g2)); }
+}
+@keyframes sumPulse { 50% { opacity: .8; transform: translate(-50%, 0) scale(1.06); } }
+@media (prefers-reduced-motion: reduce) {
+  .sum-ov, .sum-circle, .sum-circle svg, .sum-circle .sum-star, .sum-beam, .sum-hero, .sum-ov.settled .sum-halo { animation: none; }
+}
+
+/* ---------- הדמות: מצמוץ ונשימה ---------- */
+.av-eyes { transform-box: fill-box; transform-origin: center; animation: avBlink 4.6s infinite; }
+.avatar-stage > svg, .sum-hero > svg, .pc-art > svg { transform-origin: 50% 95%; animation: avBreathe 3.4s ease-in-out infinite; }
+@keyframes avBlink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+@keyframes avBreathe { 50% { transform: scaleY(1.02); } }
+@media (prefers-reduced-motion: reduce) { .av-eyes, .avatar-stage > svg, .sum-hero > svg, .pc-art > svg { animation: none; } }
+
+/* ---------- מאכלים בדרכים: ניצוצות קדושה, אנרגיה ועייפות ---------- */
+.energy-pill { color: inherit; font: inherit; cursor: pointer; }
+.energy-pill.low { background: rgba(239, 68, 68, .35); border-color: #fca5a5; animation: lowPulse 1.6s ease-in-out infinite; }
+.energy-pill.boost { background: rgba(250, 204, 21, .35); border-color: #fde047; }
+@keyframes lowPulse { 50% { opacity: .6; } }
+/* כל מאכל הוא אלמנט קטן משלו (לא בתוך ה-SVG הגדול), כדי שהאנימציה לא תכביד על המפה */
+.food { position: absolute; transform: translate(-50%, -100%); width: 46px; height: 46px; border: 0; padding: 0; background: none; cursor: pointer; }
+.food-ico { position: relative; display: block; font-size: 1.9rem; line-height: 46px; animation: foodBob 2.4s ease-in-out infinite; filter: drop-shadow(0 3px 2px rgba(0,0,0,.3)); }
+.food-glow { position: absolute; inset: 4px; border-radius: 50%; background: radial-gradient(circle, rgba(255,236,140,.95), rgba(255,200,60,.35) 55%, transparent 72%); animation: foodGlow 2.4s ease-in-out infinite; }
+.food.eaten { pointer-events: none; animation: foodEat .9s ease-in forwards; }
+.food.fled { pointer-events: none; animation: foodFlee .9s ease-in forwards; }
+@keyframes foodBob { 50% { transform: translateY(-6px); } }
+@keyframes foodGlow { 50% { transform: scale(1.25); opacity: .6; } }
+@keyframes foodEat { 30% { transform: translate(-50%, -100%) scale(1.4); } 100% { transform: translate(-50%, -160%) scale(0); opacity: 0; } }
+@keyframes foodFlee { 100% { transform: translate(-50%, -260%) rotate(40deg); opacity: 0; } }
+.me.powered .me-body { filter: drop-shadow(0 0 6px #fde047) drop-shadow(0 0 14px rgba(255,170,0,.85)); }
+.me.powered::after { content: "💪"; position: absolute; top: 4px; inset-inline-end: -14px; font-size: 1.1rem; }
+.me.tired .me-body { filter: saturate(.55) brightness(.92); }
+.me.tired::after { content: "💤"; position: absolute; top: 0; inset-inline-end: -16px; font-size: 1.1rem; animation: zzz 2s ease-in-out infinite; }
+.me.tired.walking .me-body svg { animation-duration: .7s; }
+@keyframes zzz { 50% { transform: translate(-4px, -6px); opacity: .5; } }
+.food-ov { position: fixed; inset: 0; z-index: 45; background: rgba(15, 23, 42, .5); display: grid; place-items: center; padding: 16px; overflow-y: auto; }
+.food-card { width: min(440px, 100%); margin: 0; text-align: center; animation: pingIn .3s ease-out; }
+.food-card .answers { text-align: start; }
+.food-card .qtext { font-size: 1.15rem; }
+.food-big { font-size: 3.2rem; line-height: 1.1; animation: foodBob 2.4s ease-in-out infinite; }
+.food-title { font-weight: 800; color: #b45309; margin: 4px 0 8px; }
+.food-result { margin: 12px 0 6px; padding: 10px 12px; border-radius: 12px; font-weight: 600; line-height: 1.6; }
+.food-result.ok { background: var(--good-soft, #dcfce7); }
+.food-result.no { background: var(--bad-soft, #fee2e2); }
+.food-card .btn { margin-top: 10px; width: 100%; }
+.energy-bar { position: relative; height: 26px; border-radius: 99px; background: #e5e7eb; overflow: hidden; margin: 10px 0; }
+.energy-bar i { position: absolute; inset-block: 0; inset-inline-start: 0; background: linear-gradient(90deg, #22c55e, #facc15); border-radius: 99px; }
+.energy-bar.low i { background: #ef4444; }
+.energy-bar b { position: relative; line-height: 26px; font-size: .9rem; }
+@media (prefers-reduced-motion: reduce) { .food-ico, .food-glow, .food-big, .me.tired::after { animation: none; } }
+
+/* ---- היכל הנגינה (js/piano.js) ---- */
+.piano-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; text-align: start; }
+.piano-opt { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; background: #fff; border: 3px solid #e7e0f7; border-radius: 16px; padding: 10px 12px; cursor: pointer; font: inherit; color: inherit; text-align: start; }
+.piano-opt span { font-size: 1.5rem; }
+.piano-opt small { color: #6b7280; font-size: .78rem; line-height: 1.3; }
+.piano-opt.on { border-color: #7c3aed; background: #f5f0ff; box-shadow: 0 3px 0 #7c3aed; }
+.piano-game { background: linear-gradient(#2e1065, #4c1d95); border-radius: 22px; padding: 12px; color: #fff; margin-bottom: 12px; box-shadow: 0 6px 0 rgba(0,0,0,.18); }
+.piano-game .arena-top { position: static; display: flex; justify-content: space-between; margin-bottom: 8px; }
+.piano-progress { height: 8px; border-radius: 99px; background: rgba(255,255,255,.15); overflow: hidden; margin-bottom: 10px; }
+.piano-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #facc15, #f472b6); transition: width .3s; }
+.piano-q { background: #fff7d6; color: #3b2a00; border-radius: 16px; padding: 12px; text-align: center; min-height: 5.4em; margin-bottom: 12px; box-shadow: 0 4px 0 rgba(0,0,0,.18); }
+.pq-main { font-weight: 800; font-size: 1.2rem; }
+.pq-dir { margin-top: 6px; font-weight: 800; display: inline-block; padding: 3px 12px; border-radius: 99px; }
+.pq-dir.up { background: #dcfce7; color: #166534; }
+.pq-dir.down { background: #dbeafe; color: #1e40af; }
+.pq-ok { color: #15803d; font-weight: 700; margin-top: 4px; }
+.pq-hint { color: #b45309; font-weight: 700; margin-top: 4px; }
+.piano-keys { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 5px; height: min(42vh, 280px); min-height: 180px; user-select: none; touch-action: manipulation; }
+.pkey { position: relative; border: 0; border-radius: 0 0 14px 14px; background: linear-gradient(#fff 70%, #ece8f5); color: #1f2937; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 0 2px 10px; box-shadow: inset 0 -10px 0 var(--c), 0 4px 0 rgba(0,0,0,.35); font: inherit; transition: transform .06s; -webkit-tap-highlight-color: transparent; }
+.pkey b { font-size: clamp(.75rem, 3.4vw, 1.05rem); margin-bottom: 6px; }
+.pkey.black { background: linear-gradient(#374151, #111827 70%); color: #fff; }
+.pkey:active { transform: translateY(3px); }
+.pkey.hit, .pkey.play { animation: pk-glow .45s ease; }
+.pkey.miss { animation: pk-shake .35s ease; }
+.pkey.pk-target { background: linear-gradient(#fef9c3, #fde047); color: #3b2a00; box-shadow: inset 0 -10px 0 var(--c), 0 0 18px 4px #fde047; }
+.pkey .pk-mark { position: absolute; top: 8px; font-size: 1.5rem; }
+.pkey.pk-here .pk-mark::before { content: "📍"; }
+.pkey.pk-here { outline: 3px solid #f472b6; outline-offset: -3px; }
+.pk-count { position: absolute; top: 44%; font-weight: 800; font-size: 1.4rem; color: #7c3aed; }
+.pkey.black .pk-count { color: #fde047; }
+@keyframes pk-glow { 0% { background: var(--c); color: #fff; transform: translateY(3px); } 100% { } }
+@keyframes pk-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.piano-legend { display: flex; justify-content: space-between; font-size: .78rem; opacity: .75; margin-top: 8px; }
