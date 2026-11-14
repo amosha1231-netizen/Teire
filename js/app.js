@@ -197,6 +197,8 @@
     }
     const why = q => `${q.note ? `<div class="note-box"><b>💡 למה?</b> ${esc(q.note)}</div>` : ""}
       ${q.source ? `<div class="small muted" style="margin-top:8px">מקור: ${esc(q.source)}</div>` : ""}`;
+    // בטלפון התוצאה והכפתורים יורדים מתחת למסך: גוללים אליהם
+    const showEnd = fb => { const b = fb.querySelector(".btn:last-of-type"); if (b) b.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
     const milestone = () => {
       if (player.sparks && player.sparks % 10 === 0) { player.coins += 20; confetti(); toast(`🌟 ${player.sparks} ניצוצות קדושה! מתנה: 20🪙`); }
     };
@@ -212,6 +214,7 @@
         ${why(q)}
         ${after ? `<button class="btn gold big-btn" id="afterQ">🎁 בונוס: ומה מברכים אחרי?</button>` : ""}
         <button class="btn ${after ? "ghost" : ""} big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+      showEnd(fb);
       const a = fb.querySelector("#afterQ");
       if (a) a.onclick = () => ask(after, "🎁 ברכה אחרונה: בונוס", (ok2, fb2, q2) => {
         if (ok2) { player.sparks = (player.sparks || 0) + 1; player.coins += 5; milestone(); savePlayer(); }
@@ -219,6 +222,7 @@
           <div class="food-result ${ok2 ? "ok" : "no"}">${ok2 ? "🌟 נכון! עוד ניצוץ תוקן · <b>+🪙5</b>" : "לא נורא! התשובה הנכונה מסומנת בירוק."}</div>
           ${why(q2)}
           <button class="btn big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+        showEnd(fb2);
       });
     });
   }
@@ -1548,6 +1552,7 @@
     function show() {
       const q = items[idx];
       const order = db.shuffle([0, 1, 2, 3]);
+      if (idx) window.scrollTo(0, 0); // שאלה חדשה מתחילה מלמעלה, גם אם גללנו למטה כדי ללחוץ "לשאלה הבאה"
       app.innerHTML = `
         ${exitHref ? `<a class="quit-link" href="${exitHref}">✕ יציאה</a>` : ""}
         <div class="dots">${items.map((_, i) => `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("")}</div>
@@ -1583,7 +1588,8 @@
           <button class="btn big-btn" id="next">${last ? "לסיום" : "לשאלה הבאה"}</button>
           <div class="report-row"><button class="report-link" id="rep">🚩 לדווח שהתשובה לא נכונה</button></div>
           <div id="repbox"></div>`;
-        document.getElementById("next").onclick = () => { if (last) onDone(score, items.length, coins); else { idx++; show(); } };
+        document.getElementById("next").onclick = () => { if (last) { window.scrollTo(0, 0); onDone(score, items.length, coins); } else { idx++; show(); } };
+        revealNext(document.getElementById("next"));
         document.getElementById("rep").onclick = () => {
           document.getElementById("repbox").innerHTML = `
             <div class="report-box">
@@ -1608,6 +1614,15 @@
     show();
   }
 
+  // בטלפון ההסבר והכפתור "לשאלה הבאה" נמצאים מתחת לתשובות, מחוץ למסך. גוללים אליהם בעדינות.
+  function revealNext(btn) {
+    if (!btn) return;
+    const r = btn.getBoundingClientRect(), nav = document.querySelector(".bottomnav");
+    const bottom = innerHeight - (nav ? nav.offsetHeight : 0) - 12;
+    if (r.bottom <= bottom) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollBy({ top: r.bottom - bottom, behavior: still ? "auto" : "smooth" });
+  }
   function guideBubble(guide, text, mood) {
     return `<div class="guide ${mood || ""}">
       <div class="guide-face ${guide.svg ? "svg" : ""}" style="background:${guide.color}">${guide.face}</div>
@@ -1654,7 +1669,7 @@
         return `<div class="card level-card ${open ? "" : "locked"}">
           <div style="flex:1">
             <h3>${LEVEL_NAMES[l]}</h3>
-            <div class="small muted">${Math.min(pools[l].length, cfg.QUESTIONS_PER_MISSION)} שאלות · כל תשובה נכונה = 🪙 ${LEVEL_REWARD[l]}</div>
+            <div class="small muted">${Math.min(pools[l].length, cfg.QUESTIONS_PER_MISSION)} שאלות · <span class="nowrap">כל תשובה נכונה = 🪙 ${LEVEL_REWARD[l]}</span></div>
             <div class="station-stars">${"★".repeat(ls)}<span class="dim">${"★".repeat(3 - ls)}</span></div>
           </div>
           ${open ? `<button class="btn ${l > 1 ? "gold" : ""}" data-level="${l}">מתחילים!</button>`
