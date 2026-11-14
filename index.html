@@ -11,7 +11,8 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <title>מסע בתורה - משימות וחידות</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Rubik:wght@400;500;700;800&display=swap">
+  <!-- הגופנים נטענים בלי לעכב את הדף: אם גוגל איטי או חסום, האתר נפתח מיד עם גופן רגיל -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Rubik:wght@400;500;700;800&display=swap" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -33,7 +34,8 @@
     <a href="#/admin" data-tab="admin"><span>🔑</span>ניהול</a>
   </nav>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.89.0/dist/umd/supabase.js"></script>
+  <!-- ספריית Supabase שמורה בתוך האתר (גרסה 2.89.0), כדי שהאתר לא יהיה תלוי באתר חיצוני שסינון יכול לחסום -->
+  <script src="vendor/supabase.js"></script>
   <script src="js/config.js"></script>
   <script src="js/shabbat.js"></script>
   <!-- כל השאלות, המשפטים והוויכוחים נמצאים בתיקייה content -->
@@ -51,6 +53,7 @@
   <script src="content/gola.js"></script>
   <script src="content/chabad.js"></script>
   <script src="content/brachot.js"></script>
+  <script src="content/songs.js"></script>
   <script src="js/world.js"></script>
   <script src="js/rides.js"></script>
   <script src="js/food.js"></script>
@@ -59,6 +62,7 @@
   <script src="js/extras.js"></script>
   <script src="js/music.js"></script>
   <script src="js/race.js"></script>
+  <script src="js/piano.js"></script>
   <script src="js/db.js"></script>
   <script src="js/purchases.js"></script>
   <script src="js/duel.js"></script>

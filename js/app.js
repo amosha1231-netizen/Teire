@@ -205,6 +205,8 @@
     }
     const why = q => `${q.note ? `<div class="note-box"><b>💡 למה?</b> ${esc(q.note)}</div>` : ""}
       ${q.source ? `<div class="small muted" style="margin-top:8px">מקור: ${esc(q.source)}</div>` : ""}`;
+    // בטלפון התוצאה והכפתורים יורדים מתחת למסך: גוללים אליהם
+    const showEnd = fb => { const b = fb.querySelector(".btn:last-of-type"); if (b) b.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
     const milestone = () => {
       if (player.sparks && player.sparks % 10 === 0) { player.coins += 20; confetti(); toast(`🌟 ${player.sparks} ניצוצות קדושה! מתנה: 20🪙`); }
     };
@@ -220,6 +222,7 @@
         ${why(q)}
         ${after ? `<button class="btn gold big-btn" id="afterQ">🎁 בונוס: ומה מברכים אחרי?</button>` : ""}
         <button class="btn ${after ? "ghost" : ""} big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+      showEnd(fb);
       const a = fb.querySelector("#afterQ");
       if (a) a.onclick = () => ask(after, "🎁 ברכה אחרונה: בונוס", (ok2, fb2, q2) => {
         if (ok2) { player.sparks = (player.sparks || 0) + 1; player.coins += 5; milestone(); savePlayer(); }
@@ -227,6 +230,7 @@
           <div class="food-result ${ok2 ? "ok" : "no"}">${ok2 ? "🌟 נכון! עוד ניצוץ תוקן · <b>+🪙5</b>" : "לא נורא! התשובה הנכונה מסומנת בירוק."}</div>
           ${why(q2)}
           <button class="btn big-btn" data-close>ממשיכים בדרך 🚶</button>`;
+        showEnd(fb2);
       });
     });
   }
@@ -1548,6 +1552,7 @@
     function show() {
       const q = items[idx];
       const order = db.shuffle([0, 1, 2, 3]);
+      if (idx) window.scrollTo(0, 0); // שאלה חדשה מתחילה מלמעלה, גם אם גללנו למטה כדי ללחוץ "לשאלה הבאה"
       app.innerHTML = `
         ${exitHref ? `<a class="quit-link" href="${exitHref}">✕ יציאה</a>` : ""}
         <div class="dots">${items.map((_, i) => `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("")}</div>
@@ -1583,7 +1588,8 @@
           <button class="btn big-btn" id="next">${last ? "לסיום" : "לשאלה הבאה"}</button>
           <div class="report-row"><button class="report-link" id="rep">🚩 לדווח שהתשובה לא נכונה</button></div>
           <div id="repbox"></div>`;
-        document.getElementById("next").onclick = () => { if (last) onDone(score, items.length, coins); else { idx++; show(); } };
+        document.getElementById("next").onclick = () => { if (last) { window.scrollTo(0, 0); onDone(score, items.length, coins); } else { idx++; show(); } };
+        revealNext(document.getElementById("next"));
         document.getElementById("rep").onclick = () => {
           document.getElementById("repbox").innerHTML = `
             <div class="report-box">
@@ -1608,6 +1614,15 @@
     show();
   }
 
+  // בטלפון ההסבר והכפתור "לשאלה הבאה" נמצאים מתחת לתשובות, מחוץ למסך. גוללים אליהם בעדינות.
+  function revealNext(btn) {
+    if (!btn) return;
+    const r = btn.getBoundingClientRect(), nav = document.querySelector(".bottomnav");
+    const bottom = innerHeight - (nav ? nav.offsetHeight : 0) - 12;
+    if (r.bottom <= bottom) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollBy({ top: r.bottom - bottom, behavior: still ? "auto" : "smooth" });
+  }
   function guideBubble(guide, text, mood) {
     return `<div class="guide ${mood || ""}">
       <div class="guide-face ${guide.svg ? "svg" : ""}" style="background:${guide.color}">${guide.face}</div>
@@ -1654,7 +1669,7 @@
         return `<div class="card level-card ${open ? "" : "locked"}">
           <div style="flex:1">
             <h3>${LEVEL_NAMES[l]}</h3>
-            <div class="small muted">${Math.min(pools[l].length, cfg.QUESTIONS_PER_MISSION)} שאלות · כל תשובה נכונה = 🪙 ${LEVEL_REWARD[l]}</div>
+            <div class="small muted">${Math.min(pools[l].length, cfg.QUESTIONS_PER_MISSION)} שאלות · <span class="nowrap">כל תשובה נכונה = 🪙 ${LEVEL_REWARD[l]}</span></div>
             <div class="station-stars">${"★".repeat(ls)}<span class="dim">${"★".repeat(3 - ls)}</span></div>
           </div>
           ${open ? `<button class="btn ${l > 1 ? "gold" : ""}" data-level="${l}">מתחילים!</button>`
@@ -2079,7 +2094,7 @@
     setTab("map");
     const best = (player.best || {})[key] || 0;
     app.innerHTML = `
-      <div class="place-hero" style="--c:${key === "race" ? "#dc2626" : "#db2777"}">
+      <div class="place-hero" style="--c:${key === "race" ? "#dc2626" : key === "piano" ? "#7c3aed" : "#db2777"}">
         <div class="place-icon">${icon}</div><h1>${title}</h1>
         <p>השיא שלכם: ${best}</p>
       </div>
@@ -2106,7 +2121,7 @@
       <div class="row center-row"><button class="btn gold" id="again">שוב</button><a class="btn ghost" href="${gameExitHash()}">חזרה</a></div>
     </div>`;
   }
-  const GAME_TITLES = { swipe: "אתגר המקורות", race: "מרוץ המקורות", duel: "דו-קרב" };
+  const GAME_TITLES = { swipe: "אתגר המקורות", race: "מרוץ המקורות", duel: "דו-קרב", "piano-q": "היכל הנגינה · שאלות", "piano-p": "היכל הנגינה · נגינה" };
   async function loadTop10(key, score) {
     const box = document.getElementById("top10");
     if (!box) return;
@@ -2124,6 +2139,61 @@
       const el = document.getElementById("top10");
       if (el) el.innerHTML = `<p class="muted small">הטופ 10 לא זמין כרגע.</p>`;
     }
+  }
+
+
+  // ---- היכל הנגינה: מקלדת עם התווים של הניגון. שאלות שהתשובה שלהן היא כמה קלידים לזוז, או נגינה לפי קליד מואר ----
+  const PIANO_MODES = [
+    { id: "q", icon: "❓", name: "שאלות", text: "שאלה שהתשובה שלה מספר: כמה קלידים לזוז מה-📍" },
+    { id: "p", icon: "🎹", name: "נגינה", text: "הקליד הבא מאיר, ולוחצים עליו" },
+  ];
+  function viewPiano() {
+    if (!player.name) return viewOnboarding();
+    const P = window.TeirePiano;
+    let songId = player.pianoSong || P.SONGS[0].id, mode = player.pianoMode || "q", prev = null;
+    if (!P.SONGS.some(x => x.id === songId)) songId = P.SONGS[0].id;
+    const extra = `
+      <h3 style="margin:14px 0 6px">איך משחקים?</h3>
+      <div class="piano-pick" id="pmodes">${PIANO_MODES.map(m => `<button class="piano-opt" data-mode="${m.id}"><span>${m.icon}</span><b>${m.name}</b><small>${m.text}</small></button>`).join("")}</div>
+      <h3 style="margin:14px 0 6px">איזה ניגון?</h3>
+      <div class="piano-pick" id="psongs">${P.SONGS.map(x => `<button class="piano-opt" data-song="${x.id}"><span>${x.icon}</span><b>${esc(x.name)}</b><small>${esc(x.level)} · ${esc(x.about)}</small></button>`).join("")}</div>
+      <button class="btn ghost" id="plisten" style="margin:10px 0">🎧 שמעו את הניגון</button>
+      <p class="tiny muted">כל הניגונים כאן מקוריים של האתר. צלילי פסנתר: FluidR3 GM (CC BY 3.0).</p>`;
+    gameIntro("piano", "היכל הנגינה", "🎹", "מקלדת עם התווים של הניגון בלבד: נמוך משמאל, גבוה מימין, כמו בפסנתר. <b>במצב שאלות</b> אתם עומדים על קליד 📍 ומקבלים שאלה, למשל \"כמה אבות היו?\". התשובה היא כמה קלידים לזוז: ➡️ עולים ימינה, ⬅️ יורדים שמאלה, ו-🔁 לוחצים שוב על אותו קליד. <b>במצב נגינה</b> לוחצים על הקליד שמאיר. בסוף הניגון מתנגן במלואו!", () => { if (prev) prev.stop(); playPiano(songId, mode); }, extra);
+    const sync = () => {
+      app.querySelectorAll("[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+      app.querySelectorAll("[data-song]").forEach(b => b.classList.toggle("on", b.dataset.song === songId));
+      const best = (player.best || {})["piano-" + mode] || 0;
+      const hero = app.querySelector(".place-hero p"); if (hero) hero.textContent = `השיא שלכם ב${PIANO_MODES.find(m => m.id === mode).name}: ${best}`;
+    };
+    app.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { mode = b.dataset.mode; player.pianoMode = mode; savePlayer(); sync(); });
+    app.querySelectorAll("[data-song]").forEach(b => b.onclick = () => { songId = b.dataset.song; player.pianoSong = songId; savePlayer(); sync(); });
+    const listen = document.getElementById("plisten");
+    listen.onclick = () => {
+      if (prev) { prev.stop(); prev = null; listen.textContent = "🎧 שמעו את הניגון"; return; }
+      if (window.Music && Music.duck) Music.duck(true);
+      listen.textContent = "⏹️ עצירה";
+      prev = P.preview(P.SONGS.find(x => x.id === songId), null, () => { prev = null; listen.textContent = "🎧 שמעו את הניגון"; if (window.Music && Music.duck) Music.duck(false); });
+    };
+    game = { stop() { if (prev) prev.stop(); if (window.Music && Music.duck) Music.duck(false); } };
+    sync();
+  }
+  function playPiano(songId, mode) {
+    stopGame();
+    const P = window.TeirePiano, song = P.SONGS.find(x => x.id === songId) || P.SONGS[0];
+    if (window.Music && Music.duck) Music.duck(true);
+    app.innerHTML = `<div id="pgame"></div>${backToTorah}`;
+    const g = P.start(document.getElementById("pgame"), {
+      song, mode,
+      onEnd(score, total) {
+        stopGame();
+        const key = "piano-" + mode;
+        app.innerHTML = gameOver(key, score, mode === "q" ? 2 : 1) + backToTorah;
+        document.querySelector(".result .big").insertAdjacentHTML("afterend", `<p class="muted">${song.icon} ${esc(song.name)} · ${score} מתוך ${total} בניסיון הראשון</p>`);
+        document.getElementById("again").onclick = () => playPiano(songId, mode);
+      },
+    });
+    game = { stop() { g.stop(); if (window.Music && Music.duck) Music.duck(false); } };
   }
 
   // ---- אתגר המקורות: משפט רץ אליכם, 5 שניות להחליק לצד של המקור הנכון ----
@@ -2213,6 +2283,7 @@
     { n: 2, theme: "desert", name: "מדבר יהודה", icon: "🏜️", speed: 1.08, coins: 5 },
     { n: 3, theme: "sea", name: "חוף הים", icon: "🌊", speed: 1.16, coins: 6 },
     { n: 4, theme: "jerusalem", name: "ירושלים", icon: "🏛️", speed: 1.24, coins: 7 },
+    { n: 5, theme: "city", name: "עיר הלילה", icon: "🌃", speed: 1.32, coins: 8 },
   ];
   const raceStages = () => X.RACE_WORLDS.length ? X.RACE_WORLDS : [{ n: 3, name: "פסוקים", icon: "💎", items: X.RACE }];
   const raceBest = n => ((player.raceBest || {})["t" + n]) || 0;
@@ -2340,6 +2411,8 @@
       </div>${backToTorah}`;
     const $ = id => document.getElementById(id), track = $("track"), ban = $("hban");
     let joySync = null;
+    // בעיר הלילה מד המהירות העגול מצויר על הכביש עצמו
+    track.classList.toggle("night", world.theme === "city");
     // מגללים כך שהשאלה בראש המסך (אחרי לחיצה על "מתחילים" הדף נשאר גלול למטה)
     $("race").scrollIntoView({ block: "start" });
     let banT = 0, lastHud = "", hudLast = {};
@@ -3158,6 +3231,9 @@
       add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · לפי ${f.posek}`, { text: `מה מברכים על ${f.name}?`, answer: BR.FIRST[f.first], others: wrong(BR.FIRST, f.first), source: f.source });
       if (f.after) add("ב", "ברכות בדרכים", "content/brachot.js", `${f.icon} ${f.name} · ברכה אחרונה`, { text: `מה מברכים אחרי ${f.name}?`, answer: BR.AFTER[f.after], others: wrong(BR.AFTER, f.after), source: f.afterSource });
     });
+    const SG = window.TEIRE_SONGS;
+    if (SG) Object.entries(SG.NUMBER_Q).forEach(([n, list]) => list.forEach(x =>
+      add("ג", "היכל הנגינה", "content/songs.js", `שאלת מספר · התשובה ${n}`, { text: x.q, answer: `${n} (${x.note})`, others: [], source: x.source })));
     const D = window.TEIRE_DEBATES || { DEBATES: [], SPEAKERS: {} };
     D.DEBATES.forEach(d => add("ו", "פלפולים", "content/debates.js", d.pair.map(w => D.SPEAKERS[w].name).join(" נגד "), {
       text: d.title, answer: "", others: [], source: d.source,
@@ -3252,7 +3328,7 @@
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
     // משחקים (מירוץ, החלפה, ויכוח): שומרים את המקום שממנו נכנסו, כדי לחזור אליו
-    if (!["swipe", "race", "debate"].includes(page)) { try { sessionStorage.setItem("teire.returnTo", location.hash || "#/"); } catch (e) { /* ignore */ } }
+    if (!["swipe", "race", "debate", "piano"].includes(page)) { try { sessionStorage.setItem("teire.returnTo", location.hash || "#/"); } catch (e) { /* ignore */ } }
     stopCity();
     stopDuel();
     stopGame();
@@ -3280,6 +3356,7 @@
     if (page === "leaders") return viewLeaders();
     if (page === "swipe") return viewSwipe();
     if (page === "race") return viewRace();
+    if (page === "piano") return viewPiano();
     if (page === "debate") return viewDebate(arg);
     if (page === "learn") return viewLearn(arg);
     if (page === "review") return viewReview();
