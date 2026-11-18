@@ -1315,4 +1315,7 @@ window.TEIRE_LANG = {
   "סטייל": "Style",
   "{n} · סטייל {n}": "{n} · Style {n}",
   "עקיפה!": "Overtake!",
+  "שלום {n}! אני טעיא 👴, הזקן מהגמרא, ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.": "Hello {n}! I'm Taya 👴, the elder from the Gemara, and I'll guide you through your first steps. It only takes a moment.",
+  "סיום ✓": "Done ✓",
+  "טעיא": "Taya",
 };
