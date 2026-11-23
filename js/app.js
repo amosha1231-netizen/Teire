@@ -3205,8 +3205,22 @@
         <p>האתר סגור ב${esc(st.name)}.</p>
         <p class="big-time">נפתח ${st.end.getDay() === 6 ? "במוצאי שבת" : "במוצאי החג"} בשעה <b>${hm(st.end)}</b></p>
         <p class="small muted">לפי הזמנים של ${esc(st.loc.name)}. <a href="#" id="fixloc">המיקום לא נכון?</a></p>
+        ${closedNoteEN(st)}
       </div>`;
     document.getElementById("fixloc").onclick = ev => { ev.preventDefault(); useMyLocation(() => { shabbatShown = false; if (!checkShabbat()) route(); }); };
+  }
+
+  // הסבר באנגלית למי שלא קורא עברית (למשל הבודקים של Google Play ו-App Store): כמה שעות עד שהמשחק נפתח שוב
+  function closedNoteEN(st) {
+    const mins = Math.max(1, Math.round((st.end - Date.now()) / 60000));
+    const h = Math.floor(mins / 60), m = mins % 60;
+    const wait = h ? `${h} hour${h === 1 ? "" : "s"}${m ? ` and ${m} minute${m === 1 ? "" : "s"}` : ""}` : `${m} minute${m === 1 ? "" : "s"}`;
+    let at = "";
+    try { at = st.end.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" }); } catch (e) { at = st.end.toString(); }
+    return `<div class="closed-en" lang="en" dir="ltr" translate="no">
+      <b>The game is closed for the Sabbath / Jewish holiday.</b><br>
+      It reopens automatically in about <b>${wait}</b> (${esc(at)}, device time). Everything works normally after that.<br>
+      App reviewers: please check back after that time. Thank you!</div>`;
   }
 
   function useMyLocation(done) {
