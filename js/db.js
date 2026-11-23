@@ -298,7 +298,9 @@
     if (error) throw new Error("לא הצלחנו להתחבר לשרת");
     return data.session;
   }
-  window.TeireDB.gems = useSupabase && cfg.GEMS === true ? {
+  // באפליקציית האנדרואיד יהלומים רק דרך Google Play Billing (RevenueCat). בלי מפתח אנדרואיד, אין יהלומים ואין מחירים באפליקציה.
+  const androidNoBilling = !!(window.TeireNative && window.TeireNative.inApp && !cfg.REVENUECAT_ANDROID_KEY);
+  window.TeireDB.gems = useSupabase && cfg.GEMS === true && !androidNoBilling ? {
     async userId() { return (await session()).user.id; },
     async state() {
       await session();

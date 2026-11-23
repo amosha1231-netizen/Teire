@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.amosha1231.teire",
+      "sha256_cert_fingerprints": [
+        "PLAY_APP_SIGNING_KEY_SHA256 (Play Console -> Test and release -> App integrity -> App signing)",
+        "UPLOAD_KEY_SHA256 (keytool -list -v -keystore teire-upload.keystore)"
+      ]
+    }
+  }
+]

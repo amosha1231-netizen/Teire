@@ -1,0 +1,26 @@
+{
+  "name": "teire-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "מסע בתורה לאנדרואיד: עטיפת Capacitor שטוענת את האתר החי",
+  "scripts": {
+    "sync": "npx cap sync android",
+    "open": "npx cap open android",
+    "assets": "npx @capacitor/assets generate --android --iconBackgroundColor '#2b4c8c' --iconBackgroundColorDark '#2b4c8c' --splashBackgroundColor '#fdf6e3' --splashBackgroundColorDark '#fdf6e3'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2"
+  }
+}

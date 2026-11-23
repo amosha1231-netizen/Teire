@@ -1318,4 +1318,10 @@ window.TEIRE_LANG = {
   "שלום {n}! אני טעיא 👴, הזקן מהגמרא, ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.": "Hello {n}! I'm Taya 👴, the elder from the Gemara, and I'll guide you through your first steps. It only takes a moment.",
   "סיום ✓": "Done ✓",
   "טעיא": "Taya",
+  "שתפו את המשחק": "Share the game",
+  "שלחו לחברים": "Send it to friends",
+  "בואו לשחק איתי במסע בתורה: חידות בתורה ובגמרא 📜": "Come play Masa BaTorah with me: Torah and Talmud quizzes 📜",
+  "הקישור הועתק 📋": "Link copied 📋",
+  "בחרו את העיר שלכם מהרשימה בעמוד \"הדמות שלי\"": "Choose your city from the list on the \"My character\" page",
+  "📡 אין חיבור לאינטרנט. חלק מהדברים לא יעבדו עד שהחיבור יחזור.": "📡 No internet connection. Some things won't work until it's back.",
 };

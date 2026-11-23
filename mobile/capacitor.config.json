@@ -1,0 +1,31 @@
+{
+  "appId": "com.amosha1231.teire",
+  "appName": "מסע בתורה",
+  "webDir": "www",
+  "backgroundColor": "#fdf6e3",
+  "server": {
+    "url": "https://amosha1231-netizen.github.io/Teire/",
+    "errorPath": "offline.html",
+    "androidScheme": "https"
+  },
+  "android": {
+    "appendUserAgent": "TeireApp-Android",
+    "allowMixedContent": false,
+    "captureInput": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#fdf6e3",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "backgroundColor": "#1e3a5f",
+      "style": "DARK",
+      "overlaysWebView": false
+    }
+  }
+}

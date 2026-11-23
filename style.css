@@ -1153,3 +1153,8 @@ body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
 @keyframes pk-glow { 0% { background: var(--c); color: #fff; transform: translateY(3px); } 100% { } }
 @keyframes pk-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 .piano-legend { display: flex; justify-content: space-between; font-size: .78rem; opacity: .75; margin-top: 8px; }
+
+/* ---------- אפליקציית האנדרואיד (js/native.js מוסיף את המחלקה in-app) ---------- */
+.in-app .bottomnav a[data-tab="admin"] { display: none; }
+.offline-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #b91c1c; color: #fff; text-align: center;
+  font-weight: 700; font-size: 14px; padding: 8px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
