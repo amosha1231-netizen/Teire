@@ -803,7 +803,7 @@
               <span class="menu-ic">${icon}</span><span class="menu-t">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="menu-arrow">‹</span>
             </a>`).join("")}
         </nav>
-        <div class="menu-lang"><div class="small muted">🌐 שפה · Language</div>${window.I18N ? I18N.pickerHTML() : ""}</div>
+        ${window.I18N && I18N.enabled ? `<div class="menu-lang"><div class="small muted">🌐 שפה · Language</div>${I18N.pickerHTML()}</div>` : ""}
         <div class="menu-foot">
           <button class="btn ghost" id="m-out">🚪 התנתקות / החלפת שחקן</button>
         </div>

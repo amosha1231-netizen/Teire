@@ -12,8 +12,11 @@
     { id: "fr", name: "Français", flag: "🇫🇷", dir: "ltr" },
     { id: "es", name: "Español", flag: "🇪🇸", dir: "ltr" },
   ];
+  // ENABLED = false: האתר והאפליקציה רק בעברית, ובחירת השפה מוסתרת (הבחירה הקודמת של השחקן נשמרת).
+  // כדי להחזיר אנגלית, צרפתית וספרדית: לשנות ל-true.
+  const ENABLED = false;
   let lang = "he";
-  try { lang = localStorage.getItem(KEY) || "he"; } catch (e) { /* ignore */ }
+  try { lang = ENABLED ? localStorage.getItem(KEY) || "he" : "he"; } catch (e) { /* ignore */ }
   if (!LANGS.some(l => l.id === lang)) lang = "he";
   const info = LANGS.find(l => l.id === lang);
   document.documentElement.lang = lang;
@@ -26,7 +29,7 @@
   };
 
   const I18N = {
-    lang, langs: LANGS, rtl: info.dir === "rtl", missing: new Set(),
+    lang, langs: LANGS, enabled: ENABLED, rtl: info.dir === "rtl", missing: new Set(),
     t: s => s,
     // רשימת הטקסטים שלא נמצא להם תרגום (בקונסול: I18N.dumpMissing()), להעתקה למילון
     dumpMissing: () => [...I18N.missing].join("\n"),
@@ -36,7 +39,7 @@
       try { localStorage.setItem(KEY, id); } catch (e) { /* ignore */ }
       location.reload();
     },
-    pickerHTML: () => `<div class="lang-pick" role="group" aria-label="Language">${LANGS.map(l =>
+    pickerHTML: () => !ENABLED ? "" : `<div class="lang-pick" role="group" aria-label="Language">${LANGS.map(l =>
       `<button type="button" class="lang-btn ${l.id === lang ? "on" : ""}" data-lang="${l.id}" lang="${l.id}" translate="no">${l.flag} ${l.name}</button>`).join("")}</div>`,
   };
   window.I18N = I18N;
