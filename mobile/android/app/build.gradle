@@ -1,0 +1,77 @@
+apply plugin: 'com.android.application'
+
+// חתימת גרסת השחרור: מ-keystore.properties (במחשב), או ממשתני סביבה ב-GitHub Actions.
+// אם אין אף אחד מהם, ה-AAB יוצא לא חתום, וחותמים אותו במחשב עם jarsigner. את ה-keystore לא מעלים לגיט לעולם.
+def keystoreProps = new Properties()
+def keystorePropsFile = rootProject.file('keystore.properties')
+if (keystorePropsFile.exists()) keystorePropsFile.withInputStream { keystoreProps.load(it) }
+def signValue = { String prop, String env -> keystoreProps.getProperty(prop) ?: System.getenv(env) }
+def releaseStoreFile = signValue('storeFile', 'TEIRE_KEYSTORE_FILE')
+def canSignRelease = releaseStoreFile && file(releaseStoreFile).exists()
+
+// מספר הגרסה עולה לבד בכל בנייה ב-GitHub (מספר הריצה), כי Google Play דורש versionCode גבוה יותר בכל העלאה.
+def buildNumber = (System.getenv('VERSION_CODE') ?: '1').toInteger()
+
+android {
+    namespace = "com.amosha1231.teire"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.amosha1231.teire"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode buildNumber
+        versionName "1.0." + buildNumber
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (canSignRelease) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword signValue('storePassword', 'TEIRE_KEYSTORE_PASSWORD')
+                keyAlias signValue('keyAlias', 'TEIRE_KEY_ALIAS')
+                keyPassword signValue('keyPassword', 'TEIRE_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (canSignRelease) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

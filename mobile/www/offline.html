@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>אין חיבור</title>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body { display: grid; place-items: center; background: #fdf6e3; color: #1e2a3a; font: 18px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
+    .box { max-width: 360px; }
+    .icon { font-size: 64px; }
+    h1 { color: #2b4c8c; font-size: 1.5em; margin: 8px 0; }
+    p { color: #4b5563; margin: 0 0 20px; }
+    button { font: inherit; font-weight: 700; color: #fff; background: #2b4c8c; border: 0; border-radius: 14px; padding: 14px 32px; box-shadow: 0 4px 0 #1e3a5f; }
+    button:active { transform: translateY(2px); box-shadow: 0 2px 0 #1e3a5f; }
+    .en { margin-top: 28px; font-size: 14px; color: #6b7280; direction: ltr; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">📡</div>
+    <h1>אין חיבור לאינטרנט</h1>
+    <p>המשחק צריך אינטרנט כדי להיפתח. בדקו את החיבור ונסו שוב.</p>
+    <button type="button" id="retry">לנסות שוב</button>
+    <div class="en">No internet connection. Check your connection and try again.</div>
+  </div>
+  <script>
+    var SITE = "https://amosha1231-netizen.github.io/Teire/";
+    function retry() { location.href = SITE; }
+    document.getElementById("retry").onclick = retry;
+    // כשהחיבור חוזר, נכנסים לבד
+    window.addEventListener("online", retry);
+  </script>
+</body>
+</html>

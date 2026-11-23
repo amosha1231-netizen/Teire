@@ -786,6 +786,7 @@
       ["#/device", "📱", "באיזה טלפון אתם משחקים?", deviceName(player.device)],
       ["#/review", "📋", "כל השאלות והמקורות", ""],
       ["tour", "🎓", "הדרכה למתחילים", "לראות שוב איך משחקים"],
+      ["share", "📤", "שתפו את המשחק", "שלחו לחברים"],
     ];
     const wrap = document.createElement("div");
     wrap.className = "menu-wrap";
@@ -799,7 +800,7 @@
         </div>
         <nav class="menu-list">
           ${items.map(([href, icon, title, sub]) => `
-            <a class="menu-item" href="${href === "tour" ? "#/" : href}" ${href === "tour" ? `data-tour="1"` : ""}>
+            <a class="menu-item" href="${href === "tour" || href === "share" ? "#/" : href}" ${href === "tour" ? `data-tour="1"` : href === "share" ? `data-share="1"` : ""}>
               <span class="menu-ic">${icon}</span><span class="menu-t">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="menu-arrow">‹</span>
             </a>`).join("")}
         </nav>
@@ -809,9 +810,15 @@
         </div>
       </aside>`;
     wrap.onclick = ev => { if (ev.target === wrap || ev.target.closest(".menu-x")) closeMenu(); };
-    wrap.querySelectorAll(".menu-item").forEach(a => a.addEventListener("click", () => {
+    wrap.querySelectorAll(".menu-item").forEach(a => a.addEventListener("click", ev => {
       const tour = a.dataset.tour;
       closeMenu();
+      if (a.dataset.share) {
+        ev.preventDefault();
+        if (window.TeireNative) TeireNative.share({ title: "מסע בתורה", text: "בואו לשחק איתי במסע בתורה: חידות בתורה ובגמרא 📜", url: "https://amosha1231-netizen.github.io/Teire/" })
+          .then(r => { if (r === "copied") toast("הקישור הועתק 📋"); });
+        return;
+      }
       if (tour) {
         if (player.tour === "done") player.tourGift = true; // מי שכבר סיים את ההדרכה בעבר כבר קיבל את המתנה
         player.tour = 0; savePlayer(); if ((location.hash || "#/") === "#/") setTimeout(startTour, 50); }
@@ -3203,7 +3210,8 @@
   }
 
   function useMyLocation(done) {
-    if (!navigator.geolocation) { toast("הדפדפן לא תומך באיתור מיקום"); return; }
+    // באפליקציית האנדרואיד לא מבקשים הרשאת מיקום: בוחרים עיר מהרשימה
+    if (!navigator.geolocation || (window.TeireNative && TeireNative.inApp)) { toast("בחרו את העיר שלכם מהרשימה בעמוד \"הדמות שלי\""); location.hash = "#/me"; return; }
     navigator.geolocation.getCurrentPosition(
       pos => { TeireShabbat.setLocation({ name: "המיקום שלי", lat: pos.coords.latitude, lon: pos.coords.longitude }); toast("📍 המיקום עודכן"); if (done) done(); },
       () => toast("לא הצלחנו לקבל את המיקום. אפשר לבחור עיר מהרשימה בעמוד \"הדמות שלי\"."),
