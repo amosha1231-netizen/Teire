@@ -14,6 +14,9 @@
   --radius: 22px;
   --ink: #1f2937;
 }
+/* גובה האיזור של השעון והמצלמה באייפון. --sat-fb הוא הגובה מהפעם הקודמת, עד שהאמיתי מגיע (js/safe-area.js) */
+:root { --sat: max(env(safe-area-inset-top, 0px), var(--sat-fb, 0px)); }
+html.sa-wait body { visibility: hidden; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; }
 body {
@@ -33,14 +36,14 @@ a { color: var(--primary); }
 /* סרגל עליון */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top));
+  padding: 10px 16px; padding-top: calc(10px + var(--sat));
   background: linear-gradient(135deg, #2b4c8c, #4a6fc1); color: #fff;
   position: sticky; top: 0; z-index: 20; box-shadow: 0 3px 0 rgba(0,0,0,.08);
 }
 .brand { color: #fff; text-decoration: none; font-size: 1.2rem; white-space: nowrap; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .brand-mark { background: #fff; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem; }
 .hud { display: flex; gap: 4px; min-width: 0; flex: 0 1 auto; margin-inline-start: auto; }
-@media (max-width: 480px) { .topbar { gap: 6px; padding-inline: 10px; padding-block: 8px; padding-top: calc(8px + env(safe-area-inset-top)); } .hud { gap: 3px; } .hud .pill { padding: 1px 7px; font-size: .82rem; border-width: 1.5px; } .brand-mark { width: 30px; height: 30px; font-size: 1rem; } .brand { font-size: 1rem; gap: 6px; } }
+@media (max-width: 480px) { .topbar { gap: 6px; padding-inline: 10px; padding-block: 8px; padding-top: calc(8px + var(--sat)); } .hud { gap: 3px; } .hud .pill { padding: 1px 7px; font-size: .82rem; border-width: 1.5px; } .brand-mark { width: 30px; height: 30px; font-size: 1rem; } .brand { font-size: 1rem; gap: 6px; } }
 @media (max-width: 400px) { .brand-text { display: none; } }
 .pill { background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.35); border-radius: 99px; padding: 3px 12px; font-weight: 700; white-space: nowrap; }
 .pill.dark { background: var(--primary-soft); border-color: transparent; color: var(--primary); }
@@ -199,7 +202,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 body.in-city { overflow: hidden; padding-bottom: 0; }
 body.in-city main { max-width: none; padding: 0; }
 .city {
-  position: fixed; left: 0; right: 0; top: calc(56px + env(safe-area-inset-top)); bottom: calc(66px + env(safe-area-inset-bottom));
+  position: fixed; left: 0; right: 0; top: calc(56px + var(--sat)); bottom: calc(66px + env(safe-area-inset-bottom));
   overflow: hidden; background: #a6db8c; touch-action: manipulation; user-select: none; -webkit-user-select: none;
 }
 .world { position: absolute; top: 0; left: 0; will-change: transform; transform-origin: 0 0; }
@@ -784,7 +787,7 @@ button.olama-name { cursor: pointer; }
 .level-btn .rec { position: absolute; top: -11px; inset-inline: 0; margin: 0 auto; width: max-content; background: var(--gold); color: #5a3600; font-size: .72rem; font-weight: 800; padding: 1px 8px; border-radius: 99px; }
 
 /* שאלת השבוע: הצעה שקופצת פעם בשבוע מעל המפה */
-.weekly-pop { position: fixed; inset: 0; z-index: 40; background: rgba(15, 23, 42, .45); display: grid; place-items: center; padding: 16px; animation: pingIn .3s ease-out; }
+.weekly-pop { position: fixed; inset: 0; z-index: 40; background: rgba(15, 23, 42, .45); display: grid; place-items: center; padding: calc(12px + var(--sat)) 16px calc(16px + env(safe-area-inset-bottom)); overflow-y: auto; animation: pingIn .3s ease-out; }
 .weekly-card { max-width: 420px; width: 100%; border: 3px dashed #d97706; background: #fffbeb; }
 .weekly-card .weekly-tag { padding: 0; cursor: default; }
 .weekly-card .qtext { font-size: 1.1rem; margin: 12px 0 16px; }
@@ -813,7 +816,7 @@ img, svg, video, canvas { max-width: 100%; }
 body.shabbat .menu-btn { display: none; }
 .menu-wrap { position: fixed; inset: 0; z-index: 70; background: rgba(15,23,42,.45); animation: fadein .2s ease; }
 @keyframes fadein { from { opacity: 0; } }
-.menu-sheet { position: absolute; top: 0; bottom: 0; left: 0; width: min(330px, 86vw); background: var(--bg); box-shadow: 6px 0 30px rgba(0,0,0,.25); display: flex; flex-direction: column; padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); overflow-y: auto; animation: slidein .25s ease; }
+.menu-sheet { position: absolute; top: 0; bottom: 0; left: 0; width: min(330px, 86vw); background: var(--bg); box-shadow: 6px 0 30px rgba(0,0,0,.25); display: flex; flex-direction: column; padding: calc(12px + var(--sat)) 12px calc(12px + env(safe-area-inset-bottom)); overflow-y: auto; animation: slidein .25s ease; }
 @keyframes slidein { from { transform: translateX(-100%); } }
 .menu-me { display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #2b4c8c, #4a6fc1); color: #fff; border-radius: 18px; padding: 10px 12px; margin-bottom: 10px; }
 .menu-me b { font-size: 1.1rem; }
@@ -851,7 +854,7 @@ body.no-player .hud, body.no-player .menu-btn { visibility: hidden; }
 .tour-hole.none { left: 50%; top: 50%; width: 0; height: 0; border: 0; animation: none; }
 @keyframes tourpulse { 50% { border-color: #fff; } }
 .tour-card { position: fixed; left: 12px; right: 12px; max-width: 460px; margin-inline: auto; display: flex; gap: 10px; align-items: flex-start; background: #fff; border-radius: 20px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.3); animation: popup .3s ease; }
-.tour-card.at-top { top: calc(70px + env(safe-area-inset-top)); }
+.tour-card.at-top { top: calc(70px + var(--sat)); }
 .tour-card.at-bottom { bottom: calc(90px + env(safe-area-inset-bottom)); }
 .tour-card.at-middle { top: 50%; transform: translateY(-50%); animation: none; }
 .tour-guide { font-size: 2.6rem; line-height: 1; flex: none; animation: bob 1.6s ease-in-out infinite; }
@@ -915,7 +918,7 @@ body.no-player .hud, body.no-player .menu-btn { visibility: hidden; }
 /* ---------- שלט (js/gamepad.js) ---------- */
 body.using-pad :focus { outline: 4px solid #ffd54a; outline-offset: 3px; box-shadow: 0 0 0 7px rgba(30, 58, 95, .55); }
 body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
-.pad-note { position: fixed; left: 50%; top: 72px; transform: translateX(-50%); z-index: 120; background: #1e3a5f; color: #fff; padding: 10px 16px; border-radius: 14px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); text-align: center; animation: pingIn .3s ease-out; }
+.pad-note { position: fixed; left: 50%; top: calc(64px + var(--sat)); transform: translateX(-50%); z-index: 120; background: #1e3a5f; color: #fff; padding: 10px 16px; border-radius: 14px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); text-align: center; animation: pingIn .3s ease-out; }
 
 /* ---------- חשיפת קלף (פתיחת חבילה) ---------- */
 .pack-ov {
@@ -1104,7 +1107,8 @@ body.using-pad .bld:focus { transform: translate(-50%, -50%) scale(1.08); }
 .me.tired::after { content: "💤"; position: absolute; top: 0; inset-inline-end: -16px; font-size: 1.1rem; animation: zzz 2s ease-in-out infinite; }
 .me.tired.walking .me-body svg { animation-duration: .7s; }
 @keyframes zzz { 50% { transform: translate(-4px, -6px); opacity: .5; } }
-.food-ov { position: fixed; inset: 0; z-index: 45; background: rgba(15, 23, 42, .5); display: grid; place-items: center; padding: 16px; overflow-y: auto; }
+/* החלון של שאלת המאכל מכסה את כל המסך, אז שומרים מקום לשעון של האייפון למעלה ולפס הבית למטה */
+.food-ov { position: fixed; inset: 0; z-index: 45; background: rgba(15, 23, 42, .5); display: grid; place-items: center; padding: calc(12px + var(--sat)) 16px calc(16px + env(safe-area-inset-bottom)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .food-card { width: min(440px, 100%); margin: 0; text-align: center; animation: pingIn .3s ease-out; }
 .food-card .answers { text-align: start; }
 .food-card .qtext { font-size: 1.15rem; }
