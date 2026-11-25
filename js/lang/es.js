@@ -1316,6 +1316,8 @@ window.TEIRE_LANG = {
   "{n} · סטייל {n}": "{n} · Estilo {n}",
   "עקיפה!": "¡Adelantamiento!",
   "שלום {n}! אני טעיא 👴, הזקן מהגמרא, ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.": "¡Hola {n}! Soy Taya 👴, el anciano de la Guemará, y te acompañaré en tus primeros pasos. Solo tomará un momento.",
+  "🏎️ מרוץ המקורות נמצא בירושלים, בקריית התורה. למעלה מופיע משפט, ושער עם שני שלטים מתקרב. בכל שלט מקור אחר, ואתה עובר לנתיב של המקור הנכון לפני שמגיעים לשער.": "🏎️ La carrera de las fuentes está en Jerusalén, en la Ciudad de la Torá. Arriba aparece una frase, y se acerca una puerta con dos carteles. Cada cartel muestra una fuente distinta, y te pasas al carril de la fuente correcta antes de llegar a la puerta.",
+  "איך נוהגים: בטלפון גוררים את הג'ויסטיק שמתחת לכביש, לוחצים על ◀ ▶, מחליקים או מקישים על צד הכביש. במחשב: החצים במקלדת. נתיב לא נכון, או להישאר באמצע, וזו התרסקות 💥. ארבע תשובות ברצף: 🔥 טורבו ונקודת בונוס. ברמפה 🛫 המכונית עפה, ובתא הנהג מטים לצד הנכון: נחיתה טובה שווה 3 נקודות!": "Cómo conducir: en el teléfono, arrastra el joystick debajo de la carretera, pulsa ◀ ▶, desliza o toca el lado de la carretera. En la computadora: las flechas del teclado. Carril equivocado, o quedarte en el medio, y es un choque 💥. 4 respuestas seguidas: 🔥 turbo y un punto extra. En una rampa 🛫 el coche vuela, y en la cabina te inclinas hacia el lado correcto: ¡un buen aterrizaje vale 3 puntos!",
   "סיום ✓": "Listo ✓",
   "טעיא": "Taya",
   "שתפו את המשחק": "Compartir el juego",

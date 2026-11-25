@@ -1316,6 +1316,8 @@ window.TEIRE_LANG = {
   "{n} · סטייל {n}": "{n} · Style {n}",
   "עקיפה!": "Overtake!",
   "שלום {n}! אני טעיא 👴, הזקן מהגמרא, ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.": "Hello {n}! I'm Taya 👴, the elder from the Gemara, and I'll guide you through your first steps. It only takes a moment.",
+  "🏎️ מרוץ המקורות נמצא בירושלים, בקריית התורה. למעלה מופיע משפט, ושער עם שני שלטים מתקרב. בכל שלט מקור אחר, ואתה עובר לנתיב של המקור הנכון לפני שמגיעים לשער.": "🏎️ The Sources Race is in Jerusalem, in Torah Town. A sentence appears at the top, and a gate with two signs comes toward you. Each sign shows a different source, and you move to the lane of the correct source before reaching the gate.",
+  "איך נוהגים: בטלפון גוררים את הג'ויסטיק שמתחת לכביש, לוחצים על ◀ ▶, מחליקים או מקישים על צד הכביש. במחשב: החצים במקלדת. נתיב לא נכון, או להישאר באמצע, וזו התרסקות 💥. ארבע תשובות ברצף: 🔥 טורבו ונקודת בונוס. ברמפה 🛫 המכונית עפה, ובתא הנהג מטים לצד הנכון: נחיתה טובה שווה 3 נקודות!": "How to drive: on a phone, drag the joystick under the road, press ◀ ▶, swipe, or tap the side of the road. On a computer: the arrow keys. The wrong lane, or staying in the middle, means a crash 💥. 4 answers in a row: 🔥 turbo and a bonus point. On a ramp 🛫 the car flies, and in the cockpit you lean to the correct side: a good landing is worth 3 points!",
   "סיום ✓": "Done ✓",
   "טעיא": "Taya",
   "שתפו את המשחק": "Share the game",

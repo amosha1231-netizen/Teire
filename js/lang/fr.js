@@ -1316,6 +1316,8 @@ window.TEIRE_LANG = {
   "{n} · סטייל {n}": "{n} · Style {n}",
   "עקיפה!": "Dépassement !",
   "שלום {n}! אני טעיא 👴, הזקן מהגמרא, ואני אלווה אותך בצעדים הראשונים. זה ייקח רק רגע.": "Bonjour {n} ! Je suis Taya 👴, le vieillard de la Guemara, et je vais t'accompagner dans tes premiers pas. Ça ne prendra qu'un instant.",
+  "🏎️ מרוץ המקורות נמצא בירושלים, בקריית התורה. למעלה מופיע משפט, ושער עם שני שלטים מתקרב. בכל שלט מקור אחר, ואתה עובר לנתיב של המקור הנכון לפני שמגיעים לשער.": "🏎️ La course des sources se trouve à Jérusalem, dans la Cité de la Torah. Une phrase apparaît en haut, et une porte avec deux panneaux approche. Chaque panneau montre une source différente, et tu passes sur la voie de la bonne source avant d'arriver à la porte.",
+  "איך נוהגים: בטלפון גוררים את הג'ויסטיק שמתחת לכביש, לוחצים על ◀ ▶, מחליקים או מקישים על צד הכביש. במחשב: החצים במקלדת. נתיב לא נכון, או להישאר באמצע, וזו התרסקות 💥. ארבע תשובות ברצף: 🔥 טורבו ונקודת בונוס. ברמפה 🛫 המכונית עפה, ובתא הנהג מטים לצד הנכון: נחיתה טובה שווה 3 נקודות!": "Comment conduire : sur téléphone, fais glisser le joystick sous la route, appuie sur ◀ ▶, balaie l'écran ou touche le côté de la route. Sur ordinateur : les flèches du clavier. Mauvaise voie, ou rester au milieu, et c'est l'accident 💥. 4 réponses d'affilée : 🔥 turbo et un point bonus. Sur une rampe 🛫 la voiture s'envole, et dans le cockpit tu te penches du bon côté : un bon atterrissage vaut 3 points !",
   "סיום ✓": "Terminé ✓",
   "טעיא": "Taya",
   "שתפו את המשחק": "Partager le jeu",
