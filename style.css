@@ -261,7 +261,7 @@ body.in-city main { max-width: none; padding: 0; }
 .city-hint { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(31,41,55,.82); color: #fff; padding: 8px 16px; border-radius: 99px; font-size: .9rem; white-space: nowrap; transition: opacity .4s; pointer-events: none; }
 .city-hint.hide { opacity: 0; }
 .soul-chip { position: absolute; top: 10px; left: 10px; background: #fff; border: 2px solid var(--gold); color: #7a4b00; font-weight: 800; font-size: .85rem; padding: 5px 12px; border-radius: 99px; text-decoration: none; box-shadow: 0 3px 0 rgba(0,0,0,.15); z-index: 5; }
-.toast { position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 10px 18px; border-radius: 14px; z-index: 60; font-weight: 500; max-width: 90vw; text-align: center; animation: pop .3s ease; }
+.toast { position: fixed; top: calc(80px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 10px 18px; border-radius: 14px; z-index: 60; font-weight: 500; max-width: 90vw; text-align: center; animation: pop .3s ease; }
 
 /* חכמים */
 .guide-face.svg { overflow: hidden; display: grid; place-items: start center; }
@@ -432,7 +432,30 @@ body.shabbat .music-btn { display: none; }
 .garage-car { min-width: 110px; }
 .garage-car.on { background: #dcfce7; border-color: #16a34a; }
 .race .arena-top { position: static; margin-bottom: 8px; gap: 6px; flex-wrap: wrap; }
-.race-q { background: #fff7d6; color: #3b2a00; border-radius: 16px; padding: 12px; text-align: center; font-weight: 800; font-size: 1.15rem; margin-bottom: 8px; box-shadow: 0 4px 0 rgba(0,0,0,.12); min-height: 2.6em; }
+/* השאלה: לוח גדול בתוך הכביש, מתחת למחוונים, כדי שתמיד תיראה יחד עם השלטים */
+.race-top { position: absolute; z-index: 4; top: 78px; left: 50%; transform: translateX(-50%); width: min(94%, 620px); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; direction: rtl; }
+.race-q { width: 100%; background: rgba(255,247,214,.96); color: #2a1d00; border: 3px solid #f59e0b; border-radius: 16px; padding: 10px 14px; text-align: center; font-weight: 800; font-size: 1.45rem; line-height: 1.3; box-shadow: 0 5px 0 rgba(0,0,0,.25), 0 8px 18px rgba(0,0,0,.25); }
+.race-q.long { font-size: 1.2rem; }
+.race-q.hide { display: none; }
+.track.cockpit .race-q { border-color: #facc15; box-shadow: 0 0 0 4px rgba(250,204,21,.4), 0 8px 18px rgba(0,0,0,.35); }
+/* האימון: בועת הסבר, וכפתור מהבהב בג'ויסטיק */
+.race-tutor { width: 100%; background: rgba(17,24,39,.9); color: #fff; border: 2px solid #38bdf8; border-radius: 14px; padding: 10px 12px; text-align: center; font-weight: 700; font-size: 1.02rem; line-height: 1.4; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+.race-tutor[hidden] { display: none; }
+.race-tutor p { margin: 0; }
+.race-tutor.short { padding: 6px 10px; font-size: .95rem; background: rgba(17,24,39,.78); }
+.race-tutor.pop { animation: popup .3s ease; }
+.tutor-btns { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+.tutor-btns button { pointer-events: auto; }
+.tutor-btns button[hidden] { display: none; }
+.tutor-skip { background: transparent; border: 1px solid rgba(255,255,255,.5); color: #e5e7eb; border-radius: 99px; padding: 4px 12px; font: inherit; font-size: .8rem; cursor: pointer; }
+.track.tut .race-banner { display: none; }
+.joy-pad.hint-left .joy-btn[data-joy="left"], .joy-pad.hint-right .joy-btn[data-joy="right"] { animation: tutPulse .7s infinite alternate; }
+.joy-pad.hint-joy .joy-btn { animation: tutPulse .7s infinite alternate; }
+.joy-pad.hint-left .joy-knob, .joy-pad.hint-right .joy-knob, .joy-pad.hint-joy .joy-knob { box-shadow: 0 6px 0 rgba(0,0,0,.35), 0 0 0 4px rgba(56,189,248,.8), 0 0 18px rgba(56,189,248,.8); }
+.track.hint-road::after { content: "👆"; position: absolute; z-index: 3; bottom: 26%; left: 50%; font-size: 2.6rem; pointer-events: none; animation: tutSwipe 1.4s ease-in-out infinite; }
+@keyframes tutPulse { to { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(56,189,248,.7), 0 0 20px rgba(56,189,248,.9); } }
+@keyframes tutSwipe { 0%, 100% { transform: translateX(-90px); } 50% { transform: translateX(50px); } }
+.race-tut-btn { display: block; margin: 10px auto 0; }
 .race { scroll-margin-top: 76px; }
 .track {
   position: relative; width: 100%; height: min(64vh, 540px); min-height: 300px; border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; direction: ltr;
@@ -452,9 +475,9 @@ body.shabbat .music-btn { display: none; }
 .hud-spd b { font-size: 2.6rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; font-style: italic; }
 .hud-spd span { font-size: .75rem; font-weight: 700; }
 .hud-time { display: inline-block; margin-top: 3px; background: #e11d48; color: #fff; border-radius: 6px; padding: 1px 8px; font-weight: 800; font-size: .85rem; font-variant-numeric: tabular-nums; }
-.hud-snd { position: absolute; z-index: 4; top: 64px; left: 10px; width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(10,14,20,.55); font-size: 1rem; cursor: pointer; padding: 0; }
+.hud-snd { position: absolute; z-index: 5; top: 12px; left: 118px; width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(10,14,20,.55); font-size: 1rem; cursor: pointer; padding: 0; }
 .race-tag { position: absolute; z-index: 2; right: 0; bottom: 74px; background: #fff; color: #e11d48; font-weight: 800; font-style: italic; padding: 2px 12px 2px 18px; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%); font-size: .85rem; pointer-events: none; opacity: .92; }
-.race-banner { position: absolute; z-index: 5; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(.6); opacity: 0; color: #fff; font-weight: 800; font-size: 2rem; font-style: italic;
+.race-banner { position: absolute; z-index: 5; left: 50%; top: 52%; transform: translate(-50%, -50%) scale(.6); opacity: 0; color: #fff; font-weight: 800; font-size: 2rem; font-style: italic;
   text-shadow: 0 3px 0 rgba(0,0,0,.35), 0 0 18px rgba(0,0,0,.4); pointer-events: none; white-space: nowrap; transition: transform .2s, opacity .2s; direction: rtl; }
 .race-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .race-banner.count, .race-banner.go { font-size: 4.2rem; }
@@ -467,8 +490,11 @@ body.shabbat .music-btn { display: none; }
 .lane-label.long { font-size: .78rem; padding: 5px 4px; }
 /* בטלפון: השאלה, הכביש והתשובות נכנסים במסך אחד בלי לגלול */
 @media (max-width: 640px) {
-  .race-q { font-size: 1rem; padding: 8px 10px; min-height: 0; margin-bottom: 6px; }
-  .track { height: calc(100svh - 360px); min-height: 260px; max-height: 560px; }
+  .race-top { top: 70px; width: 96%; gap: 6px; }
+  .race-q { font-size: 1.25rem; padding: 8px 10px; }
+  .race-q.long { font-size: 1.05rem; }
+  .race-tutor { font-size: .92rem; padding: 8px 10px; }
+  .track { height: calc(100svh - 290px - env(safe-area-inset-top, 0px)); min-height: 330px; max-height: 600px; }
   .lane-label { width: 46%; font-size: .85rem; }
   .lane-label.left { left: 2%; } .lane-label.right { right: 2%; }
   .race-tag { display: none; }

@@ -114,6 +114,27 @@
 
   // ---------- קולות: מנוע, כביש, צמיגים, טורבו, עקיפה, התרסקות ----------
   const SFX_KEY = "teire.racesfx";
+  // הקשר שמע אחד לכל המרוצים: באייפון יש מגבלה על מספר ההקשרים, והקשר נפתח רק אחרי מגע של המשתמש
+  let sharedCtx = null;
+  function audioCtx() {
+    // באייפון: בלי זה המתג השקט של הטלפון משתיק את כל הצלילים של המשחק
+    try { if (navigator.audioSession && navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"; } catch (e) { /* ignore */ }
+    if (!sharedCtx || sharedCtx.state === "closed") sharedCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (sharedCtx.state !== "running") { try { sharedCtx.resume(); } catch (e) { /* ignore */ } }
+    return sharedCtx;
+  }
+  // אייפון ישן (לפני iOS 17): נגינה של קטע שקט בתגית audio פותחת את השמע גם כשהמתג השקט דלוק
+  let unlockedTag = false;
+  function unlockTag() {
+    if (unlockedTag) return;
+    unlockedTag = true;
+    try {
+      const a = document.createElement("audio");
+      a.setAttribute("playsinline", ""); a.setAttribute("x-webkit-airplay", "deny"); a.loop = true; a.volume = 0.01;
+      a.src = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
+      const p = a.play(); if (p && p.catch) p.catch(() => { unlockedTag = false; });
+    } catch (e) { unlockedTag = false; }
+  }
   function makeSound() {
     let ctx = null, out = null, eng = null, road = null, skid = null, noiseBuf = null;
     let on = true;
@@ -133,10 +154,12 @@
       s.connect(f); f.connect(gn); gn.connect(out); s.start();
       return { s, f, g: gn };
     }
+    let nodes = [];
     function start() {
       try {
-        ctx = new (window.AudioContext || window.webkitAudioContext)();
-        out = ctx.createGain(); out.gain.value = on ? 0.9 : 0;
+        unlockTag();
+        ctx = audioCtx();
+        out = ctx.createGain(); out.gain.value = on ? 1 : 0;
         const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 5;
         out.connect(comp); comp.connect(ctx.destination);
         // מנוע: שני מתנדים (שן מסור ומרובע) דרך מסנן, עם עיוות קל לצליל "גס"
@@ -150,11 +173,16 @@
         const g2 = ctx.createGain(); g2.gain.value = 0.5; const g3 = ctx.createGain(); g3.gain.value = 0.35;
         o1.connect(shaper); o2.connect(g2); g2.connect(shaper); o3.connect(g3); g3.connect(shaper);
         shaper.connect(lp); lp.connect(gn); gn.connect(out);
-        o1.start(); o2.start(); o3.start();
-        eng = { o1, o2, o3, lp, g: gn };
+        // שכבת "נהמה" בתדרים בינוניים: הרמקול הקטן של הטלפון לא משמיע בס, אז בלי זה כמעט לא שומעים את המנוע
+        const o4 = ctx.createOscillator(); o4.type = "square";
+        const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 700; bp.Q.value = 1.2;
+        const g4 = ctx.createGain(); g4.gain.value = 0;
+        o4.connect(bp); bp.connect(g4); g4.connect(out);
+        o1.start(); o2.start(); o3.start(); o4.start();
+        eng = { o1, o2, o3, o4, bp, lp, g: gn, g4 };
         road = loopNoise("bandpass", 500, 0.6);
         skid = loopNoise("bandpass", 2600, 9);
-        ctx.resume();
+        nodes = [o1, o2, o3, o4, road.s, skid.s];
       } catch (e) { ctx = null; }
     }
     // speed01 = 0..1, kmh לחישוב הילוכים, skid01 = עוצמת חריקת הצמיגים
@@ -171,7 +199,10 @@
       eng.o2.frequency.setTargetAtTime(f * 0.5, t, 0.05);
       eng.o3.frequency.setTargetAtTime(f * 1.006 * 2, t, 0.05);
       eng.lp.frequency.setTargetAtTime(350 + rpm * 900 + speed01 * 600 + (boost ? 900 : 0), t, 0.06);
-      eng.g.gain.setTargetAtTime(kmh > 1 ? 0.16 + speed01 * 0.08 : 0.07, t, 0.1);
+      eng.g.gain.setTargetAtTime(kmh > 1 ? 0.2 + speed01 * 0.1 : 0.09, t, 0.1);
+      eng.o4.frequency.setTargetAtTime(f * 3, t, 0.05);
+      eng.bp.frequency.setTargetAtTime(500 + rpm * 700 + speed01 * 500, t, 0.08);
+      eng.g4.gain.setTargetAtTime(kmh > 1 ? 0.07 + speed01 * 0.06 : 0.04, t, 0.1);
       road.g.gain.setTargetAtTime(speed01 * 0.18, t, 0.15);
       road.f.frequency.setTargetAtTime(300 + speed01 * 900, t, 0.2);
       skid.g.gain.setTargetAtTime(skid01 * 0.12, t, 0.08);
@@ -194,6 +225,8 @@
     return {
       start,
       update,
+      // באייפון ההקשר יכול להיעצר (שיחה, מעבר לאפליקציה אחרת): כל מגע במשחק מחדש אותו
+      wake() { unlockTag(); if (ctx && ctx.state !== "running") { try { ctx.resume(); } catch (e) { /* ignore */ } } },
       beep: hi => tone(hi ? 880 : 440, hi ? 0.5 : 0.18, 0.18),
       nitro() { burst("highpass", 400, 1.2, 0.5, 4000); tone(120, 0.9, 0.12, "sawtooth", 420); },
       whoosh() { burst("bandpass", 1800, 0.45, 0.35, 400); },
@@ -209,11 +242,18 @@
       toggle() {
         on = !on;
         try { localStorage.setItem(SFX_KEY, on ? "on" : "off"); } catch (e) { /* ignore */ }
-        if (out) out.gain.value = on ? 0.9 : 0;
+        if (out) out.gain.value = on ? 1 : 0;
+        if (on) this.wake();
         return on;
       },
       get on() { return on; },
-      stop() { if (ctx) { try { ctx.close(); } catch (e) { /* ignore */ } ctx = null; } },
+      // לא סוגרים את ההקשר המשותף: עוצרים את הצלילים של המרוץ הזה ומנתקים אותם
+      stop() {
+        if (!ctx) return;
+        nodes.forEach(n => { try { n.stop(); } catch (e) { /* ignore */ } });
+        try { out.disconnect(); } catch (e) { /* ignore */ }
+        nodes = []; ctx = null;
+      },
     };
   }
 
@@ -303,7 +343,9 @@
 
     // מצב המשחק
     let pos = 0, speed = 0, target = 0, laneName = "mid", px = 0, score = 0, streak = 0, shield = shield0;
-    let phase = "count", phaseT = 0, clock = 0, raceT = 0, gateZ = null, item = null, sides = null, k = 0, raf = 0, last = 0;
+    // הדרכה אינטראקטיבית לפני המרוץ: tut = שלב ההדרכה, או null במרוץ עצמו
+    let tut = opts.tutorial ? { step: "", t: 0, n: 0 } : null;
+    let phase = tut ? "tut" : "count", phaseT = 0, clock = 0, raceT = 0, gateZ = null, item = null, sides = null, k = 0, raf = 0, last = 0;
     let lap = 0, bgX = 0, crashT = 0, nitroT = 0, lean = 0, ended = false, flash = 0;
     // רמפה: gates = מספר השער, ramp = השער הנוכחי הוא רמפה, lift/zoom = גובה הקפיצה והזום לתא הנהג
     let gates = 0, ramp = false, lift = 0, zoom = 0, airTilt = 0, chosen = null, choseT = 0, beatT = 0, slow = 1, shake = 0, bodyLean = 0, stage = -1;
@@ -329,6 +371,32 @@
     const baseV = GATE_DIST / 4.6; // יחידות לשנייה במהירות ההתחלה
 
     const segAt = z => segs[Math.floor(((z % trackLen) + trackLen) % trackLen / SEG) % N];
+    // שער אימון בהדרכה: שאלה קלה, נסיעה איטית, ובלי התרסקות
+    function tutGate(isRampGate) {
+      const d = decks[0];
+      item = d[d.length - 1 - (tut.n++ % d.length)]; sides = sidesFor(item); ramp = isRampGate; // מסוף החפיסה, כדי שהמרוץ לא יתחיל באותן שאלות
+      gateZ = pos + PLAYER_Z + GATE_DIST; target = baseV * 0.62; phase = "drive"; phaseT = 0;
+      if (ramp) { ui.question(item, null); if (ui.ramp) ui.ramp("near"); } else ui.question(item, sides);
+      tutSay(ramp ? "rampDrive" : "gateDrive"); // הסבר קצר, כדי שיראו את השער
+    }
+    function tutSay(step, extra) { tut.step = step; tut.t = 0; if (ui.tutor) ui.tutor(step, extra || {}); }
+    function tutWrong() {
+      snd.shield(); flash = 0.4; gateZ = null; phase = "tut"; phaseT = 0;
+      if (ui.ramp) ui.ramp("done");
+      ui.question(null); ui.toast("המקור הנכון: " + item.right);
+      tutSay(ramp ? "rampRetry" : "gateRetry");
+    }
+    // סוף ההדרכה (או דילוג): מאפסים הכל ומתחילים ספירה לאחור למרוץ האמיתי
+    function begin() {
+      if (!tut) return;
+      tut = null; if (ui.tutor) ui.tutor(null);
+      if (ui.ramp) ui.ramp("done");
+      ui.question(null, null, "ready");
+      score = 0; streak = 0; gates = 0; stage = -1; raceT = 0; gateZ = null; ramp = false; nitroT = 0;
+      laneName = "mid"; lift = 0; zoom = 0; airTilt = 0; slow = 1; target = 0; clock = 0; chosen = null;
+      phase = "count"; phaseT = 0; ui.score(0);
+      RIVALS.forEach((r, n) => { r.z = PLAYER_Z + 3200 + n * 2600; r.v = 0; r.x = r.tx = n % 2 ? 0.5 : -0.5; r.ahead = true; });
+    }
     function newGate() {
       gates++;
       ramp = isRamp(gates);
@@ -351,6 +419,7 @@
     }
     function enterCockpit() {
       phase = "cockpit"; phaseT = 0; laneName = "mid"; zoom = 1;
+      if (tut) tutSay("cockpit");
       ui.question(item, sides);
       if (ui.ramp) ui.ramp("cockpit");
     }
@@ -365,6 +434,12 @@
     }
     function resolveRamp() {
       if (ui.ramp) ui.ramp("done");
+      if (tut) {
+        if (chosen !== sides.correct) return tutWrong();
+        score += 3; ui.score(score); snd.cheer(); nitroT = 1.8; snd.nitro();
+        phase = "tut"; phaseT = 0; ui.question(null); tutSay("rampOk");
+        return;
+      }
       if (chosen === sides.correct) {
         score += 3; streak++; ui.score(score); snd.cheer();
         phase = "turbo"; phaseT = 0; nitroT = 1.8; snd.nitro();
@@ -376,6 +451,7 @@
     }
     function steer(s) {
       if (phase === "crash" || ended || phase === "fall" || phase === "landed") return;
+      if (tut && tut.step === "swipe") tut.moved = true;
       laneName = laneName === "mid" ? s : (laneName === s ? s : "mid"); // מהצד השני חוזרים קודם לאמצע
     }
     // הג'ויסטיק בוחר נתיב ישירות: שמאל, אמצע או ימין
@@ -385,6 +461,12 @@
     }
     function passGate() {
       const ok = laneName === sides.correct;
+      if (tut) {
+        if (!ok) return tutWrong();
+        score++; ui.score(score); snd.gate(); flash = 0.25; gateZ = null;
+        phase = "tut"; phaseT = 0; ui.question(null); tutSay("gateOk");
+        return;
+      }
       if (ok) {
         score++; streak++; snd.gate(); flash = 0.25;
         ui.score(score);
@@ -924,7 +1006,22 @@
       const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016); last = now;
       const t = now / 1000;
       phaseT += dt;
-      if (phase === "count") {
+      if (phase === "tut") {
+        // ההדרכה: נוסעים לאט, ומתקדמים לשלב הבא רק אחרי שהשחקן עשה את הפעולה בעצמו
+        tut.t += dt;
+        if (!tut.step) tutSay("left");
+        target = tut.step === "turbo" && tut.t < 1.8 ? baseV * 2.2 : baseV * 0.62;
+        const st = tut.step;
+        if (st === "left" && laneName === "left") tutSay("right");
+        else if (st === "right" && laneName === "right") tutSay("mid");
+        else if (st === "mid" && laneName === "mid" && tut.t > 0.4) tutSay("swipe");
+        else if (st === "swipe" && tut.t > 0.4 && tut.moved) tutSay("gate");
+        else if ((st === "gate" || st === "gateRetry") && tut.t > (st === "gate" ? 2.2 : 1.6)) tutGate(false);
+        else if (st === "gateOk" && tut.t > 1.6) { tutSay("turbo"); nitroT = 1.8; snd.nitro(); }
+        else if (st === "turbo" && tut.t > 3) tutSay("ramp");
+        else if ((st === "ramp" || st === "rampRetry") && tut.t > (st === "ramp" ? 3 : 1.6)) tutGate(true);
+        else if (st === "rampOk" && tut.t > 1.8) tutSay("go");
+      } else if (phase === "count") {
         // ספירה לאחור: 3, 2, 1, יוצאים!
         const c = 3 - Math.floor(phaseT);
         if (c !== clock) { clock = c; if (c > 0) { ui.banner(String(c), "count"); snd.beep(false); } else { ui.banner("צא!", "go"); snd.beep(true); } }
@@ -962,7 +1059,7 @@
       bodyLean += ((laneName === "left" ? -0.38 : laneName === "right" ? 0.38 : 0) - bodyLean) * Math.min(1, dt * 7);
       shake = Math.max(0, shake - dt * 1.2);
       for (let q = sparks.length - 1; q >= 0; q--) { const sp = sparks[q]; sp.life -= dt; sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 900 * dt; if (sp.life <= 0) sparks.splice(q, 1); }
-      if (phase !== "count" && phase !== "crash" && phase !== "cockpit") raceT += dt;
+      if (phase !== "count" && phase !== "crash" && phase !== "cockpit" && !tut) raceT += dt;
       // מהירות: מאיצים ובולמים בהדרגה
       const acc = phase === "crash" || target < speed ? 3 : phase === "turbo" ? 2.2 : 1.6;
       speed += (target - speed) * Math.min(1, dt * acc);
@@ -977,12 +1074,12 @@
       nitroT = Math.max(0, nitroT - dt); flash = Math.max(0, flash - dt * 1.5);
       // מתחרים: נוסעים קדימה, ומפנים את הנתיב כשהשחקן מתקרב מאחור
       RIVALS.forEach(r => {
-        r.v += (baseV * r.mul * (phase === "count" ? 0 : 1) - r.v) * Math.min(1, dt * 0.8);
+        r.v += (baseV * r.mul * (phase === "count" || tut ? 0 : 1) - r.v) * Math.min(1, dt * 0.8);
         r.z += (r.v - speed) * dt * slow;
         if (r.z > PLAYER_Z && r.z < PLAYER_Z + 3500 && Math.abs(r.x - px) < 0.45) r.tx = px > 0 ? -0.5 : 0.5;
         r.x += (r.tx - r.x) * Math.min(1, dt * 2.5);
         const ahead = r.z > PLAYER_Z;
-        if (r.ahead && !ahead && phase !== "count") { snd.whoosh(); style("עקיפה!", 50); }
+        if (r.ahead && !ahead && phase !== "count" && !tut) { snd.whoosh(); style("עקיפה!", 50); }
         r.ahead = ahead;
       });
       // הגענו לשער?
@@ -998,7 +1095,8 @@
     }
     raf = requestAnimationFrame(frame);
     return {
-      steer, setLane,
+      steer, setLane, begin,
+      wakeSound: () => snd.wake(),
       get lane() { return laneName; },
       toggleSound: () => snd.toggle(),
       get soundOn() { return snd.on; },
