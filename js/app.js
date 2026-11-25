@@ -770,6 +770,15 @@
     route();
   }
 
+  // מצב חסכוני (js/perf.js): אוטומטי לפי מהירות הטלפון, תמיד פועל, או כבוי
+  function liteLabel() {
+    const P = window.TeirePerf;
+    if (!P) return "";
+    if (P.mode === "on") return "פועל: בלי תנועה קישוטית במפה";
+    if (P.mode === "off") return "כבוי: כל האנימציות פועלות";
+    return P.lite ? "אוטומטי (פועל, הטלפון התקשה)" : "אוטומטי (כבוי כרגע)";
+  }
+
   // ---------- התפריט (☰ בסרגל העליון) ----------
   // כל הקישורים שלא צריכים להיות על המפה: הנשמה, מסע הפתיחה, טבלת האלופים, היכל עלמא, הטלפון, החלפת שחקן
   function closeMenu() {
@@ -791,6 +800,7 @@
       ["tour", "🎓", "הדרכה למתחילים", "לראות שוב איך משחקים"],
       ["share", "📤", "שתפו את המשחק", "שלחו לחברים"],
     ];
+    if (window.TeirePerf) items.push(["lite", "🔋", "מצב חסכוני", liteLabel()]);
     const wrap = document.createElement("div");
     wrap.className = "menu-wrap";
     wrap.innerHTML = `
@@ -803,7 +813,7 @@
         </div>
         <nav class="menu-list">
           ${items.map(([href, icon, title, sub]) => `
-            <a class="menu-item" href="${href === "tour" || href === "share" ? "#/" : href}" ${href === "tour" ? `data-tour="1"` : href === "share" ? `data-share="1"` : ""}>
+            <a class="menu-item" href="${href === "tour" || href === "share" || href === "lite" ? "#/" : href}" ${href === "tour" ? `data-tour="1"` : href === "share" ? `data-share="1"` : href === "lite" ? `data-lite="1"` : ""}>
               <span class="menu-ic">${icon}</span><span class="menu-t">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="menu-arrow">‹</span>
             </a>`).join("")}
         </nav>
@@ -816,6 +826,12 @@
     wrap.querySelectorAll(".menu-item").forEach(a => a.addEventListener("click", ev => {
       const tour = a.dataset.tour;
       closeMenu();
+      if (a.dataset.lite) {
+        ev.preventDefault();
+        TeirePerf.next();
+        toast("🔋 " + liteLabel());
+        return;
+      }
       if (a.dataset.share) {
         ev.preventDefault();
         if (window.TeireNative) TeireNative.share({ title: "מסע בתורה", text: "בואו לשחק איתי במסע בתורה: חידות בתורה ובגמרא 📜", url: "https://amosha1231-netizen.github.io/Teire/" })
@@ -937,6 +953,7 @@
       cancelAnimationFrame(cityLoop.raf); window.removeEventListener("keydown", cityLoop.onKey); window.removeEventListener("keyup", cityLoop.onKey);
       if (cityLoop.ro) cityLoop.ro.disconnect();
       if (cityLoop.onResize) window.removeEventListener("resize", cityLoop.onResize);
+      if (cityLoop.watch) cityLoop.watch.stop();
       cityLoop = null;
     }
     document.body.classList.remove("in-city");
@@ -984,6 +1001,7 @@
           ${mapScenery.waves()}
           <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${mapScenery.shallow(pts)}</svg>
           <svg class="map-svg map-foam" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${mapScenery.foam(pts)}</svg>
+          ${mapScenery.shadow()}
           <svg class="map-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
             <defs>
               <linearGradient id="landg" x1="0" y1="0" x2="0" y2="1">
@@ -993,7 +1011,6 @@
               <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".1"/>
               </linearGradient>
-              <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="9"/></filter>
               <pattern id="grass" width="46" height="38" patternUnits="userSpaceOnUse">
                 <path d="M8 30 l3 -7 l3 7 M30 12 l2.5 -6 l2.5 6" fill="none" stroke="rgba(40,90,20,.1)" stroke-width="2" stroke-linecap="round"/>
               </pattern>
@@ -1036,6 +1053,7 @@
         <div class="city-hint" id="hint">👆 הקישו על מקום כדי ללכת אליו</div>
       </div>`;
 
+    mapScenery.paintShadow(document.getElementById("mapShadow"));
     if (typeof player.tour === "number") setTimeout(startTour, 600);
     else if (!player.foodIntro && FOOD_NAMES().length) setTimeout(foodIntro, 700);
     else Parasha.ready.then(() => setTimeout(offerWeekly, 700));
@@ -1242,6 +1260,8 @@
     meState = ""; refreshMe();
     camera(true);
     wake();
+    // מהירות (js/perf.js): מה שזז מחוץ למסך עוצר, ובודקים אם הטלפון צריך מצב חסכוני
+    if (window.TeirePerf) { loop.watch = TeirePerf.watch(city, ".spark, .food, .cloud, .cloud-sh, .area-icon"); TeirePerf.probe(); }
   }
 
   // ---------- עולם בתוך עיר (ירושלים) ----------
@@ -1532,14 +1552,46 @@
           <g opacity=".7">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#a9e6f7" stroke-opacity=".6" stroke-width="64" stroke-linejoin="round"/>`).join("")}</g>`;
       },
       foam(pts) { return SHAPES.map(p => `<polygon points="${pts(p)}" fill="none" stroke="#fff" stroke-width="46" stroke-linejoin="round"/>`).join(""); },
+      // הצל הרך מתחת ליבשה. פעם הוא היה מסנן טשטוש (feGaussianBlur) על כל המפה, והאייפון חישב אותו מחדש
+      // בכל פעם שצייר חלק מהמפה. עכשיו מציירים אותו פעם אחת בקטן, מטשטשים ומגדילים: נראה אותו דבר.
+      shadow() { return `<canvas class="map-shadow" id="mapShadow" width="${Math.ceil(W / 3)}" height="${Math.ceil(H / 3)}" style="width:${Math.ceil(W / 3) * 3}px;height:${Math.ceil(H / 3) * 3}px" aria-hidden="true"></canvas>`; },
+      paintShadow(cv) {
+        if (!cv || !cv.getContext) return;
+        const k = 1 / 3, w = cv.width, h = cv.height, g = cv.getContext("2d");
+        g.setTransform(k, 0, 0, k, 0, 0); g.translate(16, 30);
+        g.fillStyle = g.strokeStyle = "rgba(10,40,90,.45)"; g.lineWidth = 34; g.lineJoin = "round";
+        SHAPES.forEach(poly => {
+          g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+          g.fill(); g.stroke();
+        });
+        // טשטוש גאוסיאני (סטיית תקן 9 בגודל המלא = 3 בקטן), בקירוב של שלושה מעברי ממוצע. הצבע אחיד, אז מטשטשים רק את השקיפות
+        const img = g.getImageData(0, 0, w, h), d = img.data, n = w * h;
+        let a = new Float32Array(n), b = new Float32Array(n);
+        for (let i = 0; i < n; i++) a[i] = d[i * 4 + 3];
+        const pass = (src, dst, r, horiz) => {
+          const len = horiz ? w : h, lines = horiz ? h : w, st = horiz ? 1 : w, ls = horiz ? w : 1, inv = 1 / (2 * r + 1);
+          for (let l = 0; l < lines; l++) {
+            const o = l * ls;
+            let acc = 0;
+            for (let i = -r; i <= r; i++) acc += src[o + Math.min(len - 1, Math.max(0, i)) * st];
+            for (let i = 0; i < len; i++) {
+              dst[o + i * st] = acc * inv;
+              acc += src[o + Math.min(len - 1, i + r + 1) * st] - src[o + Math.max(0, i - r) * st];
+            }
+          }
+        };
+        [2, 3, 3].forEach(r => { pass(a, b, r, true); pass(b, a, r, false); });
+        for (let i = 0; i < n; i++) { d[i * 4] = 10; d[i * 4 + 1] = 40; d[i * 4 + 2] = 90; d[i * 4 + 3] = a[i]; }
+        g.putImageData(img, 0, 0);
+      },
       back(pts) {
         return `
-          <g filter="url(#soft)" transform="translate(16 30)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="rgba(10,40,90,.45)" stroke="rgba(10,40,90,.45)" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>
           <g transform="translate(0 16)">${SHAPES.map(p => `<polygon points="${pts(p)}" fill="#b98546" stroke="#b98546" stroke-width="34" stroke-linejoin="round"/>`).join("")}</g>`;
       },
-      // כל ניצוץ הוא ציור קטן משלו, וכך ההבהוב שלו לא מכריח לצייר מחדש את המפה
+      // כל ניצוץ הוא ציור קטן משלו, וכך ההבהוב שלו לא מכריח לצייר מחדש את המפה.
+      // מה שמהבהב הוא העטיפה <i> ולא ה-svg עצמו: את העטיפה הדפדפן מזיז בכרטיס המסך, בלי לחשב את הדף בכל פריים
       sparks() {
-        return `<div class="map-sparks">${SPARKS.map(([x, y], i) => `<svg class="spark" style="left:${x - 7}px;top:${y - 7}px;animation-delay:${i * .37}s" width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#fff"/></svg>`).join("")}</div>`;
+        return `<div class="map-sparks">${SPARKS.map(([x, y], i) => `<i class="spark" style="left:${x - 7}px;top:${y - 7}px;animation-delay:${i * .37}s"><svg width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true"><path d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#fff"/></svg></i>`).join("")}</div>`;
       },
       front() { return HILLS.map(hill).join("") + TREES.map(tree).join(""); },
       cloudShadows() { return `<div class="cloud-shadows">${CLOUDS.map(([x, y, k], i) => cloud("cloud-sh", x + 40, y + 160, k, i)).join("")}</div>`; },
