@@ -931,6 +931,12 @@
 
   // ---------- העיר ----------
   let cityLoop = null, townPeers = null;
+  // המפה מתחילה בדיוק מתחת לסרגל העליון (או מתחת לפס השבת כשהוא מוצג)
+  function placeCity(city) {
+    const banner = document.getElementById("pre-shabbat");
+    const top = (banner && !banner.hidden ? banner : document.querySelector(".topbar")).getBoundingClientRect().bottom;
+    city.style.top = Math.max(0, Math.round(top)) + "px";
+  }
   function stopCity() {
     if (townPeers) { townPeers.leave(); townPeers = null; }
     if (cityLoop) {
@@ -1078,8 +1084,7 @@
     const BASE_SPEED = 260 * rideSpeed();
     // בטלפון מקטינים את העולם כדי לראות יותר
     const S = Math.min(1, Math.max(.6, city.clientWidth / 640));
-    const banner = document.getElementById("pre-shabbat");
-    city.style.top = (banner.hidden ? document.querySelector(".topbar") : banner).getBoundingClientRect().bottom + "px";
+    placeCity(city);
     let path = [], onArrive = null, last = performance.now();
     // גודל החלון נשמר מראש: קריאה שלו בכל פריים הכריחה את הדפדפן לחשב את העמוד מחדש
     let vw = city.clientWidth, vh = city.clientHeight;
@@ -1234,8 +1239,9 @@
     loop.onKey = onKey;
     cityLoop = loop;
     // כשגודל המסך משתנה (סיבוב הטלפון, פס השבת) מעדכנים את המידות ומזיזים את המצלמה
-    const onResize = () => { vw = city.clientWidth; vh = city.clientHeight; wake(); };
-    if (window.ResizeObserver) { loop.ro = new ResizeObserver(onResize); loop.ro.observe(city); }
+    // גם כשהסרגל העליון משנה גובה (באייפון גובה האיזור של השעון לפעמים מגיע רק אחרי שהעמוד נפתח) המפה זזה מתחתיו
+    const onResize = () => { placeCity(city); vw = city.clientWidth; vh = city.clientHeight; wake(); };
+    if (window.ResizeObserver) { loop.ro = new ResizeObserver(onResize); loop.ro.observe(city); loop.ro.observe(document.querySelector(".topbar"), { box: "border-box" }); }
     else { loop.onResize = onResize; window.addEventListener("resize", onResize); }
     world.querySelectorAll(":scope > *").forEach(el => { if (el !== me) cssZ.set(el, parseInt(getComputedStyle(el).zIndex, 10)); });
     me.style.zIndex = z = depth(Math.round(pos.y));
@@ -3193,7 +3199,7 @@
       banner.hidden = false;
     } else banner.hidden = true;
     const c = document.getElementById("city");
-    if (c) c.style.top = (banner.hidden ? document.querySelector(".topbar") : banner).getBoundingClientRect().bottom + "px";
+    if (c) placeCity(c);
     return false;
   }
 
