@@ -1327,4 +1327,9 @@ window.TEIRE_LANG = {
   "הקישור הועתק 📋": "Enlace copiado 📋",
   "בחרו את העיר שלכם מהרשימה בעמוד \"הדמות שלי\"": "Elige tu ciudad de la lista en la página \"Mi personaje\"",
   "📡 אין חיבור לאינטרנט. חלק מהדברים לא יעבדו עד שהחיבור יחזור.": "📡 Sin conexión a Internet. Algunas cosas no funcionarán hasta que vuelva.",
+  "מצב חסכוני": "Modo ahorro",
+  "פועל: בלי תנועה קישוטית במפה": "Activado: sin movimiento decorativo en el mapa",
+  "כבוי: כל האנימציות פועלות": "Desactivado: todas las animaciones funcionan",
+  "אוטומטי (פועל, הטלפון התקשה)": "Automático (activado, el teléfono iba lento)",
+  "אוטומטי (כבוי כרגע)": "Automático (desactivado por ahora)",
 };

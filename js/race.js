@@ -291,8 +291,10 @@
     const segs = buildTrack(theme), trackLen = N * SEG;
     const snd = makeSound(); snd.start();
     let W = 0, H = 0, dpr = 1, vign = null;
+    // רזולוציה מסתגלת (js/perf.js): אם הטלפון לא מספיק לצייר, מורידים מעט את החדות במקום שהמרוץ יגמגם
+    const scaler = window.TeirePerf ? TeirePerf.canvasScale() : null;
     function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = scaler ? scaler.dpr : Math.min(window.devicePixelRatio || 1, 2);
       W = root.clientWidth; H = root.clientHeight;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       canvas.style.width = W + "px"; canvas.style.height = H + "px";
@@ -439,6 +441,19 @@
         g.beginPath(); g.moveTo(x + w * (off - 0.08 * dir), y - h * 1.0); g.lineTo(x + w * (off + 0.12 * dir), y - h * 0.8); g.lineTo(x + w * (off - 0.08 * dir), y - h * 0.6); g.stroke();
       }
     }
+    // רוחב טקסט בגופן 100px, נמדד פעם אחת לכל טקסט. הרוחב גדל ביחס ישר לגודל האות, אז לא צריך למדוד בכל פריים
+    const widths = new Map();
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", () => widths.clear()); // הגופן הגיע: מודדים מחדש
+    function textW(t) {
+      let v = widths.get(t);
+      if (v === undefined) {
+        const f = g.font; g.font = "800 100px Rubik, sans-serif";
+        v = g.measureText(t).width; g.font = f;
+        if (widths.size > 300) widths.clear();
+        widths.set(t, v);
+      }
+      return v;
+    }
     function drawGate(p, sideTxt) {
       // שער עם שני שלטים ירוקים מעל הנתיבים, ומחסום אדום-לבן באמצע
       const lx = p.x - p.w * 1.2, rx = p.x + p.w * 1.2, top = p.y - p.sc * 1900 * H / 2, post = Math.max(2, p.w * 0.04);
@@ -454,7 +469,7 @@
           try { g.direction = "rtl"; } catch (e) { /* ignore */ }
           const txt = sideTxt[side] || "", words = txt.split(" "), lines = [];
           let cur = "";
-          words.forEach(w => { const tr = cur ? cur + " " + w : w; if (g.measureText(tr).width > sw * 0.86 && cur) { lines.push(cur); cur = w; } else cur = tr; });
+          words.forEach(w => { const tr = cur ? cur + " " + w : w; if (textW(tr) * fs / 100 > sw * 0.86 && cur) { lines.push(cur); cur = w; } else cur = tr; });
           if (cur) lines.push(cur);
           lines.slice(0, 2).forEach((ln, li, arr) => g.fillText(ln, cx, top + post + sh / 2 + (li - (arr.length - 1) / 2) * fs * 1.15));
           g.direction = "ltr";
@@ -921,6 +936,7 @@
     }
 
     function frame(now) {
+      if (scaler && last && scaler.frame((now - last) / 1000)) resize();
       const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016); last = now;
       const t = now / 1000;
       phaseT += dt;
