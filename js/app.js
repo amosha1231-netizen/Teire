@@ -2343,6 +2343,9 @@
       }
       player.raceTrack = n; savePlayer(); viewRace();
     });
+    // אימון קצר שמלמד לנהוג, לבחור מקור, טורבו ורמפה
+    document.getElementById("go").insertAdjacentHTML("afterend", `<button class="btn ghost race-tut-btn" id="tutrace">🎓 אימון: איך משחקים</button>`);
+    document.getElementById("tutrace").onclick = () => playRace(true);
     app.querySelectorAll("[data-prev]").forEach(cv => TeireRace.preview(cv, CARS.find(c => c.id === cv.dataset.prev).look));
     app.querySelectorAll(".garage-car").forEach(b => b.onclick = () => {
       const c = CARS.find(x => x.id === b.dataset.car);
@@ -2404,14 +2407,35 @@
     return sync;
   }
   // המשחק עצמו מצויר ב-js/race.js; כאן רק בונים את הדף ומעדכנים את הטקסטים
-  function playRace() {
+  // ההדרכה האינטראקטיבית של המרוץ: מה כתוב בכל שלב, ואיזה כפתור בג'ויסטיק מהבהב
+  const RACE_TUTOR = {
+    left: { text: "👋 ברוך הבא לאימון! קודם נלמד לנהוג. הזז את הכדור הצהוב שמאלה, או לחץ על הכפתור ◀", hint: "left" },
+    right: { text: "מעולה! עכשיו ימינה: הזז את הכדור ימינה או לחץ ▶", hint: "right" },
+    mid: { text: "יופי! ועכשיו חזרה לאמצע: לחץ ◀ פעם אחת", hint: "left" },
+    swipe: { text: "👆 עוד דרך לנהוג: החלק את האצבע על הכביש, או הקש על הצד שאליו רוצים לעבור. נסה עכשיו! (במחשב: החצים במקלדת)", hint: "road" },
+    gate: { text: "🚧 עכשיו שאלה! למעלה כתוב משפט, ובשער יש שני שלטים. עבור לנתיב של המקור הנכון לפני שמגיעים לשער" },
+    gateDrive: { text: "⬇️ עבור לנתיב של השלט עם המקור הנכון!", short: true },
+    gateRetry: { text: "לא נורא, באימון אין התרסקות. נסה שוב! במרוץ עצמו טעות, או להישאר באמצע, זו התרסקות" },
+    gateOk: { text: "✅ נכון! עברת את השער" },
+    turbo: { text: "🔥 זה טורבו! כל 4 תשובות נכונות ברצף: קפיצת מהירות ונקודת בונוס" },
+    ramp: { text: "🛫 ועכשיו רמפה! המכונית תעוף ותיכנס לתא הנהג. שם יופיעו המקורות: הטה את הכדור לצד של המקור הנכון ותנחת עליו" },
+    rampDrive: { text: "🛫 רמפה! המכונית תקפוץ לבד", short: true },
+    cockpit: { text: "👈👉 הטה את הכדור לצד של המקור הנכון!", short: true, hint: "joy" },
+    rampRetry: { text: "כמעט! עוד רמפה: הטה את הכדור לצד של המקור הנכון" },
+    rampOk: { text: "🎯 נחיתה מושלמת! ברמפה נחיתה נכונה שווה 3 נקודות" },
+    go: { text: "🏆 אתה מוכן! במרוץ האמיתי טעות אחת זו התרסקות. בהצלחה!", go: true },
+  };
+  function playRace(again) {
     stopGame();
     const car0 = raceCar(), world = raceTrack(), stages = raceStages();
+    // בפעם הראשונה (או כשמבקשים) מתחילים באימון קצר
+    const tutorial = again === true || !player.raceTut;
     app.innerHTML = `
       <div class="race" id="race">
-        <div class="race-q" id="rq">מתכוננים לזינוק...</div>
         <div class="track" id="track">
           <canvas id="rc" aria-label="כביש המרוץ"></canvas>
+          <div class="race-top"><div class="race-q ${tutorial ? "hide" : ""}" id="rq">מתכוננים לזינוק...</div>
+            <div class="race-tutor" id="tutor" hidden><p id="tutt"></p><div class="tutor-btns"><button class="btn gold" id="tutgo" hidden>🏁 יוצאים למרוץ!</button><button class="tutor-skip" id="tutskip">דלג על האימון ▸</button></div></div></div>
           <div class="tap-zone left" data-side="left"></div><div class="tap-zone right" data-side="right"></div>
           <div class="hud-l"><div><span>מקום</span><b id="hpos">5/5</b></div><div><span>הקפה</span><b id="hdist">0%</b></div></div>
           <div class="hud-r"><div class="hud-spd"><b id="hspd">0</b><span>קמ״ש</span></div><div class="hud-time" id="htime">⏱ 00:00.00</div></div>
@@ -2433,15 +2457,20 @@
     let joySync = null;
     // בעיר הלילה מד המהירות העגול מצויר על הכביש עצמו
     track.classList.toggle("night", world.theme === "city");
-    // מגללים כך שהשאלה בראש המסך (אחרי לחיצה על "מתחילים" הדף נשאר גלול למטה)
-    $("race").scrollIntoView({ block: "start" });
+    // מגללים כך שהכביש מתחיל מתחת לסרגל העליון (באייפון הסרגל גבוה יותר בגלל השעון והסוללה)
+    const bar = document.querySelector(".topbar"), barH = bar ? bar.getBoundingClientRect().height : 0;
+    window.scrollTo(0, Math.max(0, $("race").getBoundingClientRect().top + window.scrollY - barH - 6));
     let banT = 0, lastHud = "", hudLast = {};
     if (window.Music && Music.duck) Music.duck(true);
     const r = TeireRace.start({
       root: track, look: car0.look, boost: car0.boost, shield: car0.shield, decks: stages.map(st => db.shuffle(st.items)), theme: world.theme, speed: world.speed, driver: { name: player.name }, sidesFor,
+      tutorial,
       ui: {
-        question(item, sides) {
-          $("rq").textContent = item ? "\"" + item.text + "\"" : "🔥 טורבו!";
+        question(item, sides, mode) {
+          $("rq").textContent = item ? "\"" + item.text + "\"" : mode === "ready" ? "מתכוננים לזינוק..." : "🔥 טורבו!";
+          // באימון, בין השערים, לוח השאלה מוסתר כדי שיהיה מקום להסבר
+          $("rq").classList.toggle("hide", !item && mode !== "ready" && !$("tutor").hidden);
+          $("rq").classList.toggle("long", !!item && item.text.length > 34);
           $("ll").textContent = sides ? sides.left : ""; $("lr").textContent = sides ? sides.right : "";
           // מקור ארוך: אות קטנה יותר, כדי שכל המקור ייראה
           $("ll").classList.toggle("long", !!sides && sides.left.length > 18);
@@ -2455,6 +2484,20 @@
           clearTimeout(banT); banT = setTimeout(() => { ban.className = "race-banner"; }, kind === "count" || kind === "go" ? 800 : 1500);
         },
         toast,
+        tutor(step) {
+          const box = $("tutor"), joy = $("joy"), info = step && RACE_TUTOR[step];
+          box.hidden = !info;
+          track.classList.toggle("tut", !!info);
+          joy.classList.remove("hint-left", "hint-right", "hint-road", "hint-joy");
+          track.classList.remove("hint-road");
+          if (!info) return;
+          $("tutt").textContent = info.text;
+          box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop");
+          if (info.hint) (info.hint === "road" ? track : joy).classList.add("hint-" + info.hint);
+          $("tutgo").hidden = !info.go;
+          $("tutskip").hidden = !!info.go || !!info.short;
+          box.classList.toggle("short", !!info.short);
+        },
         stage(i) {
           const st = stages[i];
           $("jstage").textContent = `${st.icon} ${st.name}`;
@@ -2498,6 +2541,10 @@
     snd.addEventListener("pointerup", e => { e.stopPropagation(); r.toggleSound(); renderSnd(); });
     const offKeys = sideInput(track, s => r.steer(s));
     joySync = joystick($("joy"), r);
+    // כל מגע במשחק "מעיר" את הצלילים (באייפון הם נעצרים אחרי שיחה או מעבר לאפליקציה אחרת)
+    $("race").addEventListener("pointerdown", () => r.wakeSound(), true);
+    const startRace = e => { e.stopPropagation(); player.raceTut = true; savePlayer(); r.begin(); };
+    ["tutgo", "tutskip"].forEach(id => { $(id).addEventListener("pointerdown", e => e.stopPropagation()); $(id).addEventListener("pointerup", e => e.stopPropagation()); $(id).addEventListener("click", startRace); });
     game = { stop() { r.stop(); offKeys(); clearTimeout(banT); if (window.Music && Music.duck) Music.duck(false); } };
   }
 
