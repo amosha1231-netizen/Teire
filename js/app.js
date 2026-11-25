@@ -277,7 +277,10 @@
     document.querySelectorAll(".bottomnav a").forEach(a => a.classList.toggle("active", a.dataset.tab === tab));
   }
   function errorBox(e) {
-    return `<div class="notice err">משהו השתבש: ${esc(e && e.message ? e.message : e)}</div>`;
+    const m = String(e && e.message ? e.message : e);
+    // שגיאת אילוץ מהשרת: הודעה ברורה בעברית במקום הטקסט הטכני
+    if (/violates check constraint/i.test(m)) return `<div class="notice err">אחד השדות קצר מדי או ארוך מדי. בדקו שהשאלה והתשובות מלאות ונסו שוב.</div>`;
+    return `<div class="notice err">משהו השתבש: ${esc(m)}</div>`;
   }
   function confetti() {
     const box = document.createElement("div");
@@ -2897,7 +2900,7 @@
           <label><input type="radio" name="level" value="${l}" ${(q.level || 1) === l ? "checked" : ""}><span>${"⭐".repeat(Math.min(l, 3))}<br>${LEVEL_NAMES[l].split(": ")[1]}</span></label>`).join("")}
       </div>
       <label>השאלה</label>
-      <textarea name="question" rows="2" required maxlength="300">${esc(q.question)}</textarea>
+      <textarea name="question" rows="2" required minlength="3" maxlength="300">${esc(q.question)}</textarea>
       <label>ארבע תשובות <span class="hint">(סמנו את העיגול ליד התשובה הנכונה)</span></label>
       ${[0, 1, 2, 3].map(i => `
         <div class="opt">
@@ -2930,6 +2933,8 @@
   }
   // מה חסר בשדות של פרשת השבוע (או null אם הכול תקין)
   const formProblem = q => {
+    if (q.question.length < 3) return "כתבו את השאלה (לפחות 3 אותיות).";
+    if (q.answers.some(a => !a)) return "מלאו את כל ארבע התשובות.";
     if (!isParashaPlace(q.place)) return null;
     if (!q.parasha) return "בחרו חומש ופרשה.";
     if (!q.verse) return "כתבו את הפסוק כמו שהוא בחומש.";
@@ -2978,9 +2983,9 @@
       ev.preventDefault();
       const q = readForm(form);
       const msg = document.getElementById("smsg");
-      if (new Set(q.answers).size < 4) { msg.innerHTML = `<div class="notice err">כל ארבע התשובות צריכות להיות שונות זו מזו.</div>`; return; }
       const problem = formProblem(q);
       if (problem) { msg.innerHTML = `<div class="notice err">${problem}</div>`; return; }
+      if (new Set(q.answers).size < 4) { msg.innerHTML = `<div class="notice err">כל ארבע התשובות צריכות להיות שונות זו מזו.</div>`; return; }
       q.author_name = (new FormData(form).get("author") || "").trim() || null;
       form.querySelector("button[type=submit]").disabled = true;
       try {
